@@ -1,0 +1,125 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../app/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["slopwork"]
+}
+
+// --- Enums ---
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  DISPUTED
+  CANCELLED
+
+  @@schema("slopwork")
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  FUNDED
+  PAYMENT_REQUESTED
+  COMPLETED
+  DISPUTED
+
+  @@schema("slopwork")
+}
+
+// --- Models ---
+
+model User {
+  id            String   @id @default(uuid())
+  walletAddress String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tasks         Task[]    @relation("TaskCreator")
+  bids          Bid[]     @relation("Bidder")
+  messages      Message[] @relation("MessageSender")
+  @@index([walletAddress])
+  @@schema("slopwork")
+}
+
+model AuthNonce {
+  id            String   @id @default(uuid())
+  walletAddress String
+  nonce         String   @unique
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([walletAddress])
+  @@index([expiresAt])
+  @@schema("slopwork")
+}
+
+model Task {
+  id                  String     @id @default(uuid())
+  creatorId           String
+  title               String
+  description         String
+  budgetLamports      BigInt
+  status              TaskStatus @default(OPEN)
+  paymentTxSignature  String
+  winningBidId        String?    @unique
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  creator             User       @relation("TaskCreator", fields: [creatorId], references: [id])
+  winningBid          Bid?       @relation("WinningBid", fields: [winningBidId], references: [id])
+  bids                Bid[]      @relation("TaskBids")
+  messages            Message[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([createdAt])
+  @@schema("slopwork")
+}
+
+model Bid {
+  id               String    @id @default(uuid())
+  taskId           String
+  bidderId         String
+  amountLamports   BigInt
+  description      String
+  multisigAddress  String?
+  vaultAddress     String?
+  fundingTxSig     String?
+  proposalIndex    Int?
+  paymentTxSig     String?
+  status           BidStatus @default(PENDING)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  task             Task      @relation("TaskBids", fields: [taskId], references: [id])
+  bidder           User      @relation("Bidder", fields: [bidderId], references: [id])
+  wonTask          Task?     @relation("WinningBid")
+
+  @@index([taskId])
+  @@index([bidderId])
+  @@index([status])
+  @@schema("slopwork")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  taskId    String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id])
+  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([taskId, createdAt])
+  @@index([senderId])
+  @@schema("slopwork")
+}
