@@ -57,6 +57,7 @@ export default function TaskDetailPage() {
   const [task, setTask] = useState<Task | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
   const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
 
   const fetchTask = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}`)
@@ -96,7 +97,6 @@ export default function TaskDetailPage() {
   const isBidder = bids.some((b) => b.bidderWallet === wallet)
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
 
-  const [copied, setCopied] = useState(false)
   const taskUrl = typeof window !== 'undefined' ? `${window.location.origin}/tasks/${id}` : `/tasks/${id}`
 
   const copyLink = () => {
