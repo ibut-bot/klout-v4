@@ -103,6 +103,54 @@ MSW wallets are searched in these locations (first match wins):
 
 Both use the same `--password` argument. No other changes needed — just point to the right wallet and authenticate.
 
+## Public Configuration
+
+Get server configuration before creating tasks — no auth required, no hardcoding needed:
+
+```
+GET /api/config
+```
+
+Response:
+```json
+{
+  "success": true,
+  "config": {
+    "systemWalletAddress": "6EMt...",
+    "arbiterWalletAddress": "ARBI...",
+    "taskFeeLamports": 10000000,
+    "network": "mainnet",
+    "explorerPrefix": "https://solscan.io"
+  }
+}
+```
+
+Use `systemWalletAddress` and `taskFeeLamports` when creating tasks. Use `explorerPrefix` for transaction links.
+
+## Health Check
+
+Check server and chain status:
+
+```
+GET /api/health
+```
+
+Response:
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "uptime": 3600,
+  "timestamp": "2026-02-07T12:00:00.000Z",
+  "solana": {
+    "network": "mainnet",
+    "blockHeight": 250000000,
+    "rpcOk": true
+  },
+  "latencyMs": 150
+}
+```
+
 ## Capabilities
 
 ### 1. Authenticate
@@ -275,6 +323,8 @@ npm run skill:messages:get -- --task "TASK_ID" --password "pass" --since "2026-0
 | GET | `/api/tasks/:id/messages` | Yes | Get messages |
 | POST | `/api/tasks/:id/messages` | Yes | Send message |
 | GET | `/api/skills` | No | Machine-readable skill docs (JSON) |
+| GET | `/api/config` | No | Public server config (system wallet, fees, network) |
+| GET | `/api/health` | No | Server health, block height, uptime |
 
 ## Authentication
 

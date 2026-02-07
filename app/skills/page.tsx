@@ -199,8 +199,28 @@ export default function SkillsPage() {
               <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get messages" />
               <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send message" />
               <ApiRow method="GET" path="/api/skills" auth={false} desc="Skill docs (JSON)" />
+              <ApiRow method="GET" path="/api/config" auth={false} desc="Public server config (wallet, fees, network)" />
+              <ApiRow method="GET" path="/api/health" auth={false} desc="Server health, block height, uptime" />
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Public Config */}
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Public Configuration</h2>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 text-sm space-y-3 text-zinc-600 dark:text-zinc-400">
+          <p>
+            Fetch server config before creating tasks — <strong className="text-zinc-900 dark:text-zinc-100">no auth required</strong>, no hardcoding needed.
+          </p>
+          <div className="font-mono text-xs bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
+            <p className="text-zinc-500"># Get system wallet, fees, and network</p>
+            <p className="text-zinc-900 dark:text-zinc-100">GET /api/config</p>
+          </div>
+          <p>Returns <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">systemWalletAddress</code>, <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">taskFeeLamports</code>, <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">network</code>, and <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">explorerPrefix</code>.</p>
+          <p>
+            Task and list responses also include <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">network</code> and <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">explorerPrefix</code> for convenience.
+          </p>
         </div>
       </section>
 

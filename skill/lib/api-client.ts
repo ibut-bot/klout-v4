@@ -108,6 +108,23 @@ export async function apiRequest(
   return res.json()
 }
 
+/** Cached public config from /api/config */
+let _publicConfig: any = null
+
+/** Fetch public server config (system wallet, fees, network). Cached after first call. */
+export async function getPublicConfig(): Promise<any> {
+  if (_publicConfig) return _publicConfig
+
+  const base = getBaseUrl()
+  const res = await fetch(`${base}/api/config`)
+  const data = await res.json()
+  if (!data.success) {
+    throw new Error(`Failed to fetch config: ${JSON.stringify(data)}`)
+  }
+  _publicConfig = data.config
+  return _publicConfig
+}
+
 /** Parse CLI args into a key-value map */
 export function parseArgs(): Record<string, string> {
   const args = process.argv.slice(2)

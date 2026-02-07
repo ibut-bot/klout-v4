@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const NETWORK = process.env.SOLANA_NETWORK || 'mainnet'
+const EXPLORER_PREFIX = NETWORK === 'mainnet' ? 'https://solscan.io' : `https://solscan.io?cluster=${NETWORK}`
 
 /** GET /api/tasks/:id -- get task detail */
 export async function GET(
@@ -64,5 +66,7 @@ export async function GET(
       updatedAt: task.updatedAt.toISOString(),
       url: `${APP_URL}/tasks/${task.id}`,
     },
+    network: NETWORK,
+    explorerPrefix: EXPLORER_PREFIX,
   })
 }

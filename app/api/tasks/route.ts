@@ -7,6 +7,8 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || 10000000) // 0.01 SOL default
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const NETWORK = process.env.SOLANA_NETWORK || 'mainnet'
+const EXPLORER_PREFIX = NETWORK === 'mainnet' ? 'https://solscan.io' : `https://solscan.io?cluster=${NETWORK}`
 
 /** GET /api/tasks -- list tasks */
 export async function GET(request: NextRequest) {
@@ -49,6 +51,8 @@ export async function GET(request: NextRequest) {
       url: `${APP_URL}/tasks/${t.id}`,
     })),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    network: NETWORK,
+    explorerPrefix: EXPLORER_PREFIX,
   })
 }
 

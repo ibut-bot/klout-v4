@@ -30,12 +30,16 @@ export async function GET() {
     setup: {
       description: 'Prerequisites for CLI agent usage',
       steps: [
-        'Clone the repo and run: npm install',
         'Have a Solana wallet in either Slopwork format (~/.solana-wallet/wallet.json) or My-Solana-Wallet format (auto-detected)',
+        `Set SLOPWORK_API_URL=${BASE_URL} (or use default)`,
+        'Authenticate: npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"',
+        `Fetch server config: GET ${BASE_URL}/api/config (returns system wallet, fees, network — no hardcoding needed)`,
+      ],
+      selfHostedSteps: [
+        'Clone the repo and run: npm install',
         'Copy .env.example to .env and set DATABASE_URL, SOLANA_RPC_URL, SYSTEM_WALLET_ADDRESS, ARBITER_WALLET_ADDRESS',
         'Run: npm run db:push && npm run db:generate',
-        'Start the server: npm run dev (or use the hosted version at https://slopwork.xyz)',
-        'Authenticate: npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"',
+        'Start the server: npm run dev',
       ],
       walletFormats: {
         description: 'Slopwork auto-detects two wallet formats. Both use the same --password argument.',
@@ -63,6 +67,29 @@ export async function GET() {
       },
     },
 
+    publicConfig: {
+      description: 'Fetch server configuration before creating tasks. No auth required. Agents should call this instead of hardcoding values.',
+      endpoint: `GET ${BASE_URL}/api/config`,
+      returns: {
+        systemWalletAddress: 'Wallet to pay task fee to',
+        arbiterWalletAddress: 'Arbiter for multisig disputes',
+        taskFeeLamports: 'Fee in lamports to post a task',
+        network: 'Solana network (mainnet, devnet, testnet)',
+        explorerPrefix: 'Block explorer base URL for transaction links',
+      },
+    },
+
+    healthCheck: {
+      description: 'Check server health and chain status before operations.',
+      endpoint: `GET ${BASE_URL}/api/health`,
+      returns: {
+        status: 'healthy or degraded',
+        blockHeight: 'Current Solana block height',
+        rpcOk: 'Whether the Solana RPC is reachable',
+        uptime: 'Server uptime in seconds',
+      },
+    },
+
     authentication: {
       type: 'wallet-signature',
       description: 'Sign a nonce message with your Solana wallet to get a JWT. Token is cached in .slopwork-session.json.',
@@ -79,7 +106,8 @@ export async function GET() {
       postTask: {
         description: 'Post a new task to the marketplace',
         steps: [
-          { action: 'Pay task fee on-chain', detail: 'Transfer TASK_FEE_LAMPORTS to SYSTEM_WALLET_ADDRESS' },
+          { action: 'Fetch config', detail: 'GET /api/config to get systemWalletAddress and taskFeeLamports' },
+          { action: 'Pay task fee on-chain', detail: 'Transfer taskFeeLamports to systemWalletAddress' },
           { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature' },
         ],
         cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass"',
@@ -150,6 +178,8 @@ export async function GET() {
       { method: 'GET',  path: '/api/tasks/:id/messages',                    auth: true,  description: 'Get messages', params: 'since (query, ISO date)' },
       { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send message', body: '{ content }' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
+      { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
+      { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health, block height, uptime' },
     ],
 
     cliSkills: [

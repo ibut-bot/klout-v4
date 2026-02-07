@@ -17,10 +17,7 @@ import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/w
 import { PublicKey } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
-import { apiRequest, parseArgs } from './lib/api-client'
-
-const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
-const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || 10000000)
+import { apiRequest, parseArgs, getPublicConfig } from './lib/api-client'
 
 async function main() {
   const args = parseArgs()
@@ -50,6 +47,11 @@ async function main() {
     const connection = getConnection()
     const budgetLamports = Math.round(budgetSol * LAMPORTS_PER_SOL)
 
+    // Fetch server config (system wallet, fees) — no need to hardcode
+    const serverConfig = await getPublicConfig()
+    const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || serverConfig.systemWalletAddress || ''
+    const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || serverConfig.taskFeeLamports || 10000000)
+
     if (args['dry-run']) {
       console.log(JSON.stringify({
         success: true,
@@ -60,6 +62,7 @@ async function main() {
           budgetLamports,
           feeLamports: TASK_FEE_LAMPORTS,
           systemWallet: SYSTEM_WALLET,
+          network: serverConfig.network,
         },
         message: 'Dry run passed. Remove --dry-run to create.',
       }))
@@ -71,7 +74,7 @@ async function main() {
       console.log(JSON.stringify({
         success: false,
         error: 'NO_SYSTEM_WALLET',
-        message: 'SYSTEM_WALLET_ADDRESS not configured in environment',
+        message: 'SYSTEM_WALLET_ADDRESS not available from server config or local environment',
       }))
       process.exit(1)
     }
@@ -101,10 +104,12 @@ async function main() {
     })
 
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const explorerPrefix = serverConfig.explorerPrefix || 'https://solscan.io'
     console.log(JSON.stringify({
       ...result,
       paymentSignature: signature,
-      explorerUrl: `https://solscan.io/tx/${signature}`,
+      explorerUrl: `${explorerPrefix}/tx/${signature}`,
+      network: serverConfig.network,
       ...(result.task?.id ? { taskUrl: `${base}/tasks/${result.task.id}` } : {}),
     }))
   } catch (e: any) {
