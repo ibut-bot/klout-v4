@@ -16,7 +16,7 @@ import { parseArgs } from './lib/api-client'
 
 async function main() {
   const args = parseArgs()
-  const base = process.env.SLOPWORK_API_URL || 'http://localhost:3000'
+  const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
 
   const params = new URLSearchParams()
   if (args.status) params.set('status', args.status)

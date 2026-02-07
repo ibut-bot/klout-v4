@@ -6,6 +6,7 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || 10000000) // 0.01 SOL default
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
 
 /** GET /api/tasks -- list tasks */
 export async function GET(request: NextRequest) {
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
       creatorWallet: t.creator.walletAddress,
       bidCount: t._count.bids,
       createdAt: t.createdAt.toISOString(),
+      url: `${APP_URL}/tasks/${t.id}`,
     })),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   })
@@ -123,6 +125,7 @@ export async function POST(request: NextRequest) {
       budgetLamports: task.budgetLamports.toString(),
       status: task.status,
       createdAt: task.createdAt.toISOString(),
+      url: `${APP_URL}/tasks/${task.id}`,
     },
   }, { status: 201 })
 }

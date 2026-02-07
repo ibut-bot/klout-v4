@@ -100,10 +100,12 @@ async function main() {
       paymentTxSignature: signature,
     })
 
+    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
     console.log(JSON.stringify({
       ...result,
       paymentSignature: signature,
       explorerUrl: `https://solscan.io/tx/${signature}`,
+      ...(result.task?.id ? { taskUrl: `${base}/tasks/${result.task.id}` } : {}),
     }))
   } catch (e: any) {
     console.log(JSON.stringify({

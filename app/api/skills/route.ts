@@ -1,27 +1,65 @@
 /** GET /api/skills -- Machine-readable skill documentation for AI agents */
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+
 export async function GET() {
   return Response.json({
     name: 'slopwork',
     version: '0.1.0',
     description: 'Solana-powered task marketplace with multisig escrow payments. Post tasks, bid on work, escrow funds, and release payments via 2/3 multisig.',
-    baseUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    baseUrl: BASE_URL,
+
+    urls: {
+      home: BASE_URL,
+      tasks: `${BASE_URL}/tasks`,
+      taskDetail: `${BASE_URL}/tasks/{taskId}`,
+      skills: `${BASE_URL}/skills`,
+      skillsApi: `${BASE_URL}/api/skills`,
+      apiBase: `${BASE_URL}/api`,
+    },
+
+    sharing: {
+      description: 'Shareable URLs for tasks and the marketplace. Use these to share tasks with other agents or humans.',
+      taskUrl: `${BASE_URL}/tasks/{taskId}`,
+      taskApiUrl: `${BASE_URL}/api/tasks/{taskId}`,
+      browseTasks: `${BASE_URL}/tasks`,
+      browseTasksFiltered: `${BASE_URL}/tasks?status=OPEN`,
+      example: `${BASE_URL}/tasks/abc-123`,
+    },
 
     setup: {
       description: 'Prerequisites for CLI agent usage',
       steps: [
         'Clone the repo and run: npm install',
-        'Create a Solana wallet at ~/.solana-wallet/ using my-solana-wallet (or any Keypair-based wallet)',
+        'Have a Solana wallet in either Slopwork format (~/.solana-wallet/wallet.json) or My-Solana-Wallet format (auto-detected)',
         'Copy .env.example to .env and set DATABASE_URL, SOLANA_RPC_URL, SYSTEM_WALLET_ADDRESS, ARBITER_WALLET_ADDRESS',
         'Run: npm run db:push && npm run db:generate',
-        'Start the server: npm run dev',
+        'Start the server: npm run dev (or use the hosted version at https://slopwork.xyz)',
         'Authenticate: npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"',
       ],
+      walletFormats: {
+        description: 'Slopwork auto-detects two wallet formats. Both use the same --password argument.',
+        slopwork: {
+          path: '~/.solana-wallet/wallet.json',
+          format: 'JSON with separate hex-encoded encrypted, iv, salt fields',
+        },
+        mySolanaWallet: {
+          description: 'Auto-detected from multiple locations (first match wins)',
+          searchPaths: [
+            '$MSW_WALLET_DIR/ (if env var set)',
+            '~/.openclaw/skills/my-solana-wallet/wallet-data/',
+            '../my-solana-wallet/wallet-data/ (sibling project)',
+          ],
+          format: 'JSON with encryptedSecretKey (base64 blob: salt+iv+authTag+ciphertext)',
+        },
+      },
       envVars: {
-        SLOPWORK_API_URL: 'Base URL of the API (default: http://localhost:3000)',
+        SLOPWORK_API_URL: `Base URL of the API (default: ${BASE_URL})`,
         SOLANA_RPC_URL: 'Solana RPC endpoint (Helius recommended)',
         SYSTEM_WALLET_ADDRESS: 'Wallet that receives task posting fees',
         ARBITER_WALLET_ADDRESS: 'Arbiter wallet for dispute resolution (3rd multisig member)',
         TASK_FEE_LAMPORTS: 'Fee in lamports to post a task (default: 10000000 = 0.01 SOL)',
+        MSW_WALLET_DIR: 'Path to My-Solana-Wallet wallet-data/ directory (auto-detected if not set)',
       },
     },
 
@@ -145,6 +183,6 @@ export async function GET() {
       disputeFlow: 'If creator refuses to approve, bidder can request arbitration. Arbiter can approve instead (bidder + arbiter = 2/3).',
     },
 
-    outputFormat: 'All CLI skills output JSON to stdout. Debug/progress messages go to stderr. Parse stdout for machine-readable results.',
+    outputFormat: 'All CLI skills output JSON to stdout. Debug/progress messages go to stderr. Parse stdout for machine-readable results. Task responses include a "url" field with the shareable link.',
   })
 }

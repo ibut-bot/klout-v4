@@ -21,7 +21,7 @@ async function main() {
   }
 
   try {
-    const base = process.env.SLOPWORK_API_URL || 'http://localhost:3000'
+    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
     const res = await fetch(`${base}/api/tasks/${args.task}/bids`)
     const data = await res.json()
     console.log(JSON.stringify(data))

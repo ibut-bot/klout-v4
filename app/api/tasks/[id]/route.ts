@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+
 /** GET /api/tasks/:id -- get task detail */
 export async function GET(
   _request: NextRequest,
@@ -60,6 +62,7 @@ export async function GET(
       messageCount: task._count.messages,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
+      url: `${APP_URL}/tasks/${task.id}`,
     },
   })
 }

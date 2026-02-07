@@ -18,7 +18,7 @@ interface Session {
 }
 
 function getBaseUrl(): string {
-  return process.env.SLOPWORK_API_URL || 'http://localhost:3000'
+  return process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
 }
 
 function loadSession(): Session | null {

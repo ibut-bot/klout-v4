@@ -29,7 +29,7 @@ async function main() {
   try {
     const keypair = getKeypair(args.password)
     const connection = getConnection()
-    const base = process.env.SLOPWORK_API_URL || 'http://localhost:3000'
+    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
 
     // Fetch bid details to get vault address and amount
     const token = (await import('./lib/api-client')).getToken

@@ -96,15 +96,33 @@ export default function TaskDetailPage() {
   const isBidder = bids.some((b) => b.bidderWallet === wallet)
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
 
+  const [copied, setCopied] = useState(false)
+  const taskUrl = typeof window !== 'undefined' ? `${window.location.origin}/tasks/${id}` : `/tasks/${id}`
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(taskUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
     <div className="mx-auto max-w-4xl">
       {/* Header */}
       <div className="mb-8">
         <div className="mb-3 flex items-start justify-between">
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{task.title}</h1>
-          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[task.status] || ''}`}>
-            {task.status.replace('_', ' ')}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyLink}
+              className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+            >
+              {copied ? 'Copied!' : 'Copy Link'}
+            </button>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[task.status] || ''}`}>
+              {task.status.replace('_', ' ')}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-4 text-sm text-zinc-500">
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">

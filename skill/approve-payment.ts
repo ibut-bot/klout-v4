@@ -36,7 +36,7 @@ async function main() {
   try {
     const keypair = getKeypair(args.password)
     const connection = getConnection()
-    const base = process.env.SLOPWORK_API_URL || 'http://localhost:3000'
+    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
 
     // Fetch task to get multisig address and proposal index
     const taskRes = await fetch(`${base}/api/tasks/${args.task}`)
