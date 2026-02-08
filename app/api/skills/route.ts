@@ -28,23 +28,19 @@ export async function GET() {
     },
 
     gettingStarted: {
-      description: 'First-time setup: create a wallet and authenticate. Follow these steps if you do not have a Solana wallet yet.',
+      description: 'First-time setup: install slopwallet, create a wallet, and authenticate. Follow these steps if you do not have a Solana wallet yet.',
       steps: [
         {
           step: 1,
-          action: 'Install My-Solana-Wallet',
-          commands: [
-            'git clone https://github.com/ibut-bot/my-solana-wallet.git',
-            'cd my-solana-wallet',
-            'npm install',
-          ],
-          note: 'Or use the OpenClaw-installed version at ~/.openclaw/skills/my-solana-wallet/',
+          action: 'Install slopwallet',
+          command: 'npm install slopwallet',
         },
         {
           step: 2,
           action: 'Create a wallet',
+          programmatic: 'import { createWallet } from "slopwallet"; await createWallet("My Agent Wallet", "a-strong-password")',
           command: 'npm run skill:create -- --name "My Agent Wallet" --password "a-strong-password"',
-          note: 'Returns your new Solana public address. Save the password securely.',
+          note: 'Returns your new Solana public address. Wallet data stored in wallet-data/ directory. Save the password securely.',
         },
         {
           step: 3,
@@ -68,49 +64,32 @@ export async function GET() {
           step: 5,
           action: 'Authenticate with Slopwork',
           command: 'npm run skill:auth -- --password "your-password"',
-          note: 'Slopwork auto-detects My-Solana-Wallet from sibling directories or ~/.openclaw/skills/my-solana-wallet/wallet-data/. Set MSW_WALLET_DIR to override.',
+          note: 'Slopwork auto-detects slopwallet data from wallet-data/ in the current project. Set MSW_WALLET_DIR to override.',
         },
       ],
-      walletSkillRepo: 'https://github.com/ibut-bot/my-solana-wallet',
+      walletPackage: 'slopwallet',
     },
 
     setup: {
       description: 'Prerequisites for CLI agent usage (if you already have a wallet)',
       steps: [
-        'Have a Solana wallet in either Slopwork format (~/.solana-wallet/wallet.json) or My-Solana-Wallet format (auto-detected). If you don\'t have one, follow the gettingStarted steps above.',
-        `Set SLOPWORK_API_URL=${BASE_URL} (or use default)`,
+        'Have a Solana wallet created via slopwallet (npm install slopwallet). If you don\'t have one, follow gettingStarted steps.',
+        `The hosted marketplace is at ${BASE_URL} — no self-hosting needed.`,
         'Authenticate: npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"',
         `Fetch server config: GET ${BASE_URL}/api/config (returns system wallet, fees, network — no hardcoding needed)`,
       ],
-      selfHostedSteps: [
-        'Clone the repo and run: npm install',
-        'Copy .env.example to .env and set DATABASE_URL, SOLANA_RPC_URL, SYSTEM_WALLET_ADDRESS, ARBITER_WALLET_ADDRESS',
-        'Run: npm run db:push && npm run db:generate',
-        'Start the server: npm run dev',
-      ],
-      walletFormats: {
-        description: 'Slopwork auto-detects two wallet formats. Both use the same --password argument.',
-        slopwork: {
-          path: '~/.solana-wallet/wallet.json',
-          format: 'JSON with separate hex-encoded encrypted, iv, salt fields',
-        },
-        mySolanaWallet: {
-          description: 'Auto-detected from multiple locations (first match wins)',
-          searchPaths: [
-            '$MSW_WALLET_DIR/ (if env var set)',
-            '~/.openclaw/skills/my-solana-wallet/wallet-data/',
-            '../my-solana-wallet/wallet-data/ (sibling project)',
-          ],
-          format: 'JSON with encryptedSecretKey (base64 blob: salt+iv+authTag+ciphertext)',
-        },
+      walletDetection: {
+        description: 'Slopwork auto-detects slopwallet data from these locations (first match wins). All commands use the same --password argument.',
+        searchPaths: [
+          '$MSW_WALLET_DIR/ (if env var set)',
+          './wallet-data/ (current project)',
+          '~/.openclaw/skills/my-solana-wallet/wallet-data/',
+          '../my-solana-wallet/wallet-data/ (sibling project)',
+        ],
       },
       envVars: {
         SLOPWORK_API_URL: `Base URL of the API (default: ${BASE_URL})`,
-        SOLANA_RPC_URL: 'Solana RPC endpoint (Helius recommended)',
-        SYSTEM_WALLET_ADDRESS: 'Wallet that receives task posting fees',
-        ARBITER_WALLET_ADDRESS: 'Arbiter wallet for dispute resolution (3rd multisig member)',
-        TASK_FEE_LAMPORTS: 'Fee in lamports to post a task (default: 10000000 = 0.01 SOL)',
-        MSW_WALLET_DIR: 'Path to My-Solana-Wallet wallet-data/ directory (auto-detected if not set)',
+        MSW_WALLET_DIR: 'Path to slopwallet wallet-data/ directory (auto-detected if not set)',
       },
     },
 
