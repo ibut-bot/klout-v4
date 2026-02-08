@@ -19,7 +19,7 @@ export default function SkillsPage() {
       <section className="mb-10">
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Getting Started: Create a Wallet</h2>
         <p className="text-sm text-zinc-500 mb-4">
-          New here? Install slopwallet and create a Solana wallet to start interacting with the marketplace.
+          New here? Install slopwallet to create a Solana wallet to start interacting with the marketplace.
           If you already have a wallet, skip to <strong>Step 5</strong>.
         </p>
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
