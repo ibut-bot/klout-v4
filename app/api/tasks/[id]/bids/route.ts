@@ -104,6 +104,14 @@ export async function POST(
     return Response.json({ success: false, error: 'NOT_FOUND', message: 'Task not found' }, { status: 404 })
   }
 
+  // Bid amount must not exceed the task budget
+  if (parsedLamports > task.budgetLamports) {
+    return Response.json(
+      { success: false, error: 'BID_EXCEEDS_BUDGET', message: `Bid amount (${parsedLamports.toString()} lamports) exceeds task budget (${task.budgetLamports.toString()} lamports). This may indicate a SOL/lamports unit mismatch.` },
+      { status: 400 }
+    )
+  }
+
   if (task.status !== 'OPEN') {
     return Response.json(
       { success: false, error: 'TASK_NOT_OPEN', message: `Task is ${task.status}, not accepting bids` },

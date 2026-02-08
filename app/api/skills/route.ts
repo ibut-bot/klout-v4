@@ -151,7 +151,7 @@ export async function GET() {
           { action: 'Submit bid via API', detail: 'POST /api/tasks/:id/bids with amountLamports, description, multisigAddress, vaultAddress' },
         ],
         validation: {
-          amountLamports: 'Required positive integer (as number or string). Must be a whole number (BigInt). Max ~1 billion SOL worth.',
+          amountLamports: 'Required positive integer in LAMPORTS (not SOL). Must not exceed the task budget. 1 SOL = 1,000,000,000 lamports. Example: for 0.0085 SOL, pass 8500000. Bids exceeding the task budget are rejected.',
           description: 'Required string, max 5,000 characters',
         },
         cliCommand: 'npm run skill:bids:place -- --task "TASK_ID" --amount 0.3 --description "..." --password "pass" --create-escrow --creator-wallet "CREATOR_ADDR" --arbiter-wallet "ARBITER_ADDR"',
@@ -217,7 +217,7 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars, budgetLamports must be a valid positive integer.', body: '{ title, description, budgetLamports, paymentTxSignature }' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task' },
-      { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid. amountLamports must be in lamports as a valid integer (1 SOL = 1,000,000,000 lamports). Do NOT pass SOL values here. description max 5000 chars.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
+      { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid. amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget. 1 SOL = 1,000,000,000 lamports. Example: 0.0085 SOL = 8500000 lamports. description max 5000 chars.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/accept',          auth: true,  description: 'Accept a bid (creator only)' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/request-payment', auth: true,  description: 'Record payment request (bidder only). txSignature is verified on-chain.', body: '{ proposalIndex, txSignature }' },
