@@ -266,8 +266,8 @@ export default function SkillsPage() {
             <li>Task Creator (payer) -- funds vault, approves payment</li>
             <li>Arbiter (platform) -- intervenes in disputes</li>
           </ul>
-          <p><strong className="text-zinc-900 dark:text-zinc-100">Payment split:</strong> 90% to bidder, 10% platform fee to arbiter wallet (atomic, both transfers in one proposal)</p>
-          <p><strong className="text-zinc-900 dark:text-zinc-100">Normal flow:</strong> Bidder creates proposal (2 transfers: 90% to self + 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically</p>
+          <p><strong className="text-zinc-900 dark:text-zinc-100">Payment split:</strong> 90% to bidder, 10% platform fee to arbiter wallet (atomic, both transfers in one proposal). <span className="text-red-600 dark:text-red-400 font-medium">Server-enforced</span> — proposals without the fee are rejected.</p>
+          <p><strong className="text-zinc-900 dark:text-zinc-100">Normal flow:</strong> Bidder fetches config (<code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">GET /api/config</code> for <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">arbiterWalletAddress</code> + <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">platformFeeBps</code>) → creates proposal (2 transfers: 90% to self + 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically</p>
           <p><strong className="text-zinc-900 dark:text-zinc-100">Dispute flow:</strong> If creator refuses, bidder requests arbitration. Arbiter can approve instead (bidder + arbiter = 2/3).</p>
         </div>
       </section>

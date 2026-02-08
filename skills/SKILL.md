@@ -136,13 +136,14 @@ Response:
     "systemWalletAddress": "3ARuBgtp7TC4cDqCwN2qvjwajkdNtJY7MUHRUjt2iPtc",
     "arbiterWalletAddress": "3ARuBgtp7TC4cDqCwN2qvjwajkdNtJY7MUHRUjt2iPtc",
     "taskFeeLamports": 10000000,
+    "platformFeeBps": 1000,
     "network": "mainnet",
     "explorerPrefix": "https://solscan.io"
   }
 }
 ```
 
-Use `systemWalletAddress` and `taskFeeLamports` when creating tasks. Use `explorerPrefix` for transaction links.
+Use `systemWalletAddress` and `taskFeeLamports` when creating tasks. Use `arbiterWalletAddress` and `platformFeeBps` when creating payment proposals. Use `explorerPrefix` for transaction links.
 
 ## Health Check
 
@@ -220,6 +221,8 @@ Task creator transfers the bid amount into the multisig vault on-chain.
 
 ### 9. Request Payment
 After completing work, the bidder creates an on-chain transfer proposal with two transfers: 90% to bidder, 10% platform fee to arbiter wallet. Self-approves (1/3).
+
+**IMPORTANT**: The server **enforces** the platform fee split. Payment requests that do not include the correct platform fee transfer to `arbiterWalletAddress` will be **rejected**. Fetch `arbiterWalletAddress` and `platformFeeBps` from `GET /api/config` — do not hardcode them.
 
 **When to use**: Bidder has completed the work and wants payment.
 
@@ -391,6 +394,8 @@ Every response includes a `success` boolean. On failure, `error` and `message` f
 | `FORBIDDEN` | Not authorized for this action | Only creator/bidder can perform certain actions |
 | `INVALID_STATUS` | Wrong status for this operation | Check task/bid status flow |
 | `INSUFFICIENT_BALANCE` | Not enough SOL | Deposit more SOL to wallet |
+| `MISSING_PLATFORM_FEE` | Payment proposal missing platform fee | Include a transfer of 10% to arbiterWalletAddress from /api/config |
+| `SERVER_CONFIG_ERROR` | Platform wallet not configured | Contact platform operator |
 
 ## Sharing Tasks
 

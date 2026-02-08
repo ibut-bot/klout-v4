@@ -18,7 +18,7 @@
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
-import { apiRequest, parseArgs } from './lib/api-client'
+import { apiRequest, parseArgs, getPublicConfig } from './lib/api-client'
 import { createTransferProposal, approveProposal } from '../lib/solana/multisig'
 
 async function main() {
@@ -81,12 +81,24 @@ async function main() {
     const multisigPda = new PublicKey(wb.multisigAddress)
     const recipient = keypair.publicKey // bidder pays themselves
     const lamports = Number(wb.amountLamports)
-    const platformAddr = process.env.ARBITER_WALLET_ADDRESS
-    const platformWallet = platformAddr ? new PublicKey(platformAddr) : undefined
 
-    const bidderPayout = platformWallet ? lamports - Math.floor(lamports * 0.1) : lamports
-    const platformFee = platformWallet ? Math.floor(lamports * 0.1) : 0
-    console.error(`Creating transfer proposal: ${(bidderPayout / LAMPORTS_PER_SOL).toFixed(4)} SOL to bidder, ${(platformFee / LAMPORTS_PER_SOL).toFixed(4)} SOL platform fee...`)
+    // Fetch platform wallet from server config — required for payment proposals
+    const config = await getPublicConfig()
+    const platformAddr = config.arbiterWalletAddress
+    if (!platformAddr) {
+      console.log(JSON.stringify({
+        success: false,
+        error: 'NO_PLATFORM_WALLET',
+        message: 'Server config does not include arbiterWalletAddress. Cannot create payment proposal without platform fee. Contact the platform operator.',
+      }))
+      process.exit(1)
+    }
+    const platformWallet = new PublicKey(platformAddr)
+    const platformFeeBps = config.platformFeeBps || 1000 // default 10%
+
+    const platformFee = Math.floor(lamports * platformFeeBps / 10000)
+    const bidderPayout = lamports - platformFee
+    console.error(`Creating transfer proposal: ${(bidderPayout / LAMPORTS_PER_SOL).toFixed(4)} SOL to bidder, ${(platformFee / LAMPORTS_PER_SOL).toFixed(4)} SOL platform fee (${platformFeeBps / 100}%)...`)
 
     // Create proposal on-chain (90% to bidder, 10% to platform)
     const proposal = await createTransferProposal(connection, keypair, multisigPda, recipient, lamports, `slopwork-task-${args.task}`, platformWallet)

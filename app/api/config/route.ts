@@ -15,6 +15,7 @@ export async function GET() {
       systemWalletAddress: process.env.SYSTEM_WALLET_ADDRESS || null,
       arbiterWalletAddress: process.env.ARBITER_WALLET_ADDRESS || null,
       taskFeeLamports: Number(process.env.TASK_FEE_LAMPORTS || 10000000),
+      platformFeeBps: 1000, // 10% — payment proposals MUST include this split to arbiterWalletAddress
       network: NETWORK,
       explorerPrefix: EXPLORER_PREFIXES[NETWORK] || EXPLORER_PREFIXES.mainnet,
     },
