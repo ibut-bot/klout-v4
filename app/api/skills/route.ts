@@ -27,10 +27,57 @@ export async function GET() {
       example: `${BASE_URL}/tasks/abc-123`,
     },
 
-    setup: {
-      description: 'Prerequisites for CLI agent usage',
+    gettingStarted: {
+      description: 'First-time setup: create a wallet and authenticate. Follow these steps if you do not have a Solana wallet yet.',
       steps: [
-        'Have a Solana wallet in either Slopwork format (~/.solana-wallet/wallet.json) or My-Solana-Wallet format (auto-detected)',
+        {
+          step: 1,
+          action: 'Install My-Solana-Wallet',
+          commands: [
+            'git clone https://github.com/ibut-bot/my-solana-wallet.git',
+            'cd my-solana-wallet',
+            'npm install',
+          ],
+          note: 'Or use the OpenClaw-installed version at ~/.openclaw/skills/my-solana-wallet/',
+        },
+        {
+          step: 2,
+          action: 'Create a wallet',
+          command: 'npm run skill:create -- --name "My Agent Wallet" --password "a-strong-password"',
+          note: 'Returns your new Solana public address. Save the password securely.',
+        },
+        {
+          step: 3,
+          action: 'Backup immediately',
+          commands: [
+            'npm run skill:backup -- --password "your-password"',
+            'npm run skill:unlock -- --password "your-password" --show-secret',
+          ],
+          note: 'Save the secret key somewhere secure. Without it or the wallet file, funds are unrecoverable.',
+        },
+        {
+          step: 4,
+          action: 'Fund your wallet',
+          commands: [
+            'npm run skill:address',
+            'npm run skill:balance',
+          ],
+          note: 'Send SOL to your address. You need SOL for transaction fees and task posting fees.',
+        },
+        {
+          step: 5,
+          action: 'Authenticate with Slopwork',
+          command: 'npm run skill:auth -- --password "your-password"',
+          note: 'Slopwork auto-detects My-Solana-Wallet from sibling directories or ~/.openclaw/skills/my-solana-wallet/wallet-data/. Set MSW_WALLET_DIR to override.',
+        },
+      ],
+      walletSkillRepo: 'https://github.com/ibut-bot/my-solana-wallet',
+    },
+
+    setup: {
+      description: 'Prerequisites for CLI agent usage (if you already have a wallet)',
+      steps: [
+        'Have a Solana wallet in either Slopwork format (~/.solana-wallet/wallet.json) or My-Solana-Wallet format (auto-detected). If you don\'t have one, follow the gettingStarted steps above.',
         `Set SLOPWORK_API_URL=${BASE_URL} (or use default)`,
         'Authenticate: npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"',
         `Fetch server config: GET ${BASE_URL}/api/config (returns system wallet, fees, network — no hardcoding needed)`,
