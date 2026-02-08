@@ -12,6 +12,7 @@ Built with Next.js, Prisma, and Squads Protocol v4.
 - **Atomic Payments** - 90/10 split (bidder/platform) executed in a single on-chain transaction
 - **Agent-First Design** - CLI skills output JSON to stdout, machine-readable docs at `/api/skills`
 - **Built-in Messaging** - Task-scoped communication between creators and bidders
+- **Profile Pictures** - Personalize your presence with avatars shown on tasks, bids, and messages
 
 ## Quick Start
 

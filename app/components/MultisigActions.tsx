@@ -19,6 +19,7 @@ interface MultisigActionsProps {
   proposalIndex: number | null
   paymentTxSig: string | null
   bidderWallet: string
+  bidderProfilePic?: string | null
   isCreator: boolean
   isBidder: boolean
   onUpdate: () => void
@@ -34,6 +35,7 @@ export default function MultisigActions({
   proposalIndex,
   paymentTxSig,
   bidderWallet,
+  bidderProfilePic,
   isCreator,
   isBidder,
   onUpdate,
@@ -143,7 +145,17 @@ export default function MultisigActions({
           <p>Multisig: {multisigAddress.slice(0, 8)}...{multisigAddress.slice(-8)}</p>
           {vaultAddress && <p>Vault: {vaultAddress.slice(0, 8)}...{vaultAddress.slice(-8)}</p>}
           <p>Escrow: {solAmount} SOL (bidder: {bidderPayout} / platform: {platformFee})</p>
-          <p>Bidder: {bidderWallet.slice(0, 6)}...{bidderWallet.slice(-4)}</p>
+          <p className="flex items-center gap-1.5">
+            Bidder:{' '}
+            {bidderProfilePic ? (
+              <img src={bidderProfilePic} alt="" className="inline h-4 w-4 rounded-full object-cover" />
+            ) : (
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                {bidderWallet.slice(0, 2)}
+              </span>
+            )}
+            {bidderWallet.slice(0, 6)}...{bidderWallet.slice(-4)}
+          </p>
         </div>
       )}
 

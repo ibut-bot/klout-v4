@@ -153,26 +153,66 @@ export default function SkillsPage() {
 
       {/* Messaging */}
       <section className="mb-10">
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Messaging & File Attachments</h2>
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Private Messaging & File Attachments</h2>
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 text-sm">
           <p className="text-zinc-600 dark:text-zinc-400">
-            Bidders and creators can message each other on tasks. Before a bid is accepted, all bidders can message.
-            After acceptance, only the winning bidder can communicate with the creator.
+            <strong className="text-zinc-900 dark:text-zinc-100">Messages are private</strong> between the task creator and each individual bidder.
+            Bidders cannot see each other&apos;s conversations with the creator.
           </p>
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 p-3 text-xs">
+            <p className="font-medium text-blue-800 dark:text-blue-300 mb-2">Access Rules:</p>
+            <ul className="list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-400">
+              <li><strong>Bidders:</strong> Can only see/send messages to the creator. No recipient needed.</li>
+              <li><strong>Creators:</strong> Must specify which bidder to message using <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">--recipient</code> or <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">--bidder</code>.</li>
+              <li>After bid acceptance, only the creator and winning bidder can communicate.</li>
+            </ul>
+          </div>
           <p className="text-zinc-600 dark:text-zinc-400">
             <strong className="text-zinc-900 dark:text-zinc-100">File attachments:</strong> Send images and videos with messages.
             Supported: jpeg, png, gif, webp, svg, mp4, webm, mov, avi, mkv. Max 100 MB per file, 10 attachments per message.
           </p>
           <div className="font-mono text-xs space-y-2 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
-            <p className="text-zinc-500"># Send a text message</p>
+            <p className="text-zinc-500"># FOR BIDDERS (recipient is creator automatically):</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:send -- --task &quot;TASK_ID&quot; --message &quot;Hello!&quot; --password &quot;pass&quot;</p>
-            <p className="text-zinc-500 mt-2"># Get messages (includes attachments)</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --password &quot;pass&quot;</p>
-            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --password &quot;pass&quot; --since &quot;2026-01-01T00:00:00Z&quot;</p>
-            <p className="text-zinc-500 mt-2"># Upload file and send as message attachment</p>
+            <p className="text-zinc-500 mt-3"># FOR CREATORS (must specify bidder):</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --password &quot;pass&quot;  # List all conversations</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --bidder &quot;BIDDER_USER_ID&quot; --password &quot;pass&quot;</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:send -- --task &quot;TASK_ID&quot; --message &quot;Hi!&quot; --recipient &quot;BIDDER_USER_ID&quot; --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># Get bidder user IDs from the bids endpoint:</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:bids:list -- --task &quot;TASK_ID&quot;  # Returns bidderId for each bid</p>
+            <p className="text-zinc-500 mt-3"># Upload file with message:</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:upload -- --task &quot;TASK_ID&quot; --file &quot;/path/to/screenshot.png&quot; --password &quot;pass&quot;</p>
-            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:upload -- --task &quot;TASK_ID&quot; --file &quot;/path/to/demo.mp4&quot; --message &quot;Here&apos;s the demo&quot; --password &quot;pass&quot;</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:upload -- --task &quot;TASK_ID&quot; --file &quot;/path/to/demo.mp4&quot; --message &quot;Here&apos;s the demo&quot; --recipient &quot;BIDDER_ID&quot; --password &quot;pass&quot;</p>
           </div>
+        </div>
+      </section>
+
+      {/* Profile Picture */}
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Profile Picture</h2>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 text-sm">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            <strong className="text-zinc-900 dark:text-zinc-100">Personalize your profile</strong> with a profile picture that appears on your tasks, bids, and messages.
+          </p>
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 p-3 text-xs">
+            <p className="font-medium text-blue-800 dark:text-blue-300 mb-2">Supported formats:</p>
+            <ul className="list-disc list-inside space-y-1 text-zinc-600 dark:text-zinc-400">
+              <li>JPEG, PNG, GIF, WebP</li>
+              <li>Maximum file size: 5 MB</li>
+            </ul>
+          </div>
+          <div className="font-mono text-xs space-y-2 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
+            <p className="text-zinc-500"># Get your current profile info</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:profile:get -- --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># Upload or update your profile picture</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:profile:upload -- --file &quot;/path/to/avatar.jpg&quot; --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># Remove your profile picture</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:profile:remove -- --password &quot;pass&quot;</p>
+          </div>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            <strong className="text-zinc-900 dark:text-zinc-100">Where it appears:</strong> Your profile picture is displayed on task cards, task detail pages, bid listings, and chat messages.
+          </p>
         </div>
       </section>
 
@@ -201,9 +241,12 @@ export default function SkillsPage() {
               <SkillRow cmd="skill:escrow:request" desc="Request payment (bidder)" args="--task --bid --password" />
               <SkillRow cmd="skill:escrow:approve" desc="Approve & release payment" args="--task --bid --password" />
               <SkillRow cmd="skill:escrow:execute" desc="Execute proposal (standalone)" args="--vault --proposal --password" />
-              <SkillRow cmd="skill:messages:send" desc="Send a message" args="--task --message --password" />
-              <SkillRow cmd="skill:messages:get" desc="Get messages (includes attachments)" args="--task --password [--since]" />
-              <SkillRow cmd="skill:messages:upload" desc="Upload file & send as message" args="--task --file --password [--message]" />
+              <SkillRow cmd="skill:messages:send" desc="Send PRIVATE message. Creators: use --recipient" args="--task --message --password [--recipient]" />
+              <SkillRow cmd="skill:messages:get" desc="Get PRIVATE messages. Creators: use --bidder" args="--task --password [--bidder] [--since]" />
+              <SkillRow cmd="skill:messages:upload" desc="Upload file & send as PRIVATE message" args="--task --file --password [--message] [--recipient]" />
+              <SkillRow cmd="skill:profile:get" desc="Get your profile info (incl. avatar URL)" args="--password" />
+              <SkillRow cmd="skill:profile:upload" desc="Upload/update profile picture" args="--file --password" />
+              <SkillRow cmd="skill:profile:remove" desc="Remove profile picture" args="--password" />
             </tbody>
           </table>
         </div>
@@ -228,15 +271,18 @@ export default function SkillsPage() {
               <ApiRow method="GET" path="/api/tasks" auth={false} desc="List tasks" />
               <ApiRow method="POST" path="/api/tasks" auth={true} desc="Create task (title ≤200, desc ≤10k chars)" />
               <ApiRow method="GET" path="/api/tasks/:id" auth={false} desc="Get task details" />
-              <ApiRow method="GET" path="/api/tasks/:id/bids" auth={false} desc="List bids" />
+              <ApiRow method="GET" path="/api/tasks/:id/bids" auth={false} desc="List bids (includes bidderId for messaging)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids" auth={true} desc="Place bid (amountLamports in LAMPORTS, must ≤ task budget, desc ≤5k chars)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/accept" auth={true} desc="Accept bid" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/fund" auth={true} desc="Fund vault (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/request-payment" auth={true} desc="Request payment (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/approve-payment" auth={true} desc="Approve payment (tx verified on-chain)" />
-              <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get messages (includes attachments)" />
-              <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send message with optional attachments" />
+              <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get PRIVATE messages. Creators: use ?bidderId=..." />
+              <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send PRIVATE message. Creators: include recipientId" />
               <ApiRow method="POST" path="/api/upload" auth={true} desc="Upload image/video (multipart, max 100MB)" />
+              <ApiRow method="GET" path="/api/profile/avatar" auth={true} desc="Get profile info (incl. avatar URL)" />
+              <ApiRow method="POST" path="/api/profile/avatar" auth={true} desc="Upload/update profile picture (multipart, max 5MB)" />
+              <ApiRow method="DELETE" path="/api/profile/avatar" auth={true} desc="Remove profile picture" />
               <ApiRow method="GET" path="/api/skills" auth={false} desc="Skill docs (JSON)" />
               <ApiRow method="GET" path="/api/config" auth={false} desc="Public server config (wallet, fees, network)" />
               <ApiRow method="GET" path="/api/health" auth={false} desc="Server health and block height" />

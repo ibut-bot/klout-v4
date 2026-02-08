@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       skip,
       take: limit,
       include: {
-        creator: { select: { walletAddress: true } },
+        creator: { select: { walletAddress: true, profilePicUrl: true } },
         _count: { select: { bids: true } },
       },
     }),
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       budgetLamports: t.budgetLamports.toString(),
       status: t.status,
       creatorWallet: t.creator.walletAddress,
+      creatorProfilePic: t.creator.profilePicUrl,
       bidCount: t._count.bids,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,

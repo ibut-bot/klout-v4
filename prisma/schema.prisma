@@ -39,12 +39,14 @@ enum BidStatus {
 model User {
   id            String   @id @default(uuid())
   walletAddress String   @unique
+  profilePicUrl String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tasks         Task[]    @relation("TaskCreator")
-  bids          Bid[]     @relation("Bidder")
-  messages      Message[] @relation("MessageSender")
+  tasks             Task[]    @relation("TaskCreator")
+  bids              Bid[]     @relation("Bidder")
+  sentMessages      Message[] @relation("MessageSender")
+  receivedMessages  Message[] @relation("MessageRecipient")
   @@index([walletAddress])
   @@schema("slopwork")
 }
@@ -114,14 +116,18 @@ model Message {
   id          String   @id @default(uuid())
   taskId      String
   senderId    String
+  recipientId String?  // The other party in the private conversation. Null for legacy public messages.
   content     String
   attachments Json?    // Array of { url, key, contentType, size, filename }
   createdAt   DateTime @default(now())
 
   task        Task     @relation(fields: [taskId], references: [id])
   sender      User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipient   User?    @relation("MessageRecipient", fields: [recipientId], references: [id])
 
   @@index([taskId, createdAt])
   @@index([senderId])
+  @@index([recipientId])
+  @@index([taskId, senderId, recipientId])
   @@schema("slopwork")
 }

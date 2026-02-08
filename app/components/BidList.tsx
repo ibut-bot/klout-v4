@@ -15,6 +15,7 @@ import { useState } from 'react'
 interface Bid {
   id: string
   bidderWallet: string
+  bidderProfilePic?: string | null
   amountLamports: string
   description: string
   multisigAddress: string | null
@@ -111,9 +112,18 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, onBidAcce
                 {bid.status}
               </span>
             </div>
-            <span className="text-xs text-zinc-400" title={bid.bidderWallet}>
-              {bid.bidderWallet.slice(0, 4)}...{bid.bidderWallet.slice(-4)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {bid.bidderProfilePic ? (
+                <img src={bid.bidderProfilePic} alt="" className="h-5 w-5 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  {bid.bidderWallet.slice(0, 2)}
+                </div>
+              )}
+              <span className="text-xs text-zinc-400" title={bid.bidderWallet}>
+                {bid.bidderWallet.slice(0, 4)}...{bid.bidderWallet.slice(-4)}
+              </span>
+            </div>
           </div>
           <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{bid.description}</p>
           {bid.multisigAddress && (

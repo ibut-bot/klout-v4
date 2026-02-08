@@ -17,6 +17,7 @@ interface TaskCardProps {
   budgetLamports: string
   status: string
   creatorWallet: string
+  creatorProfilePic?: string | null
   bidCount: number
   createdAt: string
 }
@@ -29,7 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, status, creatorWallet, bidCount, createdAt }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, status, creatorWallet, creatorProfilePic, bidCount, createdAt }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
 
   return (
@@ -48,6 +49,17 @@ export default function TaskCard({ id, title, description, budgetLamports, statu
             <span className="text-zinc-500">{bidCount} bid{bidCount !== 1 ? 's' : ''}</span>
           </div>
           <div className="flex items-center gap-2 text-zinc-400">
+            {creatorProfilePic ? (
+              <img
+                src={creatorProfilePic}
+                alt=""
+                className="h-5 w-5 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                {creatorWallet.slice(0, 2)}
+              </div>
+            )}
             <span title={creatorWallet}>{creatorWallet.slice(0, 4)}...{creatorWallet.slice(-4)}</span>
             <span>{timeAgo}</span>
           </div>

@@ -1,10 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Upload file(s) and send as a message on a task
+ * Upload file(s) and send as a message on a task (private conversation)
+ *
+ * Messages are private between the task creator and each bidder.
+ * - Bidders: no --recipient needed, message goes to creator automatically
+ * - Creators: MUST provide --recipient (bidder's user ID) to specify who to message
  *
  * Usage:
  *   npm run skill:messages:upload -- --task "uuid" --file "/path/to/image.png" --password "pass"
  *   npm run skill:messages:upload -- --task "uuid" --file "/path/to/image.png" --message "Here's the screenshot" --password "pass"
+ *   npm run skill:messages:upload -- --task "uuid" --file "/path/to/image.png" --password "pass" --recipient "bidder-user-id"
  *
  * Supports images (jpg, png, gif, webp, svg) and videos (mp4, webm, mov, avi, mkv)
  * Max file size: 100 MB
@@ -19,8 +24,8 @@ async function main() {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'Required: --task, --file, --password. Optional: --message',
-      usage: 'npm run skill:messages:upload -- --task "uuid" --file "/path/to/file" --password "pass"',
+      message: 'Required: --task, --file, --password. Optional: --message, --recipient (for creators)',
+      usage: 'npm run skill:messages:upload -- --task "uuid" --file "/path/to/file" --password "pass" [--recipient "bidder-id"]',
     }))
     process.exit(1)
   }
@@ -56,6 +61,10 @@ async function main() {
     }
     if (args.message) {
       messageBody.content = args.message
+    }
+    // For creators, recipientId is required
+    if (args.recipient) {
+      messageBody.recipientId = args.recipient
     }
 
     const result = await apiRequest(keypair, 'POST', `/api/tasks/${args.task}/messages`, messageBody)

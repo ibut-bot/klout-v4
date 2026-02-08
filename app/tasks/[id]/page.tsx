@@ -23,6 +23,7 @@ interface Task {
   budgetLamports: string
   status: string
   creatorWallet: string
+  creatorProfilePic?: string | null
   winningBid: {
     id: string
     amountLamports: string
@@ -32,6 +33,7 @@ interface Task {
     paymentTxSig: string | null
     status: string
     bidderWallet: string
+    bidderProfilePic?: string | null
   } | null
   bidCount: number
   messageCount: number
@@ -40,7 +42,9 @@ interface Task {
 
 interface Bid {
   id: string
+  bidderId: string
   bidderWallet: string
+  bidderProfilePic?: string | null
   amountLamports: string
   description: string
   multisigAddress: string | null
@@ -135,7 +139,20 @@ export default function TaskDetailPage() {
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
             {formatSol(task.budgetLamports)}
           </span>
-          <span>by {task.creatorWallet.slice(0, 6)}...{task.creatorWallet.slice(-4)}</span>
+          <div className="flex items-center gap-2">
+            {task.creatorProfilePic ? (
+              <img
+                src={task.creatorProfilePic}
+                alt=""
+                className="h-6 w-6 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-xs font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                {task.creatorWallet.slice(0, 2)}
+              </div>
+            )}
+            <span>by {task.creatorWallet.slice(0, 6)}...{task.creatorWallet.slice(-4)}</span>
+          </div>
           <span>{new Date(task.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
@@ -170,9 +187,13 @@ export default function TaskDetailPage() {
             <BidForm taskId={task.id} creatorWallet={task.creatorWallet} onBidPlaced={fetchBids} />
           )}
 
-          {/* Chat */}
+          {/* Chat - Private conversations between creator and individual bidders */}
           {isAuthenticated && (isCreator || isBidder) && (
-            <Chat taskId={task.id} />
+            <Chat
+              taskId={task.id}
+              isCreator={isCreator}
+              bidders={isCreator ? bids.map(b => ({ id: b.bidderId, wallet: b.bidderWallet, profilePic: b.bidderProfilePic })) : undefined}
+            />
           )}
         </div>
 
@@ -190,6 +211,7 @@ export default function TaskDetailPage() {
               proposalIndex={task.winningBid.proposalIndex}
               paymentTxSig={task.winningBid.paymentTxSig}
               bidderWallet={task.winningBid.bidderWallet}
+              bidderProfilePic={task.winningBid.bidderProfilePic}
               isCreator={isCreator}
               isBidder={isWinningBidder}
               onUpdate={() => { fetchTask(); fetchBids() }}

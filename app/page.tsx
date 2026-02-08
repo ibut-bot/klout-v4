@@ -11,6 +11,7 @@ interface Task {
   budgetLamports: string
   status: string
   creatorWallet: string
+  creatorProfilePic?: string | null
   bidCount: number
   createdAt: string
 }

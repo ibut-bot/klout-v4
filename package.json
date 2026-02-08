@@ -24,7 +24,10 @@
     "skill:escrow:execute": "tsx skills/execute-payment.ts",
     "skill:messages:send": "tsx skills/send-message.ts",
     "skill:messages:get": "tsx skills/get-messages.ts",
-    "skill:messages:upload": "tsx skills/upload-message.ts"
+    "skill:messages:upload": "tsx skills/upload-message.ts",
+    "skill:profile:get": "tsx skills/profile-avatar.ts",
+    "skill:profile:upload": "tsx skills/profile-avatar.ts -- --action upload",
+    "skill:profile:remove": "tsx skills/profile-avatar.ts -- --action remove"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.985.0",
