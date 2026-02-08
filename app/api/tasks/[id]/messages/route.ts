@@ -73,6 +73,7 @@ export async function GET(
       id: m.id,
       senderWallet: m.sender.walletAddress,
       content: m.content,
+      attachments: m.attachments || [],
       createdAt: m.createdAt.toISOString(),
     })),
   })
@@ -101,19 +102,42 @@ export async function POST(
     )
   }
 
-  const { content } = body
-  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+  const { content, attachments } = body
+
+  // Content is required unless attachments are provided
+  const hasContent = content && typeof content === 'string' && content.trim().length > 0
+  const hasAttachments = Array.isArray(attachments) && attachments.length > 0
+
+  if (!hasContent && !hasAttachments) {
     return Response.json(
-      { success: false, error: 'MISSING_FIELDS', message: 'Required: content (non-empty string)' },
+      { success: false, error: 'MISSING_FIELDS', message: 'Required: content (non-empty string) or attachments array' },
       { status: 400 }
     )
   }
 
-  if (content.length > 2000) {
+  if (hasContent && content.length > 2000) {
     return Response.json(
       { success: false, error: 'CONTENT_TOO_LONG', message: 'Message content must be 2000 characters or less' },
       { status: 400 }
     )
+  }
+
+  // Validate attachments format
+  if (hasAttachments) {
+    if (attachments.length > 10) {
+      return Response.json(
+        { success: false, error: 'TOO_MANY_ATTACHMENTS', message: 'Maximum 10 attachments per message' },
+        { status: 400 }
+      )
+    }
+    for (const att of attachments) {
+      if (!att.url || !att.contentType) {
+        return Response.json(
+          { success: false, error: 'INVALID_ATTACHMENT', message: 'Each attachment must have url and contentType' },
+          { status: 400 }
+        )
+      }
+    }
   }
 
   const task = await prisma.task.findUnique({
@@ -151,7 +175,8 @@ export async function POST(
     data: {
       taskId: id,
       senderId: userId,
-      content: content.trim(),
+      content: hasContent ? content.trim() : '',
+      attachments: hasAttachments ? attachments : undefined,
     },
   })
 
@@ -161,6 +186,7 @@ export async function POST(
       id: message.id,
       senderWallet: wallet,
       content: message.content,
+      attachments: message.attachments || [],
       createdAt: message.createdAt.toISOString(),
     },
   }, { status: 201 })

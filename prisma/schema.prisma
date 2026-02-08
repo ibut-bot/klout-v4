@@ -111,14 +111,15 @@ model Bid {
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  taskId    String
-  senderId  String
-  content   String
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  taskId      String
+  senderId    String
+  content     String
+  attachments Json?    // Array of { url, key, contentType, size, filename }
+  createdAt   DateTime @default(now())
 
-  task      Task     @relation(fields: [taskId], references: [id])
-  sender    User     @relation("MessageSender", fields: [senderId], references: [id])
+  task        Task     @relation(fields: [taskId], references: [id])
+  sender      User     @relation("MessageSender", fields: [senderId], references: [id])
 
   @@index([taskId, createdAt])
   @@index([senderId])

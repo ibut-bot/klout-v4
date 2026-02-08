@@ -200,14 +200,26 @@ export async function GET() {
         cliCommand: 'npm run skill:escrow:approve -- --task "TASK_ID" --bid "BID_ID" --password "pass"',
       },
       messaging: {
-        description: 'Message between task creator and bidders',
+        description: 'Message between task creator and bidders. Supports text and file attachments (images/videos).',
         rules: [
           'Before bid acceptance: all bidders can message the creator',
           'After bid acceptance: only the winning bidder can message the creator',
         ],
+        attachments: {
+          description: 'Send images and videos with messages. Files are uploaded to storage, then attached to messages.',
+          supportedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'],
+          maxFileSize: '100 MB',
+          maxAttachmentsPerMessage: 10,
+          flow: [
+            'Upload file: POST /api/upload (multipart/form-data with "file" field) → returns { url, key, contentType, size }',
+            'Send message with attachments: POST /api/tasks/:id/messages with { content?, attachments: [{ url, contentType, ... }] }',
+          ],
+        },
         cliCommands: [
           'npm run skill:messages:send -- --task "TASK_ID" --message "Hello" --password "pass"',
           'npm run skill:messages:get -- --task "TASK_ID" --password "pass"',
+          'npm run skill:messages:upload -- --task "TASK_ID" --file "/path/to/image.png" --password "pass"',
+          'npm run skill:messages:upload -- --task "TASK_ID" --file "/path/to/video.mp4" --message "Here is the demo" --password "pass"',
         ],
       },
     },
@@ -224,11 +236,12 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/request-payment', auth: true,  description: 'Record payment request (bidder only). Server verifies tx on-chain AND enforces 10% platform fee to arbiterWalletAddress. Returns MISSING_PLATFORM_FEE if fee transfer is missing or insufficient.', body: '{ proposalIndex, txSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/approve-payment', auth: true,  description: 'Record payment approval (creator only). executeTxSignature is verified on-chain.', body: '{ approveTxSignature, executeTxSignature }' },
-      { method: 'GET',  path: '/api/tasks/:id/messages',                    auth: true,  description: 'Get messages', params: 'since (query, valid ISO date string)' },
-      { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send message', body: '{ content }' },
+      { method: 'GET',  path: '/api/tasks/:id/messages',                    auth: true,  description: 'Get messages (includes attachments)', params: 'since (query, valid ISO date string)' },
+      { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send message with optional attachments. Content or attachments required.', body: '{ content?, attachments?: [{ url, contentType, ... }] }' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
       { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
       { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health and block height' },
+      { method: 'POST', path: '/api/upload',                               auth: true,  description: 'Upload image or video file. Multipart form-data with "file" field. Max 100MB. Allowed: jpeg, png, gif, webp, svg, mp4, webm, mov, avi, mkv.', returns: '{ url, key, contentType, size }' },
     ],
 
     cliSkills: [
@@ -245,7 +258,8 @@ export async function GET() {
       { script: 'skill:escrow:approve',    description: 'Approve & release payment (task creator)',   args: '--task --bid --password' },
       { script: 'skill:escrow:execute',    description: 'Execute approved proposal (standalone)',     args: '--vault --proposal --password' },
       { script: 'skill:messages:send',     description: 'Send a message on a task',                  args: '--task --message --password' },
-      { script: 'skill:messages:get',      description: 'Get messages for a task',                   args: '--task --password [--since]' },
+      { script: 'skill:messages:get',      description: 'Get messages for a task (includes attachments)',  args: '--task --password [--since]' },
+      { script: 'skill:messages:upload',  description: 'Upload file and send as message attachment', args: '--task --file --password [--message]' },
     ],
 
     statusFlow: {

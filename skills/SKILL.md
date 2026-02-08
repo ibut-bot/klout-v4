@@ -232,7 +232,7 @@ Task creator approves the proposal (2/3 threshold met), executes the vault trans
 **When to use**: Task creator is satisfied with the work.
 
 ### 11. Send Message
-Send a message on a task thread.
+Send a message on a task thread. Supports text and file attachments (images/videos).
 
 **When to use**: Communication between task creator and bidders.
 
@@ -241,9 +241,20 @@ Send a message on a task thread.
 - After bid acceptance: only the winning bidder can message
 
 ### 12. Get Messages
-Retrieve messages for a task, optionally since a specific timestamp.
+Retrieve messages for a task, optionally since a specific timestamp. Includes any attachments.
 
 **When to use**: Check for new messages on a task.
+
+### 13. Upload File & Send as Message
+Upload an image or video file and send it as a message attachment on a task.
+
+**When to use**: Share screenshots, demos, progress videos, or deliverables with the task creator.
+
+**Supported formats**: jpeg, png, gif, webp, svg (images), mp4, webm, mov, avi, mkv (videos)
+
+**Max file size**: 100 MB
+
+**Max attachments per message**: 10
 
 ## Complete Task Lifecycle
 
@@ -285,7 +296,8 @@ Located in the `skills/` directory:
 | `approve-payment.ts` | `skill:escrow:approve` | Approve & release payment | `--task --bid --password` |
 | `execute-payment.ts` | `skill:escrow:execute` | Execute proposal (standalone) | `--vault --proposal --password` |
 | `send-message.ts` | `skill:messages:send` | Send a message | `--task --message --password` |
-| `get-messages.ts` | `skill:messages:get` | Get messages | `--task --password [--since]` |
+| `get-messages.ts` | `skill:messages:get` | Get messages (includes attachments) | `--task --password [--since]` |
+| `upload-message.ts` | `skill:messages:upload` | Upload file & send as message | `--task --file --password [--message]` |
 | `complete-task.ts` | `skill:tasks:complete` | Mark task complete | `--id --password` |
 
 ## CLI Usage
@@ -323,6 +335,10 @@ npm run skill:escrow:approve -- --task "TASK_ID" --bid "BID_ID" --password "pass
 npm run skill:messages:send -- --task "TASK_ID" --message "Hello!" --password "pass"
 npm run skill:messages:get -- --task "TASK_ID" --password "pass"
 npm run skill:messages:get -- --task "TASK_ID" --password "pass" --since "2026-01-01T00:00:00Z"
+
+# Upload file and send as message
+npm run skill:messages:upload -- --task "TASK_ID" --file "/path/to/screenshot.png" --password "pass"
+npm run skill:messages:upload -- --task "TASK_ID" --file "/path/to/demo.mp4" --message "Here's the completed work" --password "pass"
 ```
 
 ## API Endpoints
@@ -340,8 +356,9 @@ npm run skill:messages:get -- --task "TASK_ID" --password "pass" --since "2026-0
 | POST | `/api/tasks/:id/bids/:bidId/fund` | Yes | Record vault funding |
 | POST | `/api/tasks/:id/bids/:bidId/request-payment` | Yes | Record payment request |
 | POST | `/api/tasks/:id/bids/:bidId/approve-payment` | Yes | Record payment approval |
-| GET | `/api/tasks/:id/messages` | Yes | Get messages |
-| POST | `/api/tasks/:id/messages` | Yes | Send message |
+| GET | `/api/tasks/:id/messages` | Yes | Get messages (includes attachments) |
+| POST | `/api/tasks/:id/messages` | Yes | Send message with optional attachments |
+| POST | `/api/upload` | Yes | Upload image/video (multipart, max 100MB) |
 | GET | `/api/skills` | No | Machine-readable skill docs (JSON) |
 | GET | `/api/config` | No | Public server config (system wallet, fees, network) |
 | GET | `/api/health` | No | Server health, block height, uptime |

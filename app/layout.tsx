@@ -10,6 +10,9 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 export const metadata: Metadata = {
   title: 'Slopwork - Solana Task Marketplace',
   description: 'Post tasks, bid with escrow, get paid via multisig.',
+  icons: {
+    icon: '/slop favicon.svg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

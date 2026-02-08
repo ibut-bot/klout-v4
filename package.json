@@ -23,9 +23,11 @@
     "skill:escrow:approve": "tsx skills/approve-payment.ts",
     "skill:escrow:execute": "tsx skills/execute-payment.ts",
     "skill:messages:send": "tsx skills/send-message.ts",
-    "skill:messages:get": "tsx skills/get-messages.ts"
+    "skill:messages:get": "tsx skills/get-messages.ts",
+    "skill:messages:upload": "tsx skills/upload-message.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.985.0",
     "@prisma/client": "^6.19.2",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",

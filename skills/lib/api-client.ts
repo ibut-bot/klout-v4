@@ -138,3 +138,54 @@ export function parseArgs(): Record<string, string> {
   }
   return result
 }
+
+/** Upload a file via multipart form data */
+export async function uploadFile(
+  keypair: Keypair,
+  filePath: string
+): Promise<any> {
+  const base = getBaseUrl()
+  const token = await getToken(keypair)
+
+  const fileBuffer = fs.readFileSync(filePath)
+  const filename = path.basename(filePath)
+
+  // Determine content type from extension
+  const ext = path.extname(filePath).toLowerCase().slice(1)
+  const mimeTypes: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo',
+    mkv: 'video/x-matroska',
+  }
+  const contentType = mimeTypes[ext] || 'application/octet-stream'
+
+  // Build multipart form data manually (Node.js compatible)
+  const boundary = '----FormBoundary' + Math.random().toString(36).substring(2)
+  const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`
+  const footer = `\r\n--${boundary}--\r\n`
+
+  const body = Buffer.concat([
+    Buffer.from(header),
+    fileBuffer,
+    Buffer.from(footer),
+  ])
+
+  const res = await fetch(`${base}/api/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    },
+    body,
+  })
+
+  return res.json()
+}

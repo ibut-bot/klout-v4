@@ -3,10 +3,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
+interface Attachment {
+  url: string
+  key?: string
+  contentType: string
+  size?: number
+  filename?: string
+}
+
 interface Message {
   id: string
   senderWallet: string
   content: string
+  attachments?: Attachment[]
   createdAt: string
 }
 
@@ -14,13 +23,22 @@ interface ChatProps {
   taskId: string
 }
 
+const ALLOWED_TYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'
+]
+const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
+
 export default function Chat({ taskId }: ChatProps) {
   const { authFetch, isAuthenticated, wallet } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchMessages = async () => {
     if (!isAuthenticated) return
@@ -53,23 +71,90 @@ export default function Chat({ taskId }: ChatProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles: File[] = []
+
+    for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setError(`Invalid file type: ${file.name}`)
+        continue
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`File too large: ${file.name} (max 100MB)`)
+        continue
+      }
+      validFiles.push(file)
+    }
+
+    if (pendingFiles.length + validFiles.length > 10) {
+      setError('Maximum 10 files per message')
+      return
+    }
+
+    setPendingFiles((prev) => [...prev, ...validFiles])
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const uploadFile = async (file: File): Promise<Attachment | null> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await authFetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const data = await res.json()
+    if (!data.success) throw new Error(data.message || 'Upload failed')
+
+    return {
+      url: data.url,
+      key: data.key,
+      contentType: data.contentType,
+      size: data.size,
+      filename: file.name,
+    }
+  }
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || sending) return
+    if ((!input.trim() && pendingFiles.length === 0) || sending) return
     setError('')
     setSending(true)
 
     try {
+      // Upload files first
+      const attachments: Attachment[] = []
+      if (pendingFiles.length > 0) {
+        setUploading(true)
+        for (const file of pendingFiles) {
+          const att = await uploadFile(file)
+          if (att) attachments.push(att)
+        }
+        setUploading(false)
+      }
+
+      // Send message with attachments
+      const body: any = {}
+      if (input.trim()) body.content = input.trim()
+      if (attachments.length > 0) body.attachments = attachments
+
       const res = await authFetch(`/api/tasks/${taskId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: input.trim() }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.message)
       setMessages((prev) => [...prev, data.message])
       setInput('')
+      setPendingFiles([])
     } catch (e: any) {
       setError(e.message || 'Failed to send')
+      setUploading(false)
     } finally {
       setSending(false)
     }
@@ -103,7 +188,39 @@ export default function Chat({ taskId }: ChatProps) {
                     {msg.senderWallet.slice(0, 4)}...{msg.senderWallet.slice(-4)}
                   </p>
                 )}
-                <p>{msg.content}</p>
+                {msg.content && <p>{msg.content}</p>}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {msg.attachments.map((att, i) => (
+                      <div key={i}>
+                        {att.contentType.startsWith('image/') ? (
+                          <a href={att.url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={att.url}
+                              alt={att.filename || 'attachment'}
+                              className="max-w-full rounded-lg max-h-48 object-cover"
+                            />
+                          </a>
+                        ) : att.contentType.startsWith('video/') ? (
+                          <video
+                            src={att.url}
+                            controls
+                            className="max-w-full rounded-lg max-h-48"
+                          />
+                        ) : (
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 underline text-xs"
+                          >
+                            {att.filename || 'Download attachment'}
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )
@@ -115,7 +232,48 @@ export default function Chat({ taskId }: ChatProps) {
         <div className="px-4 py-1 text-xs text-red-600">{error}</div>
       )}
 
-      <form onSubmit={handleSend} className="flex border-t border-zinc-200 p-3 dark:border-zinc-800">
+      {pendingFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+          {pendingFiles.map((file, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 rounded-lg bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800"
+            >
+              <span className="max-w-[100px] truncate text-zinc-700 dark:text-zinc-300">
+                {file.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => removePendingFile(i)}
+                className="ml-1 text-zinc-400 hover:text-red-500"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ALLOWED_TYPES.join(',')}
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          className="rounded-lg border border-zinc-300 p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          title="Attach image or video"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
         <input
           type="text"
           value={input}
@@ -125,10 +283,10 @@ export default function Chat({ taskId }: ChatProps) {
         />
         <button
           type="submit"
-          disabled={sending || !input.trim()}
-          className="ml-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          disabled={sending || (!input.trim() && pendingFiles.length === 0)}
+          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
         >
-          Send
+          {uploading ? 'Uploading...' : sending ? 'Sending...' : 'Send'}
         </button>
       </form>
     </div>

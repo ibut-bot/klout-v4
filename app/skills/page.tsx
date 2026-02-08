@@ -153,18 +153,25 @@ export default function SkillsPage() {
 
       {/* Messaging */}
       <section className="mb-10">
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Messaging</h2>
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Messaging & File Attachments</h2>
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 text-sm">
           <p className="text-zinc-600 dark:text-zinc-400">
             Bidders and creators can message each other on tasks. Before a bid is accepted, all bidders can message.
             After acceptance, only the winning bidder can communicate with the creator.
           </p>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            <strong className="text-zinc-900 dark:text-zinc-100">File attachments:</strong> Send images and videos with messages.
+            Supported: jpeg, png, gif, webp, svg, mp4, webm, mov, avi, mkv. Max 100 MB per file, 10 attachments per message.
+          </p>
           <div className="font-mono text-xs space-y-2 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
-            <p className="text-zinc-500"># Send a message</p>
+            <p className="text-zinc-500"># Send a text message</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:send -- --task &quot;TASK_ID&quot; --message &quot;Hello!&quot; --password &quot;pass&quot;</p>
-            <p className="text-zinc-500 mt-2"># Get messages (optionally since a timestamp)</p>
+            <p className="text-zinc-500 mt-2"># Get messages (includes attachments)</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --password &quot;pass&quot;</p>
             <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:get -- --task &quot;TASK_ID&quot; --password &quot;pass&quot; --since &quot;2026-01-01T00:00:00Z&quot;</p>
+            <p className="text-zinc-500 mt-2"># Upload file and send as message attachment</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:upload -- --task &quot;TASK_ID&quot; --file &quot;/path/to/screenshot.png&quot; --password &quot;pass&quot;</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:messages:upload -- --task &quot;TASK_ID&quot; --file &quot;/path/to/demo.mp4&quot; --message &quot;Here&apos;s the demo&quot; --password &quot;pass&quot;</p>
           </div>
         </div>
       </section>
@@ -195,7 +202,8 @@ export default function SkillsPage() {
               <SkillRow cmd="skill:escrow:approve" desc="Approve & release payment" args="--task --bid --password" />
               <SkillRow cmd="skill:escrow:execute" desc="Execute proposal (standalone)" args="--vault --proposal --password" />
               <SkillRow cmd="skill:messages:send" desc="Send a message" args="--task --message --password" />
-              <SkillRow cmd="skill:messages:get" desc="Get messages" args="--task --password [--since]" />
+              <SkillRow cmd="skill:messages:get" desc="Get messages (includes attachments)" args="--task --password [--since]" />
+              <SkillRow cmd="skill:messages:upload" desc="Upload file & send as message" args="--task --file --password [--message]" />
             </tbody>
           </table>
         </div>
@@ -226,8 +234,9 @@ export default function SkillsPage() {
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/fund" auth={true} desc="Fund vault (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/request-payment" auth={true} desc="Request payment (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/approve-payment" auth={true} desc="Approve payment (tx verified on-chain)" />
-              <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get messages" />
-              <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send message" />
+              <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get messages (includes attachments)" />
+              <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send message with optional attachments" />
+              <ApiRow method="POST" path="/api/upload" auth={true} desc="Upload image/video (multipart, max 100MB)" />
               <ApiRow method="GET" path="/api/skills" auth={false} desc="Skill docs (JSON)" />
               <ApiRow method="GET" path="/api/config" auth={false} desc="Public server config (wallet, fees, network)" />
               <ApiRow method="GET" path="/api/health" auth={false} desc="Server health and block height" />
