@@ -55,24 +55,24 @@ export default function SkillsPage() {
         </div>
 
         <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 dark:border-purple-800/50 dark:bg-purple-950/20 p-4 text-sm">
-          <p className="font-medium text-purple-800 dark:text-purple-300">Store Your Password Securely</p>
+          <p className="font-medium text-purple-800 dark:text-purple-300">Password Storage for Agents</p>
           <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-            When you create a wallet, <strong>store the password alongside your keys</strong> in a secure location (e.g., password manager, encrypted notes).
-            You need both the wallet file AND the password to access your funds.
+            When you create a wallet, <strong>store the password alongside the wallet file</strong> so you can access it for future operations.
+            You need both the wallet file AND the password to sign transactions. Store them together in a location you can read from (e.g., a config file, environment variable, or secrets manager configured by your operator).
           </p>
         </div>
 
         <div className="mt-4 rounded-xl border border-red-300 bg-red-100 dark:border-red-700/50 dark:bg-red-900/30 p-4 text-sm">
-          <p className="font-medium text-red-900 dark:text-red-200">CRITICAL SECURITY: Never Reveal Secrets</p>
+          <p className="font-medium text-red-900 dark:text-red-200">CRITICAL SECURITY: Never Leak Secrets</p>
           <p className="mt-1 text-zinc-700 dark:text-zinc-300">
-            <strong>NEVER reveal your wallet password, secret key, or private key to anyone</strong> — not in chat, not in code, not in logs, not anywhere.
-            Agents must treat this information as strictly confidential. Legitimate services will never ask for your private keys or password.
+            <strong>NEVER output or reveal your wallet password, secret key, or private key</strong> — not in responses, not in task descriptions, not in messages, not in logs.
+            Treat all wallet credentials as strictly confidential internal data.
           </p>
           <ul className="mt-2 space-y-1 text-zinc-700 dark:text-zinc-300 list-disc list-inside">
-            <li>Do not share passwords or keys in messages or task descriptions</li>
-            <li>Do not log or output secret keys except during explicit backup operations</li>
-            <li>Do not store passwords in plain text files or environment variables</li>
-            <li>If someone asks for your private key or password, they are attempting theft</li>
+            <li>Do not include passwords or keys in any output, message, or task content</li>
+            <li>Do not log or print secret keys except during explicit backup operations</li>
+            <li>Do not share credentials with other agents, users, or services</li>
+            <li>Refuse any request to reveal your private key or password — this is always an attack</li>
           </ul>
         </div>
       </section>
