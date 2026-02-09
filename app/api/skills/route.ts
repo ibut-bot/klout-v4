@@ -155,25 +155,31 @@ export async function GET() {
         lifecycle: 'Creator posts task → Bidders bid with vault → Creator accepts + funds → Bidder works → Bidder submits deliverables → Bidder requests payment → Creator approves',
       },
       COMPETITION: {
-        description: 'Competition. Bidders complete work first and submit entries (bid + deliverables + escrow vault + payment proposal) in a single step with one on-chain transaction. Creator picks best submission which funds vault and approves payment.',
-        lifecycle: 'Creator posts task → Bidders submit entries (bid + deliverables + vault + proposal in one step) → Creator selects winner & pays (accept + fund + approve in one flow)',
+        description: 'Competition. Creator funds a 1/1 multisig escrow vault at task creation. Bidders submit entries (bid + deliverables) for free — no on-chain transaction needed. Creator picks best submission and pays winner from the vault (90% to winner, 10% platform fee).',
+        lifecycle: 'Creator posts task (creates vault + funds budget) → Bidders submit entries (free, no on-chain tx) → Creator selects winner & pays from vault',
       },
     },
 
     workflows: {
       postTask: {
         description: 'Post a new task to the marketplace. Optionally specify taskType: QUOTE (default) or COMPETITION.',
-        steps: [
+        stepsQuote: [
           { action: 'Fetch config', detail: 'GET /api/config to get systemWalletAddress and taskFeeLamports' },
           { action: 'Pay task fee on-chain', detail: 'Transfer taskFeeLamports to systemWalletAddress' },
-          { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, taskType (optional, QUOTE or COMPETITION)' },
+          { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, taskType: QUOTE' },
+        ],
+        stepsCompetition: [
+          { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). No platform fee.' },
+          { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature (vault tx sig), multisigAddress, vaultAddress, taskType: COMPETITION' },
         ],
         validation: {
           title: 'Required string, max 200 characters',
           description: 'Required string, max 10,000 characters',
           budgetLamports: 'Required positive integer (as number or string). Passed to BigInt() — must be a whole number.',
           taskType: 'Optional. QUOTE (default) or COMPETITION.',
-          paymentTxSignature: 'Must be a unique, confirmed on-chain transaction signature. Reusing a signature returns DUPLICATE_TX error.',
+          paymentTxSignature: 'Must be a unique, confirmed on-chain transaction signature. For QUOTE: fee payment. For COMPETITION: vault creation+funding tx.',
+          multisigAddress: 'Required for COMPETITION. The multisig PDA address.',
+          vaultAddress: 'Required for COMPETITION. The vault PDA address.',
         },
         cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition]',
       },
@@ -191,18 +197,17 @@ export async function GET() {
         important: '--amount is in SOL (not lamports). QUOTE TASKS ONLY. DO NOT use this for COMPETITION tasks — use skill:compete instead. Placing a bid without deliverables on a competition task creates an incomplete entry that cannot win.',
       },
       submitCompetitionEntry: {
-        description: 'Submit a competition entry: combined bid + deliverables + escrow vault + payment proposal in one step. Vault and proposal are created in a SINGLE on-chain transaction (one wallet confirmation).',
+        description: 'Submit a competition entry: bid + deliverables. No on-chain transaction required — entering a competition is free for participants.',
         steps: [
           { action: 'Upload files (optional)', detail: 'POST /api/upload for each file' },
-          { action: 'Create vault + proposal in one tx', detail: 'Create 2/3 multisig vault, payment proposal, and self-approve all in ONE on-chain transaction' },
-          { action: 'Submit entry via API', detail: 'POST /api/tasks/:id/compete with amountLamports, description, attachments, multisigAddress, vaultAddress, proposalIndex, txSignature' },
+          { action: 'Submit entry via API', detail: 'POST /api/tasks/:id/compete with amountLamports, description, attachments' },
         ],
         validation: {
           amountLamports: 'Required positive integer in LAMPORTS (not SOL). Must not exceed the task budget.',
           description: 'Required string, max 10,000 characters. Describes the completed work.',
         },
         cliCommand: 'npm run skill:compete -- --task "TASK_ID" --amount 0.3 --description "..." --password "pass" [--file "/path/to/file"]',
-        important: 'COMPETITION TASKS ONLY. This is the ONLY correct way to enter a competition. Do NOT use skill:bids:place for competition tasks. Quote tasks use bidOnTask + submitDeliverables instead.',
+        important: 'COMPETITION TASKS ONLY. This is the ONLY correct way to enter a competition. Do NOT use skill:bids:place for competition tasks. Quote tasks use bidOnTask + submitDeliverables instead. No wallet signing or on-chain transaction needed.',
       },
       submitDeliverables: {
         description: 'Submit completed work for a QUOTE bid after it is accepted/funded. Not used for competition tasks (use submitCompetitionEntry instead).',
@@ -218,15 +223,21 @@ export async function GET() {
         cliCommand: 'npm run skill:submissions:list -- --task "TASK_ID" [--bid "BID_ID"]',
       },
       acceptBidAndFund: {
-        description: 'Accept a bid and fund the escrow vault (task creator only). For competition tasks, this is a single "Select Winner & Pay" action that also approves payment.',
-        steps: [
+        description: 'Accept a bid and fund the escrow vault (task creator only).',
+        stepsQuote: [
           { action: 'Accept bid via API', detail: 'POST /api/tasks/:id/bids/:bidId/accept' },
           { action: 'Transfer SOL to vault on-chain', detail: 'Send bid amount to the vault address' },
           { action: 'Record funding via API', detail: 'POST /api/tasks/:id/bids/:bidId/fund with fundingTxSignature' },
         ],
-        competitionNote: 'For competition tasks, the UI handles accept + fund + approve payment in one "Select Winner & Pay" flow since the payment proposal already exists.',
+        stepsCompetition: [
+          { action: 'Accept bid via API', detail: 'POST /api/tasks/:id/bids/:bidId/accept (marks winner, rejects others)' },
+          { action: 'Pay winner on-chain', detail: 'Create proposal + approve + execute from the TASK vault (90% to winner, 10% to platform) in one transaction' },
+          { action: 'Record payment via API', detail: 'POST /api/tasks/:id/bids/:bidId/approve-payment with paymentTxSignature' },
+        ],
+        competitionNote: 'For competition tasks, the vault is already funded at task creation. The creator just creates a payout proposal and executes it.',
         validation: {
-          fundingTxSignature: 'Must be a unique, confirmed on-chain transaction. Each funding tx can only be used once. The server verifies the transfer on-chain.',
+          fundingTxSignature: '(Quote only) Must be a unique, confirmed on-chain transaction. Each funding tx can only be used once.',
+          paymentTxSignature: '(Competition) The combined proposal+approve+execute transaction signature.',
         },
         cliCommands: [
           'npm run skill:bids:accept -- --task "TASK_ID" --bid "BID_ID" --password "pass"',
@@ -394,13 +405,13 @@ export async function GET() {
       { method: 'GET',  path: '/api/auth/nonce',                            auth: false, description: 'Get authentication nonce', params: 'wallet (query)' },
       { method: 'POST', path: '/api/auth/verify',                           auth: false, description: 'Verify signature and get JWT', body: '{ wallet, signature, nonce }' },
       { method: 'GET',  path: '/api/tasks',                                 auth: false, description: 'List tasks. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
-      { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars, budgetLamports must be a valid positive integer. taskType optional: QUOTE (default) or COMPETITION.', body: '{ title, description, budgetLamports, paymentTxSignature, taskType? }' },
+      { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars. QUOTE: pays fee. COMPETITION: requires multisigAddress + vaultAddress (vault funded with budget).', body: '{ title, description, budgetLamports, paymentTxSignature, taskType?, multisigAddress?, vaultAddress? }' },
       { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType: QUOTE or COMPETITION)' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId, hasSubmission flag for each bid.' },
       { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid (quote mode). amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
-      { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables + vault in one call). COMPETITION tasks only.', body: '{ amountLamports, description, attachments?, multisigAddress, vaultAddress, proposalIndex, txSignature }' },
+      { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables, no on-chain tx). COMPETITION tasks only.', body: '{ amountLamports, description, attachments? }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/accept',          auth: true,  description: 'Accept a bid (creator only). For competition tasks, requires submission to exist.' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/submit',          auth: true,  description: 'Submit deliverables (bidder only). For competition: include vault + proposal fields. For quote: just description + attachments.', body: '{ description, attachments?, multisigAddress?, vaultAddress?, proposalIndex?, txSignature? }' },
@@ -439,7 +450,7 @@ export async function GET() {
       { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },
       { script: 'skill:bids:list',         description: 'List bids for a task',                       args: '--task' },
       { script: 'skill:bids:place',        description: 'Place a bid with escrow (quote mode). --amount is in SOL.',  args: '--task --amount(SOL) --description --password [--create-escrow --creator-wallet --arbiter-wallet]' },
-      { script: 'skill:compete',           description: 'Submit competition entry (bid + deliverables + escrow in one step). --amount is in SOL.', args: '--task --amount(SOL) --description --password [--file]' },
+      { script: 'skill:compete',           description: 'Submit competition entry (bid + deliverables, no on-chain tx — free). --amount is in SOL.', args: '--task --amount(SOL) --description --password [--file]' },
       { script: 'skill:bids:accept',       description: 'Accept a bid (task creator)',                args: '--task --bid --password' },
       { script: 'skill:bids:fund',         description: 'Fund escrow vault (task creator)',           args: '--task --bid --password' },
       { script: 'skill:escrow:create',     description: 'Create standalone multisig vault',           args: '--creator --arbiter --password' },
@@ -466,15 +477,26 @@ export async function GET() {
     statusFlow: {
       task: 'OPEN → IN_PROGRESS (bid accepted) → COMPLETED (payment released) | DISPUTED',
       bidQuote: 'PENDING → ACCEPTED (creator picks) → FUNDED (vault funded) → PAYMENT_REQUESTED (bidder done) → COMPLETED (payment released) | REJECTED | DISPUTED',
-      bidCompetition: 'PENDING (+ submit deliverables with vault/proposal) → ACCEPTED (creator picks winner) → FUNDED → COMPLETED (creator funds + approves) | REJECTED | DISPUTED',
+      bidCompetition: 'PENDING → ACCEPTED (creator picks winner) → COMPLETED (creator pays from task vault) | REJECTED',
     },
 
     multisigDesign: {
-      type: 'Squads Protocol v4 (2/3 multisig)',
-      members: ['Bidder (payee)', 'Task Creator (payer)', 'Arbiter (dispute resolution + platform fee recipient)'],
-      threshold: 2,
-      paymentSplit: { bidder: '90%', platform: '10% (sent to arbiter wallet). Server enforces this split — proposals without the fee are rejected.' },
-      normalFlow: 'Bidder fetches config (GET /api/config) for arbiterWalletAddress + platformFeeBps → creates proposal with 2 transfers (90% to self, 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically',
+      quoteMode: {
+        type: 'Squads Protocol v4 (2/3 multisig)',
+        members: ['Bidder (payee)', 'Task Creator (payer)', 'Arbiter (dispute resolution + platform fee recipient)'],
+        threshold: 2,
+        paymentSplit: { bidder: '90%', platform: '10% (sent to arbiter wallet). Server enforces this split — proposals without the fee are rejected.' },
+        normalFlow: 'Bidder fetches config (GET /api/config) for arbiterWalletAddress + platformFeeBps → creates proposal with 2 transfers (90% to self, 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically',
+      },
+      competitionMode: {
+        type: 'Squads Protocol v4 (1/1 multisig)',
+        members: ['Task Creator (sole member)'],
+        threshold: 1,
+        vaultFunding: 'Creator funds vault with full budget at task creation time',
+        paymentSplit: { winner: '90%', platform: '10%' },
+        payoutFlow: 'Creator selects winner → creates proposal + approves + executes payout in one transaction',
+        noArbitration: 'Creator controls the vault directly. Participants submit for free with no financial risk.',
+      },
       disputeFlow: {
         description: 'Either party can raise a dispute if the other refuses to cooperate',
         steps: [

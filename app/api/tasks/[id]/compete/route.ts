@@ -41,12 +41,12 @@ export async function POST(
     )
   }
 
-  const { amountLamports, description, attachments, multisigAddress, vaultAddress, proposalIndex, txSignature } = body
+  const { amountLamports, description, attachments } = body
 
   // --- Validate required fields ---
-  if (!amountLamports || !description || !multisigAddress || !vaultAddress || proposalIndex === undefined || proposalIndex === null || !txSignature) {
+  if (!amountLamports || !description) {
     return Response.json(
-      { success: false, error: 'MISSING_FIELDS', message: 'Required: amountLamports, description, multisigAddress, vaultAddress, proposalIndex, txSignature' },
+      { success: false, error: 'MISSING_FIELDS', message: 'Required: amountLamports, description' },
       { status: 400 }
     )
   }
@@ -149,9 +149,6 @@ export async function POST(
         bidderId: userId,
         amountLamports: parsedLamports,
         description: description.trim(),
-        multisigAddress,
-        vaultAddress,
-        proposalIndex: Number(proposalIndex),
       },
     })
 
@@ -183,9 +180,6 @@ export async function POST(
       taskId: bid.taskId,
       amountLamports: bid.amountLamports.toString(),
       description: bid.description,
-      multisigAddress: bid.multisigAddress,
-      vaultAddress: bid.vaultAddress,
-      proposalIndex: bid.proposalIndex,
       status: bid.status,
       createdAt: bid.createdAt.toISOString(),
     },

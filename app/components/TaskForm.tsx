@@ -5,6 +5,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { useRouter } from 'next/navigation'
+import { createMultisigVaultAndFundWA } from '@/lib/solana/multisig'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const TASK_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_TASK_FEE_LAMPORTS || 10000000)
@@ -12,7 +13,8 @@ const TASK_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_TASK_FEE_LAMPORTS || 10
 export default function TaskForm() {
   const { authFetch, isAuthenticated } = useAuth()
   const { connection } = useConnection()
-  const { publicKey, sendTransaction } = useWallet()
+  const wallet = useWallet()
+  const { publicKey, sendTransaction, signTransaction } = wallet
   const router = useRouter()
 
   const [title, setTitle] = useState('')
@@ -33,30 +35,51 @@ export default function TaskForm() {
       const budgetLamports = Math.round(parseFloat(budget) * LAMPORTS_PER_SOL)
       if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
 
-      // Step 1: Pay the posting fee
-      setStep('paying')
-      if (!SYSTEM_WALLET) throw new Error('System wallet not configured')
+      let signature: string
+      let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
 
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-      const tx = new Transaction()
-      tx.recentBlockhash = blockhash
-      tx.feePayer = publicKey
-      tx.add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(SYSTEM_WALLET),
-          lamports: TASK_FEE_LAMPORTS,
-        })
-      )
+      if (taskType === 'COMPETITION') {
+        // Competition: create 1/1 multisig vault and fund it with budget
+        if (!signTransaction) throw new Error('Wallet does not support signing')
+        setStep('paying')
+        const result = await createMultisigVaultAndFundWA(
+          connection,
+          { publicKey, signTransaction },
+          budgetLamports,
+        )
+        signature = result.signature
+        vaultDetails = {
+          multisigAddress: result.multisigPda.toBase58(),
+          vaultAddress: result.vaultPda.toBase58(),
+        }
+      } else {
+        // Quote: pay the posting fee
+        setStep('paying')
+        if (!SYSTEM_WALLET) throw new Error('System wallet not configured')
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+        const tx = new Transaction()
+        tx.recentBlockhash = blockhash
+        tx.feePayer = publicKey
+        tx.add(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: new PublicKey(SYSTEM_WALLET),
+            lamports: TASK_FEE_LAMPORTS,
+          })
+        )
+        signature = await sendTransaction(tx, connection)
+        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+      }
 
-      const signature = await sendTransaction(tx, connection)
-      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
-
-      // Step 2: Create task via API
+      // Create task via API
       setStep('creating')
       const res = await authFetch('/api/tasks', {
         method: 'POST',
-        body: JSON.stringify({ title, description, budgetLamports, taskType, paymentTxSignature: signature }),
+        body: JSON.stringify({
+          title, description, budgetLamports, taskType,
+          paymentTxSignature: signature,
+          ...vaultDetails,
+        }),
       })
       const data = await res.json()
 
@@ -148,7 +171,9 @@ export default function TaskForm() {
           className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
         <p className="mt-1 text-xs text-zinc-500">
-          A fee of {TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.
+          {taskType === 'COMPETITION'
+            ? 'This budget will be locked in an escrow vault when you post the task.'
+            : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
         </p>
       </div>
 
@@ -159,7 +184,7 @@ export default function TaskForm() {
       >
         {loading
           ? step === 'paying'
-            ? 'Paying posting fee...'
+            ? taskType === 'COMPETITION' ? 'Creating escrow vault...' : 'Paying posting fee...'
             : 'Creating task...'
           : 'Post Task'}
       </button>

@@ -27,10 +27,14 @@ export async function POST(
     )
   }
 
-  const { approveTxSignature, executeTxSignature } = body
-  if (!approveTxSignature || !executeTxSignature) {
+  const { approveTxSignature, executeTxSignature, paymentTxSignature: singleTxSig } = body
+
+  // For competition tasks, a single paymentTxSignature covers proposal+approve+execute.
+  // For quote tasks, approveTxSignature and executeTxSignature are separate.
+  const effectiveExecuteSig = singleTxSig || executeTxSignature
+  if (!effectiveExecuteSig) {
     return Response.json(
-      { success: false, error: 'MISSING_FIELDS', message: 'Required: approveTxSignature, executeTxSignature' },
+      { success: false, error: 'MISSING_FIELDS', message: 'Required: paymentTxSignature (competition) or approveTxSignature + executeTxSignature (quote)' },
       { status: 400 }
     )
   }
@@ -59,9 +63,13 @@ export async function POST(
     )
   }
 
-  if (task.winningBid.status !== 'PAYMENT_REQUESTED') {
+  const isCompetition = task.taskType === 'COMPETITION'
+  const allowedStatuses = isCompetition
+    ? ['ACCEPTED']  // Competition: payment happens right after accepting (skips FUNDED/PAYMENT_REQUESTED)
+    : ['PAYMENT_REQUESTED']
+  if (!allowedStatuses.includes(task.winningBid.status)) {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Bid is ${task.winningBid.status}, must be PAYMENT_REQUESTED` },
+      { success: false, error: 'INVALID_STATUS', message: `Bid is ${task.winningBid.status}, must be ${allowedStatuses.join(' or ')}` },
       { status: 400 }
     )
   }
@@ -69,19 +77,19 @@ export async function POST(
   // Verify the execute transaction exists and succeeded on-chain
   try {
     const connection = getConnection()
-    const tx = await connection.getParsedTransaction(executeTxSignature, {
+    const tx = await connection.getParsedTransaction(effectiveExecuteSig, {
       maxSupportedTransactionVersion: 0,
       commitment: 'confirmed',
     })
     if (!tx) {
       return Response.json(
-        { success: false, error: 'TX_NOT_FOUND', message: 'Execute transaction not found or not confirmed on-chain' },
+        { success: false, error: 'TX_NOT_FOUND', message: 'Payment transaction not found or not confirmed on-chain' },
         { status: 400 }
       )
     }
     if (tx.meta?.err) {
       return Response.json(
-        { success: false, error: 'TX_FAILED', message: 'Execute transaction failed on-chain' },
+        { success: false, error: 'TX_FAILED', message: 'Payment transaction failed on-chain' },
         { status: 400 }
       )
     }
@@ -95,7 +103,7 @@ export async function POST(
   await prisma.$transaction([
     prisma.bid.update({
       where: { id: bidId },
-      data: { status: 'COMPLETED', paymentTxSig: executeTxSignature },
+      data: { status: 'COMPLETED', paymentTxSig: effectiveExecuteSig },
     }),
     prisma.task.update({
       where: { id },
@@ -115,7 +123,6 @@ export async function POST(
   return Response.json({
     success: true,
     message: 'Payment approved and executed. Task completed!',
-    approveTxSignature,
-    executeTxSignature,
+    paymentTxSignature: effectiveExecuteSig,
   })
 }

@@ -48,6 +48,8 @@ export async function GET(
       budgetLamports: task.budgetLamports.toString(),
       taskType: task.taskType,
       status: task.status,
+      multisigAddress: task.multisigAddress,
+      vaultAddress: task.vaultAddress,
       creatorWallet: task.creator.walletAddress,
       creatorUsername: task.creator.username,
       creatorProfilePic: task.creator.profilePicUrl,

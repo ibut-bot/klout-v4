@@ -88,7 +88,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress } = body
+
+  // Validate taskType early so we know which fields to require
+  const validTaskTypes = ['QUOTE', 'COMPETITION']
+  const resolvedTaskType = taskType ? String(taskType).toUpperCase() : 'QUOTE'
+  if (!validTaskTypes.includes(resolvedTaskType)) {
+    return Response.json(
+      { success: false, error: 'INVALID_TASK_TYPE', message: 'taskType must be QUOTE or COMPETITION' },
+      { status: 400 }
+    )
+  }
+
+  const isCompetition = resolvedTaskType === 'COMPETITION'
+
   if (!title || !description || !budgetLamports || !paymentTxSignature) {
     return Response.json(
       { success: false, error: 'MISSING_FIELDS', message: 'Required: title, description, budgetLamports, paymentTxSignature' },
@@ -96,12 +109,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Validate taskType if provided
-  const validTaskTypes = ['QUOTE', 'COMPETITION']
-  const resolvedTaskType = taskType ? String(taskType).toUpperCase() : 'QUOTE'
-  if (!validTaskTypes.includes(resolvedTaskType)) {
+  // Competition tasks require vault details
+  if (isCompetition && (!multisigAddress || !vaultAddress)) {
     return Response.json(
-      { success: false, error: 'INVALID_TASK_TYPE', message: 'taskType must be QUOTE or COMPETITION' },
+      { success: false, error: 'MISSING_FIELDS', message: 'Competition tasks also require: multisigAddress, vaultAddress' },
       { status: 400 }
     )
   }
@@ -138,20 +149,51 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Verify the payment transaction -- SYSTEM_WALLET must be configured
-  if (!SYSTEM_WALLET) {
-    return Response.json(
-      { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet is not configured. Task creation is disabled.' },
-      { status: 503 }
-    )
-  }
+  // Verify the payment/funding transaction
+  if (isCompetition) {
+    // Competition tasks: no platform fee, but verify the tx exists and is confirmed on-chain
+    // The paymentTxSignature is the vault creation + funding transaction
+    const { getConnection } = await import('@/lib/solana/connection')
+    const connection = getConnection()
+    try {
+      const tx = await connection.getParsedTransaction(paymentTxSignature, {
+        maxSupportedTransactionVersion: 0,
+        commitment: 'confirmed',
+      })
+      if (!tx) {
+        return Response.json(
+          { success: false, error: 'TX_NOT_FOUND', message: 'Vault creation transaction not found or not confirmed on-chain' },
+          { status: 400 }
+        )
+      }
+      if (tx.meta?.err) {
+        return Response.json(
+          { success: false, error: 'TX_FAILED', message: 'Vault creation transaction failed on-chain' },
+          { status: 400 }
+        )
+      }
+    } catch (e: any) {
+      return Response.json(
+        { success: false, error: 'TX_VERIFY_ERROR', message: e.message || 'Failed to verify vault creation transaction' },
+        { status: 400 }
+      )
+    }
+  } else {
+    // Quote tasks: verify fee payment to system wallet
+    if (!SYSTEM_WALLET) {
+      return Response.json(
+        { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet is not configured. Task creation is disabled.' },
+        { status: 503 }
+      )
+    }
 
-  const verification = await verifyPaymentTx(paymentTxSignature, SYSTEM_WALLET, TASK_FEE_LAMPORTS)
-  if (!verification.valid) {
-    return Response.json(
-      { success: false, error: 'INVALID_PAYMENT', message: verification.error || 'Payment verification failed' },
-      { status: 400 }
-    )
+    const verification = await verifyPaymentTx(paymentTxSignature, SYSTEM_WALLET, TASK_FEE_LAMPORTS)
+    if (!verification.valid) {
+      return Response.json(
+        { success: false, error: 'INVALID_PAYMENT', message: verification.error || 'Payment verification failed' },
+        { status: 400 }
+      )
+    }
   }
 
   // Check for duplicate tx signature
@@ -171,6 +213,7 @@ export async function POST(request: NextRequest) {
       budgetLamports: parsedBudget,
       taskType: resolvedTaskType as any,
       paymentTxSignature,
+      ...(isCompetition ? { multisigAddress, vaultAddress } : {}),
     },
   })
 

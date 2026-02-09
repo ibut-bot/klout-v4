@@ -27,6 +27,8 @@ interface Task {
   budgetLamports: string
   taskType: string
   status: string
+  multisigAddress?: string | null
+  vaultAddress?: string | null
   creatorWallet: string
   creatorUsername?: string | null
   creatorProfilePic?: string | null
@@ -257,7 +259,6 @@ export default function TaskDetailPage() {
         <div className="mb-6">
           <CompetitionEntryForm
             taskId={task.id}
-            creatorWallet={task.creatorWallet}
             budgetLamports={task.budgetLamports}
             onEntrySubmitted={refreshAll}
           />
@@ -290,6 +291,8 @@ export default function TaskDetailPage() {
             taskId={task.id}
             taskType={task.taskType}
             taskStatus={task.status}
+            taskMultisigAddress={task.multisigAddress}
+            taskVaultAddress={task.vaultAddress}
             onWinnerSelected={refreshAll}
           />
         </div>

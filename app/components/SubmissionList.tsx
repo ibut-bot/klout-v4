@@ -4,8 +4,10 @@ import { useState } from 'react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useAuth } from '../hooks/useAuth'
-import { approveAndExecuteWA } from '@/lib/solana/multisig'
+import { approveAndExecuteWA, createProposalApproveExecuteWA } from '@/lib/solana/multisig'
 import Link from 'next/link'
+
+const PLATFORM_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
 
 function formatSol(lamports: string | number): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
@@ -50,6 +52,8 @@ interface SubmissionListProps {
   taskId: string
   taskType: string
   taskStatus: string
+  taskMultisigAddress?: string | null
+  taskVaultAddress?: string | null
   onWinnerSelected?: () => void
 }
 
@@ -59,77 +63,145 @@ export default function SubmissionList({
   taskId,
   taskType,
   taskStatus,
+  taskMultisigAddress,
+  taskVaultAddress,
   onWinnerSelected,
 }: SubmissionListProps) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction, signTransaction } = useWallet()
   const [selectingBidId, setSelectingBidId] = useState<string | null>(null)
-  const [step, setStep] = useState<'idle' | 'accepting' | 'funding' | 'approving'>('idle')
+  const [step, setStep] = useState<'idle' | 'accepting' | 'funding' | 'approving' | 'paying'>('idle')
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [retryBidId, setRetryBidId] = useState<string | null>(null)
 
   const isCompetition = taskType === 'COMPETITION'
 
   const handleSelectWinner = async (bid: SubmissionBid) => {
     if (!publicKey || !signTransaction) return
     setSelectingBidId(bid.id)
+    setPaymentError(null)
 
     try {
-      // Step 1: Accept bid on API
-      setStep('accepting')
-      const acceptRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/accept`, { method: 'POST' })
-      const acceptData = await acceptRes.json()
-      if (!acceptData.success) throw new Error(acceptData.message)
+      if (isCompetition) {
+        // New competition flow: accept bid, then create proposal+approve+execute from task vault
+        // Step 1: Accept bid on API
+        setStep('accepting')
+        const acceptRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/accept`, { method: 'POST' })
+        const acceptData = await acceptRes.json()
+        if (!acceptData.success) throw new Error(acceptData.message)
 
-      // Step 2: Fund vault on-chain
-      if (bid.vaultAddress) {
-        setStep('funding')
-        const lamports = Number(bid.amountLamports)
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-        const tx = new Transaction()
-        tx.recentBlockhash = blockhash
-        tx.feePayer = publicKey
-        tx.add(
-          SystemProgram.transfer({
-            fromPubkey: publicKey,
-            toPubkey: new PublicKey(bid.vaultAddress),
-            lamports,
-          })
-        )
-        const signature = await sendTransaction(tx, connection)
-        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+        // Step 2: Create proposal + approve + execute on-chain from the task-level vault
+        await payWinner(bid)
+      } else {
+        // Legacy quote flow: accept → fund → approve
+        setStep('accepting')
+        const acceptRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/accept`, { method: 'POST' })
+        const acceptData = await acceptRes.json()
+        if (!acceptData.success) throw new Error(acceptData.message)
 
-        // Record funding
-        await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/fund`, {
-          method: 'POST',
-          body: JSON.stringify({ fundingTxSignature: signature }),
-        })
-
-        // Step 3: Approve + execute the existing payment proposal
-        if (bid.multisigAddress && bid.proposalIndex !== undefined && bid.proposalIndex !== null) {
-          setStep('approving')
-          const multisigPda = new PublicKey(bid.multisigAddress)
-          const txIndex = BigInt(bid.proposalIndex)
-
-          const executeSig = await approveAndExecuteWA(
-            connection,
-            { publicKey, signTransaction },
-            multisigPda,
-            txIndex
+        if (bid.vaultAddress) {
+          setStep('funding')
+          const lamports = Number(bid.amountLamports)
+          const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+          const tx = new Transaction()
+          tx.recentBlockhash = blockhash
+          tx.feePayer = publicKey
+          tx.add(
+            SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: new PublicKey(bid.vaultAddress),
+              lamports,
+            })
           )
+          const signature = await sendTransaction(tx, connection)
+          await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
 
-          await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/approve-payment`, {
+          await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/fund`, {
             method: 'POST',
-            body: JSON.stringify({
-              approveTxSignature: executeSig,
-              executeTxSignature: executeSig,
-            }),
+            body: JSON.stringify({ fundingTxSignature: signature }),
           })
-        }
-      }
 
-      onWinnerSelected?.()
+          if (bid.multisigAddress && bid.proposalIndex !== undefined && bid.proposalIndex !== null) {
+            setStep('approving')
+            const multisigPda = new PublicKey(bid.multisigAddress)
+            const txIndex = BigInt(bid.proposalIndex)
+
+            const executeSig = await approveAndExecuteWA(
+              connection,
+              { publicKey, signTransaction },
+              multisigPda,
+              txIndex
+            )
+
+            await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/approve-payment`, {
+              method: 'POST',
+              body: JSON.stringify({
+                approveTxSignature: executeSig,
+                executeTxSignature: executeSig,
+              }),
+            })
+          }
+        }
+
+        onWinnerSelected?.()
+      }
     } catch (e: any) {
       console.error('Select winner failed:', e)
+      // For competition, if accept succeeded but payment failed, show retry
+      if (isCompetition && step === 'paying') {
+        setPaymentError(e.message || 'Payment failed')
+        setRetryBidId(bid.id)
+      }
+      onWinnerSelected?.()
+    } finally {
+      setSelectingBidId(null)
+      setStep('idle')
+    }
+  }
+
+  /** Attempt to pay the winner from the task vault (competition mode) */
+  const payWinner = async (bid: SubmissionBid) => {
+    if (!publicKey || !signTransaction || !taskMultisigAddress || !PLATFORM_WALLET) return
+
+    setStep('paying')
+    const multisigPda = new PublicKey(taskMultisigAddress)
+    const winnerWallet = new PublicKey(bid.bidderWallet)
+    const lamports = Number(bid.amountLamports)
+
+    const { signature } = await createProposalApproveExecuteWA(
+      connection,
+      { publicKey, signTransaction },
+      multisigPda,
+      winnerWallet,
+      lamports,
+      new PublicKey(PLATFORM_WALLET),
+      `slopwork-payout-${taskId}`,
+    )
+
+    // Record payment on API
+    const payRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/approve-payment`, {
+      method: 'POST',
+      body: JSON.stringify({ paymentTxSignature: signature }),
+    })
+    const payData = await payRes.json()
+    if (!payData.success) throw new Error(payData.message)
+
+    setPaymentError(null)
+    setRetryBidId(null)
+    onWinnerSelected?.()
+  }
+
+  const handleRetryPayment = async (bid: SubmissionBid) => {
+    if (!publicKey || !signTransaction) return
+    setSelectingBidId(bid.id)
+    setPaymentError(null)
+    try {
+      await payWinner(bid)
+    } catch (e: any) {
+      console.error('Retry payment failed:', e)
+      setPaymentError(e.message || 'Payment failed')
+      setRetryBidId(bid.id)
       onWinnerSelected?.()
     } finally {
       setSelectingBidId(null)
@@ -149,6 +221,7 @@ export default function SubmissionList({
     if (step === 'accepting') return 'Accepting...'
     if (step === 'funding') return 'Funding vault...'
     if (step === 'approving') return 'Approving payment...'
+    if (step === 'paying') return 'Processing payment...'
     return 'Processing...'
   }
 
@@ -156,6 +229,7 @@ export default function SubmissionList({
     <div className="space-y-4">
       {submissions.map((sub) => {
         const canSelect = isCompetition && isCreator && taskStatus === 'OPEN' && sub.bid && sub.bid.status === 'PENDING'
+        const canRetry = isCompetition && isCreator && retryBidId === sub.bid?.id && paymentError
 
         return (
           <div
@@ -221,6 +295,24 @@ export default function SubmissionList({
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Payment error + retry for competition */}
+            {canRetry && sub.bid && (
+              <div className="mb-3 space-y-2">
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                  Payment failed: {paymentError}
+                </div>
+                <button
+                  onClick={() => handleRetryPayment(sub.bid!)}
+                  disabled={selectingBidId !== null}
+                  className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {selectingBidId === sub.bid.id
+                    ? getButtonText(sub.bid.id)
+                    : `Retry Payment (${formatSol(sub.bid.amountLamports)})`}
+                </button>
               </div>
             )}
 

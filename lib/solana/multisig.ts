@@ -742,3 +742,264 @@ export async function approveAndExecuteWA(
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
   return sig
 }
+
+// ──────────────────────────────────────────────
+// Competition-specific functions
+// ──────────────────────────────────────────────
+
+/**
+ * WalletAdapter: Create a 1/1 multisig vault (creator only) and fund it with SOL — all in one transaction.
+ * Used when a competition task is created so the budget is locked in the vault upfront.
+ */
+export async function createMultisigVaultAndFundWA(
+  connection: Connection,
+  wallet: WalletSigner,
+  budgetLamports: number,
+): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
+  const createKey = Keypair.generate()
+  const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
+  const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
+
+  const programConfigPda = getProgramConfigPda()
+  const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
+
+  // 1. Create 1/1 multisig with creator as sole member
+  const createMultisigIx = multisig.instructions.multisigCreateV2({
+    createKey: createKey.publicKey,
+    creator: wallet.publicKey,
+    multisigPda,
+    configAuthority: null,
+    timeLock: 0,
+    members: [{ key: wallet.publicKey, permissions: Permissions.all() }],
+    threshold: 1,
+    treasury: programConfig.treasury,
+    rentCollector: null,
+  })
+
+  // 2. Fund the vault with the budget
+  const fundIx = SystemProgram.transfer({
+    fromPubkey: wallet.publicKey,
+    toPubkey: vaultPda,
+    lamports: budgetLamports,
+  })
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  const tx = new Transaction()
+  tx.recentBlockhash = blockhash
+  tx.feePayer = wallet.publicKey
+  tx.add(createMultisigIx, fundIx)
+
+  const signedTx = await wallet.signTransaction(tx)
+  signedTx.partialSign(createKey)
+
+  const signature = await connection.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { multisigPda, vaultPda, signature }
+}
+
+/**
+ * Keypair: Create a 1/1 multisig vault (creator only) and fund it with SOL — all in one transaction.
+ * Used by CLI scripts when creating competition tasks.
+ */
+export async function createMultisigVaultAndFund(
+  connection: Connection,
+  creator: Keypair,
+  budgetLamports: number,
+): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
+  const createKey = Keypair.generate()
+  const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
+  const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
+
+  const programConfigPda = getProgramConfigPda()
+  const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
+
+  const createMultisigIx = multisig.instructions.multisigCreateV2({
+    createKey: createKey.publicKey,
+    creator: creator.publicKey,
+    multisigPda,
+    configAuthority: null,
+    timeLock: 0,
+    members: [{ key: creator.publicKey, permissions: Permissions.all() }],
+    threshold: 1,
+    treasury: programConfig.treasury,
+    rentCollector: null,
+  })
+
+  const fundIx = SystemProgram.transfer({
+    fromPubkey: creator.publicKey,
+    toPubkey: vaultPda,
+    lamports: budgetLamports,
+  })
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  const transaction = new Transaction()
+  transaction.recentBlockhash = blockhash
+  transaction.feePayer = creator.publicKey
+  transaction.add(createMultisigIx, fundIx)
+  transaction.sign(creator, createKey)
+
+  const signature = await connection.sendRawTransaction(transaction.serialize(), { maxRetries: 5 })
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { multisigPda, vaultPda, signature }
+}
+
+/**
+ * WalletAdapter: Create proposal + approve + execute in one transaction for a 1/1 competition multisig.
+ * Pays out 90% to the winner and 10% to the platform wallet.
+ */
+export async function createProposalApproveExecuteWA(
+  connection: Connection,
+  wallet: WalletSigner,
+  multisigPda: PublicKey,
+  recipient: PublicKey,
+  totalLamports: number,
+  platformWallet: PublicKey,
+  memo?: string,
+): Promise<{ transactionIndex: bigint; signature: string }> {
+  const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
+  const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
+  const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
+
+  const { recipientAmount, platformAmount } = splitPayment(totalLamports, platformWallet)
+
+  const transferInstructions = [
+    SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
+  ]
+  if (platformAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+
+  const transferMessage = new TransactionMessage({
+    payerKey: vaultPda,
+    recentBlockhash: blockhash,
+    instructions: transferInstructions,
+  })
+
+  // 1. Create vault transaction
+  const createVaultTxIx = multisig.instructions.vaultTransactionCreate({
+    multisigPda,
+    transactionIndex,
+    creator: wallet.publicKey,
+    vaultIndex: 0,
+    ephemeralSigners: 0,
+    transactionMessage: transferMessage,
+    memo,
+  })
+
+  // 2. Create proposal
+  const createProposalIx = multisig.instructions.proposalCreate({
+    multisigPda,
+    transactionIndex,
+    creator: wallet.publicKey,
+  })
+
+  // 3. Approve (meets 1/1 threshold)
+  const approveIx = multisig.instructions.proposalApprove({
+    multisigPda,
+    transactionIndex,
+    member: wallet.publicKey,
+  })
+
+  // 4. Execute
+  const executeResult = await multisig.instructions.vaultTransactionExecute({
+    connection,
+    multisigPda,
+    transactionIndex,
+    member: wallet.publicKey,
+  })
+
+  // Bundle all into one transaction
+  const tx = new Transaction()
+  tx.recentBlockhash = blockhash
+  tx.feePayer = wallet.publicKey
+  tx.add(createVaultTxIx, createProposalIx, approveIx, executeResult.instruction)
+
+  const signedTx = await wallet.signTransaction(tx)
+  const sig = await connection.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { transactionIndex, signature: sig }
+}
+
+/**
+ * Keypair: Create proposal + approve + execute in one transaction for a 1/1 competition multisig.
+ * Pays out 90% to the winner and 10% to the platform wallet.
+ */
+export async function createProposalApproveExecute(
+  connection: Connection,
+  creator: Keypair,
+  multisigPda: PublicKey,
+  recipient: PublicKey,
+  totalLamports: number,
+  platformWallet: PublicKey,
+  memo?: string,
+): Promise<{ transactionIndex: bigint; signature: string }> {
+  const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
+  const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
+  const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
+
+  const { recipientAmount, platformAmount } = splitPayment(totalLamports, platformWallet)
+
+  const transferInstructions = [
+    SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
+  ]
+  if (platformAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+
+  const transferMessage = new TransactionMessage({
+    payerKey: vaultPda,
+    recentBlockhash: blockhash,
+    instructions: transferInstructions,
+  })
+
+  const createVaultTxIx = multisig.instructions.vaultTransactionCreate({
+    multisigPda,
+    transactionIndex,
+    creator: creator.publicKey,
+    vaultIndex: 0,
+    ephemeralSigners: 0,
+    transactionMessage: transferMessage,
+    memo,
+  })
+
+  const createProposalIx = multisig.instructions.proposalCreate({
+    multisigPda,
+    transactionIndex,
+    creator: creator.publicKey,
+  })
+
+  const approveIx = multisig.instructions.proposalApprove({
+    multisigPda,
+    transactionIndex,
+    member: creator.publicKey,
+  })
+
+  const executeResult = await multisig.instructions.vaultTransactionExecute({
+    connection,
+    multisigPda,
+    transactionIndex,
+    member: creator.publicKey,
+  })
+
+  const transaction = new Transaction()
+  transaction.recentBlockhash = blockhash
+  transaction.feePayer = creator.publicKey
+  transaction.add(createVaultTxIx, createProposalIx, approveIx, executeResult.instruction)
+  transaction.sign(creator)
+
+  const signature = await connection.sendRawTransaction(transaction.serialize(), { maxRetries: 5 })
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { transactionIndex, signature }
+}

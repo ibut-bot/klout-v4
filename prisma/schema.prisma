@@ -112,6 +112,8 @@ model Task {
   taskType            TaskType   @default(QUOTE)
   status              TaskStatus @default(OPEN)
   paymentTxSignature  String     @unique
+  multisigAddress     String?
+  vaultAddress        String?
   winningBidId        String?    @unique
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt

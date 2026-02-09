@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Submit a competition entry (combined bid + deliverables + escrow) in one step.
+ * Submit a competition entry (bid + deliverables) — no on-chain transaction required.
  *
- * This creates the escrow vault and payment proposal in a single on-chain transaction,
- * then submits the bid + deliverables to the API atomically.
+ * The competition creator has already funded the escrow vault when creating the task.
+ * Participants just submit their work description and optional file attachments.
  *
  * Usage:
  *   npm run skill:compete -- --task "task-uuid" --amount 0.3 --description "Here is my work" --password "pass"
@@ -17,11 +17,9 @@
  *   --file          Optional file to upload as attachment
  */
 
-import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
-import { getConnection } from './lib/rpc'
-import { apiRequest, parseArgs, getPublicConfig, uploadFile } from './lib/api-client'
-import { createMultisigVaultAndProposal, getAllPermissions } from '../lib/solana/multisig'
+import { apiRequest, parseArgs, uploadFile } from './lib/api-client'
 
 async function main() {
   const args = parseArgs()
@@ -52,11 +50,10 @@ async function main() {
 
   try {
     const keypair = getKeypair(args.password)
-    const connection = getConnection()
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
     const amountLamports = Math.round(amountSol * LAMPORTS_PER_SOL)
 
-    // Fetch task details
+    // Fetch task details to verify it's a competition
     const taskRes = await fetch(`${base}/api/tasks/${args.task}`)
     const taskData = await taskRes.json()
     if (!taskData.success) {
@@ -92,51 +89,15 @@ async function main() {
       }
     }
 
-    // Get platform config
-    const config = await getPublicConfig()
-    const arbiterAddr = config.arbiterWalletAddress
-    if (!arbiterAddr) {
-      console.log(JSON.stringify({
-        success: false,
-        error: 'NO_PLATFORM_WALLET',
-        message: 'Server config does not include arbiterWalletAddress',
-      }))
-      process.exit(1)
-    }
-
-    // Create vault + payment proposal in one transaction
-    console.error('Creating escrow vault & payment proposal (single transaction)...')
-    const members = [
-      { publicKey: keypair.publicKey, permissions: getAllPermissions() },
-      { publicKey: new PublicKey(task.creatorWallet), permissions: getAllPermissions() },
-      { publicKey: new PublicKey(arbiterAddr), permissions: getAllPermissions() },
-    ]
-
-    const result = await createMultisigVaultAndProposal(
-      connection, keypair, members, 2,
-      keypair.publicKey, amountLamports,
-      `slopwork-task-${args.task}`,
-      new PublicKey(arbiterAddr)
-    )
-
-    // Submit combined bid + deliverables to API
+    // Submit competition entry — no on-chain transaction needed
     console.error('Submitting competition entry...')
     const apiResult = await apiRequest(keypair, 'POST', `/api/tasks/${args.task}/compete`, {
       amountLamports,
       description: args.description,
       attachments: attachments.length > 0 ? attachments : undefined,
-      multisigAddress: result.multisigPda.toBase58(),
-      vaultAddress: result.vaultPda.toBase58(),
-      proposalIndex: Number(result.transactionIndex),
-      txSignature: result.signature,
     })
 
-    console.log(JSON.stringify({
-      ...apiResult,
-      multisigAddress: result.multisigPda.toBase58(),
-      vaultAddress: result.vaultPda.toBase58(),
-      proposalIndex: Number(result.transactionIndex),
-    }))
+    console.log(JSON.stringify(apiResult))
   } catch (e: any) {
     console.log(JSON.stringify({
       success: false,

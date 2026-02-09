@@ -46,18 +46,12 @@ export async function POST(
 
   const isCompetition = task.taskType === 'COMPETITION'
 
-  // For competition tasks, a submission with vault details must exist
+  // For competition tasks, a submission must exist
   if (isCompetition) {
     const submission = await prisma.submission.findFirst({ where: { bidId } })
     if (!submission) {
       return Response.json(
         { success: false, error: 'NO_SUBMISSION', message: 'Competition tasks require a submission before the bid can be accepted' },
-        { status: 400 }
-      )
-    }
-    if (!bid.multisigAddress || !bid.vaultAddress) {
-      return Response.json(
-        { success: false, error: 'MISSING_VAULT', message: 'This bid does not have escrow vault details. The bidder must submit deliverables with vault info first.' },
         { status: 400 }
       )
     }

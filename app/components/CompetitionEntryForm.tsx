@@ -1,34 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
-import { createMultisigVaultAndProposalWA, getAllPermissions } from '@/lib/solana/multisig'
-
-const ARBITER_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
 
 interface CompetitionEntryFormProps {
   taskId: string
-  creatorWallet: string
   budgetLamports: string
   onEntrySubmitted?: () => void
 }
 
 export default function CompetitionEntryForm({
   taskId,
-  creatorWallet,
   budgetLamports,
   onEntrySubmitted,
 }: CompetitionEntryFormProps) {
   const { authFetch, isAuthenticated } = useAuth()
-  const { connection } = useConnection()
-  const wallet = useWallet()
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'form' | 'uploading' | 'escrow' | 'submitting'>('form')
+  const [step, setStep] = useState<'form' | 'uploading' | 'submitting'>('form')
   const [error, setError] = useState('')
 
   const maxBudgetSol = Number(budgetLamports) / LAMPORTS_PER_SOL
@@ -45,7 +37,7 @@ export default function CompetitionEntryForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isAuthenticated || !wallet.publicKey || !wallet.signTransaction) return
+    if (!isAuthenticated) return
     setError('')
     setLoading(true)
 
@@ -54,9 +46,7 @@ export default function CompetitionEntryForm({
       if (isNaN(amountLamports) || amountLamports <= 0) throw new Error('Invalid amount')
       if (amountLamports > Number(budgetLamports)) throw new Error(`Amount exceeds task budget of ${maxBudgetSol} SOL`)
 
-      if (!ARBITER_WALLET) throw new Error('Arbiter wallet not configured')
-
-      // Step 1: Upload files
+      // Step 1: Upload files (optional)
       let attachments: any[] = []
       if (files.length > 0) {
         setStep('uploading')
@@ -80,26 +70,7 @@ export default function CompetitionEntryForm({
         }
       }
 
-      // Step 2: Create vault + payment proposal in one transaction
-      setStep('escrow')
-      const members = [
-        { publicKey: wallet.publicKey, permissions: getAllPermissions() },
-        { publicKey: new PublicKey(creatorWallet), permissions: getAllPermissions() },
-        { publicKey: new PublicKey(ARBITER_WALLET), permissions: getAllPermissions() },
-      ]
-
-      const result = await createMultisigVaultAndProposalWA(
-        connection,
-        { publicKey: wallet.publicKey, signTransaction: wallet.signTransaction },
-        members,
-        2,
-        wallet.publicKey,
-        amountLamports,
-        `slopwork-task-${taskId}`,
-        new PublicKey(ARBITER_WALLET)
-      )
-
-      // Step 3: Submit to API (combined bid + submission)
+      // Step 2: Submit to API (no on-chain transaction needed)
       setStep('submitting')
       const res = await authFetch(`/api/tasks/${taskId}/compete`, {
         method: 'POST',
@@ -107,10 +78,6 @@ export default function CompetitionEntryForm({
           amountLamports,
           description,
           attachments: attachments.length > 0 ? attachments : undefined,
-          multisigAddress: result.multisigPda.toBase58(),
-          vaultAddress: result.vaultPda.toBase58(),
-          proposalIndex: Number(result.transactionIndex),
-          txSignature: result.signature,
         }),
       })
       const data = await res.json()
@@ -131,7 +98,6 @@ export default function CompetitionEntryForm({
 
   const stepLabels: Record<string, string> = {
     uploading: 'Uploading files...',
-    escrow: 'Creating escrow vault & payment proposal...',
     submitting: 'Submitting entry...',
   }
 
@@ -139,7 +105,7 @@ export default function CompetitionEntryForm({
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
       <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submit Competition Entry</h3>
       <p className="text-xs text-zinc-500">
-        Complete the work and submit your entry. This creates an escrow vault with a payment proposal in a single transaction.
+        Complete the work and submit your entry. No on-chain transaction required — submitting is free.
         The task creator will review all entries and pick a winner.
       </p>
 

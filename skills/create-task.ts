@@ -20,6 +20,7 @@ import { PublicKey } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
 import { apiRequest, parseArgs, getPublicConfig } from './lib/api-client'
+import { createMultisigVaultAndFund } from '../lib/solana/multisig'
 
 async function main() {
   const args = parseArgs()
@@ -71,32 +72,6 @@ async function main() {
       return
     }
 
-    // Pay the task posting fee
-    if (!SYSTEM_WALLET) {
-      console.log(JSON.stringify({
-        success: false,
-        error: 'NO_SYSTEM_WALLET',
-        message: 'SYSTEM_WALLET_ADDRESS not available from server config or local environment',
-      }))
-      process.exit(1)
-    }
-
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-    const tx = new Transaction()
-    tx.recentBlockhash = blockhash
-    tx.feePayer = keypair.publicKey
-    tx.add(
-      SystemProgram.transfer({
-        fromPubkey: keypair.publicKey,
-        toPubkey: new PublicKey(SYSTEM_WALLET),
-        lamports: TASK_FEE_LAMPORTS,
-      })
-    )
-    tx.sign(keypair)
-
-    const signature = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
-    await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
-
     // Resolve task type
     const taskType = (args.type || 'quote').toUpperCase()
     if (!['QUOTE', 'COMPETITION'].includes(taskType)) {
@@ -108,6 +83,46 @@ async function main() {
       process.exit(1)
     }
 
+    let signature: string
+    let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
+
+    if (taskType === 'COMPETITION') {
+      // Competition: create 1/1 multisig vault and fund it with budget
+      console.error('Creating escrow vault and funding with budget...')
+      const result = await createMultisigVaultAndFund(connection, keypair, budgetLamports)
+      signature = result.signature
+      vaultDetails = {
+        multisigAddress: result.multisigPda.toBase58(),
+        vaultAddress: result.vaultPda.toBase58(),
+      }
+    } else {
+      // Quote: pay the task posting fee
+      if (!SYSTEM_WALLET) {
+        console.log(JSON.stringify({
+          success: false,
+          error: 'NO_SYSTEM_WALLET',
+          message: 'SYSTEM_WALLET_ADDRESS not available from server config or local environment',
+        }))
+        process.exit(1)
+      }
+
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+      const tx = new Transaction()
+      tx.recentBlockhash = blockhash
+      tx.feePayer = keypair.publicKey
+      tx.add(
+        SystemProgram.transfer({
+          fromPubkey: keypair.publicKey,
+          toPubkey: new PublicKey(SYSTEM_WALLET),
+          lamports: TASK_FEE_LAMPORTS,
+        })
+      )
+      tx.sign(keypair)
+
+      signature = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+    }
+
     // Create task via API
     const result = await apiRequest(keypair, 'POST', '/api/tasks', {
       title: args.title,
@@ -115,6 +130,7 @@ async function main() {
       budgetLamports,
       taskType,
       paymentTxSignature: signature,
+      ...vaultDetails,
     })
 
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
