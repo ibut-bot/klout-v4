@@ -71,7 +71,7 @@ export default function TasksPage() {
               status: b.task.status,
               creatorWallet: b.task.creatorWallet,
               creatorProfilePic: b.task.creatorProfilePic,
-              bidCount: 0, // Not available in this view
+              bidCount: b.task.bidCount ?? 0,
               createdAt: b.createdAt,
               // Add bid info for display
               _bidInfo: {

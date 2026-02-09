@@ -4,18 +4,46 @@ import Link from 'next/link'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../hooks/useAuth'
+import { useNotifications, type Notification } from '../hooks/useNotifications'
 
 const WalletMultiButton = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
   { ssr: false }
 )
 
+function timeAgo(dateStr: string) {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+const NOTIF_ICONS: Record<string, string> = {
+  NEW_BID: '💰',
+  BID_ACCEPTED: '✅',
+  BID_REJECTED: '❌',
+  ESCROW_FUNDED: '🔒',
+  PAYMENT_REQUESTED: '📝',
+  PAYMENT_APPROVED: '💸',
+  NEW_MESSAGE: '💬',
+  DISPUTE_RAISED: '⚠️',
+  DISPUTE_RESOLVED: '⚖️',
+}
+
 export default function Navbar() {
   const { isAuthenticated, connected, loading, wallet, authFetch } = useAuth()
+  const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications()
+  const router = useRouter()
   const [profilePic, setProfilePic] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [editingUsername, setEditingUsername] = useState(false)
   const [usernameInput, setUsernameInput] = useState('')
@@ -23,6 +51,7 @@ export default function Navbar() {
   const [savingUsername, setSavingUsername] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
 
   // Fetch profile info when authenticated
   useEffect(() => {
@@ -42,16 +71,25 @@ export default function Navbar() {
     }
   }, [isAuthenticated, authFetch])
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false)
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.read) markAsRead([n.id])
+    setShowNotifications(false)
+    router.push(n.linkUrl)
+  }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -176,9 +214,70 @@ export default function Navbar() {
             <span className="text-sm text-zinc-500">Signing in...</span>
           )}
           {isAuthenticated && (
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false) }}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white transition hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-zinc-600 dark:text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 top-11 z-50 w-80 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                  <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5 dark:border-zinc-800">
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notifications</span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                            !n.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
+                          }`}
+                        >
+                          <span className="mt-0.5 text-base leading-none">{NOTIF_ICONS[n.type] || '🔔'}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm ${!n.read ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'font-medium text-zinc-700 dark:text-zinc-300'}`}>
+                                {n.title}
+                              </span>
+                              {!n.read && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{n.body}</p>
+                            <p className="mt-1 text-[10px] text-zinc-400 dark:text-zinc-500">{timeAgo(n.createdAt)}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {isAuthenticated && (
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setShowDropdown(!showDropdown)}
+                onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false) }}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white transition hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
               >
                 {profilePic ? (

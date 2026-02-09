@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import { createNotification } from '@/lib/notifications'
 
 /** GET /api/tasks/:id/bids -- list bids for a task */
 export async function GET(
@@ -149,6 +150,16 @@ export async function POST(
       multisigAddress: multisigAddress || null,
       vaultAddress: vaultAddress || null,
     },
+  })
+
+  // Notify task creator about the new bid
+  const solAmount = (Number(parsedLamports) / 1e9).toFixed(4)
+  createNotification({
+    userId: task.creatorId,
+    type: 'NEW_BID',
+    title: 'New bid on your task',
+    body: `Someone bid ${solAmount} SOL on "${task.title}"`,
+    linkUrl: `/tasks/${id}`,
   })
 
   return Response.json({

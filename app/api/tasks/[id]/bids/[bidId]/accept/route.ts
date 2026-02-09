@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
+import { createNotification } from '@/lib/notifications'
 
 /** POST /api/tasks/:id/bids/:bidId/accept -- accept a bid (task creator only) */
 export async function POST(
@@ -43,6 +44,12 @@ export async function POST(
     )
   }
 
+  // Get all pending bids so we can notify rejected bidders
+  const pendingBids = await prisma.bid.findMany({
+    where: { taskId: id, status: 'PENDING', id: { not: bidId } },
+    select: { bidderId: true },
+  })
+
   await prisma.$transaction([
     // Accept this bid
     prisma.bid.update({ where: { id: bidId }, data: { status: 'ACCEPTED' } }),
@@ -57,6 +64,26 @@ export async function POST(
       data: { status: 'IN_PROGRESS', winningBidId: bidId },
     }),
   ])
+
+  // Notify winning bidder
+  createNotification({
+    userId: bid.bidderId,
+    type: 'BID_ACCEPTED',
+    title: 'Your bid was accepted!',
+    body: `Your bid on "${task.title}" has been accepted`,
+    linkUrl: `/tasks/${id}`,
+  })
+
+  // Notify rejected bidders
+  for (const rejected of pendingBids) {
+    createNotification({
+      userId: rejected.bidderId,
+      type: 'BID_REJECTED',
+      title: 'Bid not selected',
+      body: `Another bid was selected for "${task.title}"`,
+      linkUrl: `/tasks/${id}`,
+    })
+  }
 
   return Response.json({
     success: true,

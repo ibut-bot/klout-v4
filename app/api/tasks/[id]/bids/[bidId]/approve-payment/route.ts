@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
+import { createNotification } from '@/lib/notifications'
 
 /** POST /api/tasks/:id/bids/:bidId/approve-payment
  *  Task creator records that they approved + executed the on-chain vault tx.
@@ -101,6 +102,15 @@ export async function POST(
       data: { status: 'COMPLETED' },
     }),
   ])
+
+  // Notify bidder that payment has been approved
+  createNotification({
+    userId: task.winningBid.bidderId,
+    type: 'PAYMENT_APPROVED',
+    title: 'Payment approved!',
+    body: `Payment for "${task.title}" has been approved and executed`,
+    linkUrl: `/tasks/${id}`,
+  })
 
   return Response.json({
     success: true,

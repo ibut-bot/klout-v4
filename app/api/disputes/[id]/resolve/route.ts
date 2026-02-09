@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
+import { createNotification } from '@/lib/notifications'
 
 const ARBITER_WALLET = process.env.ARBITER_WALLET_ADDRESS
 
@@ -166,6 +167,31 @@ export async function POST(
     }
 
     return updatedDispute
+  })
+
+  // Notify both parties about the resolution
+  const taskTitle = dispute.bid.task.title
+  const taskId = dispute.bid.task.id
+  const resolutionBody = decision === 'ACCEPT'
+    ? `The dispute on "${taskTitle}" was accepted. Funds have been released.`
+    : `The dispute on "${taskTitle}" was denied.`
+
+  // Notify task creator
+  createNotification({
+    userId: dispute.bid.task.creatorId,
+    type: 'DISPUTE_RESOLVED',
+    title: 'Dispute resolved',
+    body: resolutionBody,
+    linkUrl: `/tasks/${taskId}`,
+  })
+
+  // Notify bidder
+  createNotification({
+    userId: dispute.bid.bidderId,
+    type: 'DISPUTE_RESOLVED',
+    title: 'Dispute resolved',
+    body: resolutionBody,
+    linkUrl: `/tasks/${taskId}`,
   })
 
   return Response.json({

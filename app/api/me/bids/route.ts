@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         task: {
           include: {
             creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
+            _count: { select: { bids: true } },
           },
         },
       },
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
         creatorUsername: b.task.creator.username,
         creatorProfilePic: b.task.creator.profilePicUrl,
         url: `${APP_URL}/tasks/${b.task.id}`,
+        bidCount: b.task._count.bids,
       },
       isWinningBid: b.task.winningBidId === b.id,
     })),

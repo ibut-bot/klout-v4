@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import { createNotification } from '@/lib/notifications'
 
 /** GET /api/tasks/:id/messages -- get messages for a private conversation on a task
  * 
@@ -308,6 +309,15 @@ export async function POST(
       content: hasContent ? content.trim() : '',
       attachments: hasAttachments ? attachments : undefined,
     },
+  })
+
+  // Notify the recipient about the new message
+  createNotification({
+    userId: actualRecipientId,
+    type: 'NEW_MESSAGE',
+    title: 'New message',
+    body: hasContent ? content.trim().slice(0, 100) : 'Sent an attachment',
+    linkUrl: `/tasks/${id}`,
   })
 
   return Response.json({

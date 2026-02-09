@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
+import { createNotification } from '@/lib/notifications'
 
 const PLATFORM_WALLET = process.env.ARBITER_WALLET_ADDRESS
 
@@ -154,6 +155,16 @@ export async function POST(
     })
 
     return newDispute
+  })
+
+  // Notify the other party about the dispute
+  const otherPartyId = isCreator ? task.winningBid!.bidderId : task.creatorId
+  createNotification({
+    userId: otherPartyId,
+    type: 'DISPUTE_RAISED',
+    title: 'Dispute raised',
+    body: `A dispute has been raised on "${task.title}"`,
+    linkUrl: `/tasks/${id}`,
   })
 
   return Response.json({

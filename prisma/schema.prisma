@@ -49,6 +49,20 @@ enum DisputeRaisedBy {
   @@schema("slopwork")
 }
 
+enum NotificationType {
+  NEW_BID
+  BID_ACCEPTED
+  BID_REJECTED
+  ESCROW_FUNDED
+  PAYMENT_REQUESTED
+  PAYMENT_APPROVED
+  NEW_MESSAGE
+  DISPUTE_RAISED
+  DISPUTE_RESOLVED
+
+  @@schema("slopwork")
+}
+
 // --- Models ---
 
 model User {
@@ -59,10 +73,11 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tasks             Task[]    @relation("TaskCreator")
-  bids              Bid[]     @relation("Bidder")
-  sentMessages      Message[] @relation("MessageSender")
-  receivedMessages  Message[] @relation("MessageRecipient")
+  tasks             Task[]          @relation("TaskCreator")
+  bids              Bid[]           @relation("Bidder")
+  sentMessages      Message[]       @relation("MessageSender")
+  receivedMessages  Message[]       @relation("MessageRecipient")
+  notifications     Notification[]  @relation("UserNotifications")
   @@index([walletAddress])
   @@index([username])
   @@schema("slopwork")
@@ -175,5 +190,21 @@ model Dispute {
   @@index([bidId])
   @@index([status])
   @@index([createdAt])
+  @@schema("slopwork")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  linkUrl   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation("UserNotifications", fields: [userId], references: [id])
+
+  @@index([userId, read, createdAt])
   @@schema("slopwork")
 }

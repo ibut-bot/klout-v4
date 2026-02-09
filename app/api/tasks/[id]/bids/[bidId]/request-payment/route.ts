@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
+import { createNotification } from '@/lib/notifications'
 
 /** POST /api/tasks/:id/bids/:bidId/request-payment
  *  Bidder records on-chain proposal after creating it client-side.
@@ -113,6 +114,15 @@ export async function POST(
       status: 'PAYMENT_REQUESTED',
       proposalIndex: Number(proposalIndex),
     },
+  })
+
+  // Notify task creator that payment has been requested
+  createNotification({
+    userId: task.creatorId,
+    type: 'PAYMENT_REQUESTED',
+    title: 'Payment requested',
+    body: `The bidder on "${task.title}" is requesting payment approval`,
+    linkUrl: `/tasks/${id}`,
   })
 
   return Response.json({

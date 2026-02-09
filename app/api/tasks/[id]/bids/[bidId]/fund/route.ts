@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { verifyFundingTx } from '@/lib/solana/verify-tx'
+import { createNotification } from '@/lib/notifications'
 
 /** POST /api/tasks/:id/bids/:bidId/fund -- record vault funding */
 export async function POST(
@@ -86,6 +87,15 @@ export async function POST(
   await prisma.bid.update({
     where: { id: bidId },
     data: { status: 'FUNDED', fundingTxSig: fundingTxSignature },
+  })
+
+  // Notify bidder that escrow has been funded
+  createNotification({
+    userId: bid.bidderId,
+    type: 'ESCROW_FUNDED',
+    title: 'Escrow funded',
+    body: `The escrow for "${task.title}" has been funded. You can start working!`,
+    linkUrl: `/tasks/${id}`,
   })
 
   return Response.json({
