@@ -314,7 +314,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {/* Pinned content (e.g. selected submission) */}
-        {pinnedContent && selectedBidderId && (
+        {pinnedContent && (isCreator ? selectedBidderId : true) && (
           <div className="mb-3">
             {pinnedContent}
           </div>
@@ -326,7 +326,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
               : 'No entries yet. Submissions will appear when participants enter.'}
           </p>
         )}
-        {(!isCreator || selectedBidderId) && messages.length === 0 && !pinnedContent && (
+        {(isCreator ? selectedBidderId : true) && messages.length === 0 && !pinnedContent && (
           <p className="text-center text-sm text-zinc-400">No messages yet.</p>
         )}
         {messages.map((msg) => {

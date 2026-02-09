@@ -311,21 +311,30 @@ export default function TaskDetailPage() {
 
       {/* Competition mode: Narrow sidebar (entries) + Chat with pinned submission */}
       {isCompetition && (() => {
-        // Find the submission for the currently selected bidder
-        const selectedBid = bids.find(b => b.bidderId === selectedBidderId)
-        const selectedSub = selectedBid ? submissions.find(s => s.bidId === selectedBid.id) : null
-        const canSelectWinner = isCreator && task.status === 'OPEN' && selectedBid?.status === 'PENDING'
+        // For bidders, always show their own submission; for creators, show selected bidder's submission
+        const displayBid = isCreator 
+          ? bids.find(b => b.bidderId === selectedBidderId)
+          : myBid
+        const displaySub = displayBid 
+          ? submissions.find(s => s.bidId === displayBid.id) 
+          : null
+        const canSelectWinner = isCreator && task.status === 'OPEN' && displayBid?.status === 'PENDING'
+
+        // Filter submissions: creators see all, bidders only see their own
+        const visibleSubmissions = isCreator 
+          ? submissions 
+          : submissions.filter(s => s.bidId === myBid?.id)
 
         // Build pinned content for the chat panel
-        const pinnedContent = selectedSub ? (
+        const pinnedContent = displaySub ? (
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
             <p className="mb-2 text-xs font-medium text-zinc-500">Submission</p>
             <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-              {selectedSub.description}
+              {displaySub.description}
             </p>
-            {selectedSub.attachments && selectedSub.attachments.length > 0 && (
+            {displaySub.attachments && displaySub.attachments.length > 0 && (
               <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {(selectedSub.attachments as any[]).map((att: any, i: number) =>
+                {(displaySub.attachments as any[]).map((att: any, i: number) =>
                   att.contentType?.startsWith('video/') ? (
                     <div key={i} className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -352,9 +361,9 @@ export default function TaskDetailPage() {
                 )}
               </div>
             )}
-            {canSelectWinner && selectedBid && (
+            {canSelectWinner && displayBid && (
               <SelectWinnerButton
-                bid={selectedBid as WinnerBid}
+                bid={displayBid as WinnerBid}
                 taskId={task.id}
                 taskType={task.taskType}
                 taskMultisigAddress={task.multisigAddress}
@@ -365,14 +374,15 @@ export default function TaskDetailPage() {
         ) : null
 
         return (
-          <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
-            {/* Narrow sidebar: entry list */}
+          <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[180px_1fr]' : ''}`}>
+            {/* Narrow sidebar: entry list - only shown to creator */}
+            {isCreator && (
             <div>
               <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                Entries ({submissions.length})
+                Entries ({visibleSubmissions.length})
               </h2>
               <div className="max-h-[560px] space-y-1 overflow-y-auto">
-                {submissions.map((sub) => {
+                {visibleSubmissions.map((sub) => {
                   const bid = sub.bid
                   if (!bid) return null
                   const isActive = bid.bidderId === selectedBidderId
@@ -413,11 +423,12 @@ export default function TaskDetailPage() {
                     </button>
                   )
                 })}
-                {submissions.length === 0 && (
+                {visibleSubmissions.length === 0 && (
                   <p className="px-3 py-4 text-center text-xs text-zinc-400">No entries yet.</p>
                 )}
               </div>
             </div>
+            )}
 
             {/* Chat panel with pinned submission */}
             {isAuthenticated && (isCreator || isBidder) ? (
