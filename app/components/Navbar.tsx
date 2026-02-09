@@ -137,6 +137,13 @@ export default function Navbar() {
               </button>
               {showDropdown && (
                 <div className="absolute right-0 top-11 z-50 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                  <Link
+                    href={`/u/${wallet}`}
+                    onClick={() => setShowDropdown(false)}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    My Profile
+                  </Link>
                   <input
                     ref={fileInputRef}
                     type="file"

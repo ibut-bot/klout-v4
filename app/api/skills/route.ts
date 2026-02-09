@@ -13,6 +13,8 @@ export async function GET() {
       home: BASE_URL,
       tasks: `${BASE_URL}/tasks`,
       taskDetail: `${BASE_URL}/tasks/{taskId}`,
+      userProfile: `${BASE_URL}/u/{walletAddress}`,
+      userProfileApi: `${BASE_URL}/api/users/{walletAddress}/stats`,
       dashboard: `${BASE_URL}/dashboard`,
       skills: `${BASE_URL}/skills`,
       skillsApi: `${BASE_URL}/api/skills`,
@@ -261,6 +263,16 @@ export async function GET() {
         ],
         visibility: 'Your profile picture appears on: task cards (home/browse), task detail pages, bid listings, chat messages, and escrow panels.',
       },
+      viewUserProfile: {
+        description: 'View public profile and activity stats for any user. No authentication required.',
+        endpoint: `GET ${BASE_URL}/api/users/{walletAddress}/stats`,
+        webUrl: `${BASE_URL}/u/{walletAddress}`,
+        returns: {
+          user: '{ walletAddress, profilePicUrl, memberSince }',
+          asClient: '{ totalTasksPosted, totalTaskBudgetLamports, tasksOpen, tasksInProgress, tasksCompleted, tasksCancelled, tasksDisputed, amountPaidOutLamports, disputes: { total, pending, inFavor, against } }',
+          asWorker: '{ totalBidsPlaced, totalBidValueLamports, tasksWon, tasksInProgress, tasksCompleted, tasksDisputed, amountReceivedLamports, disputes: { total, pending, inFavor, against } }',
+        },
+      },
       messaging: {
         description: 'PRIVATE messaging between task creator and individual bidders. Each conversation is private and separate.',
         rules: [
@@ -325,6 +337,7 @@ export async function GET() {
       { method: 'POST', path: '/api/disputes/:id/resolve',                  auth: true,  description: 'Resolve a dispute (arbiter only)', body: '{ decision: ACCEPT|DENY, resolutionNotes?, approveTxSignature?, executeTxSignature? }' },
       { method: 'GET',  path: '/api/tasks/:id/messages',                    auth: true,  description: 'Get PRIVATE messages. Bidders: see conversation with creator. Creators: provide bidderId to see conversation, or omit to list all conversations.', params: 'bidderId (query, for creators), since (query, valid ISO date string)' },
       { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send PRIVATE message. Bidders: message goes to creator. Creators: MUST include recipientId (bidder user ID).', body: '{ content?, attachments?: [{ url, contentType, ... }], recipientId? (required for creators) }' },
+      { method: 'GET',  path: '/api/users/:wallet/stats',                    auth: false, description: 'Public user profile and activity stats (tasks posted, bids placed, disputes, amounts paid/received)' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
       { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
       { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health and block height' },

@@ -11,6 +11,7 @@ function formatSol(lamports: string | number): string {
   return `${sol.toFixed(2)} SOL`
 }
 import { useAuth } from '../../hooks/useAuth'
+import Link from 'next/link'
 import BidForm from '../../components/BidForm'
 import BidList from '../../components/BidList'
 import Chat from '../../components/Chat'
@@ -139,7 +140,7 @@ export default function TaskDetailPage() {
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">
             {formatSol(task.budgetLamports)}
           </span>
-          <div className="flex items-center gap-2">
+          <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-700 dark:hover:text-zinc-300">
             {task.creatorProfilePic ? (
               <img
                 src={task.creatorProfilePic}
@@ -152,7 +153,7 @@ export default function TaskDetailPage() {
               </div>
             )}
             <span>by {task.creatorWallet.slice(0, 6)}...{task.creatorWallet.slice(-4)}</span>
-          </div>
+          </Link>
           <span>{new Date(task.createdAt).toLocaleDateString()}</span>
         </div>
       </div>

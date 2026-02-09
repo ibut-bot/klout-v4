@@ -1,6 +1,7 @@
 'use client'
 
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import Link from 'next/link'
 
 function formatSol(lamports: string | number): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
@@ -112,7 +113,7 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, onBidAcce
                 {bid.status}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <Link href={`/u/${bid.bidderWallet}`} className="flex items-center gap-1.5 hover:opacity-80">
               {bid.bidderProfilePic ? (
                 <img src={bid.bidderProfilePic} alt="" className="h-5 w-5 rounded-full object-cover" />
               ) : (
@@ -123,7 +124,7 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, onBidAcce
               <span className="text-xs text-zinc-400" title={bid.bidderWallet}>
                 {bid.bidderWallet.slice(0, 4)}...{bid.bidderWallet.slice(-4)}
               </span>
-            </div>
+            </Link>
           </div>
           <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{bid.description}</p>
           {bid.multisigAddress && (
