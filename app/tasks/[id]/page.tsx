@@ -259,7 +259,6 @@ export default function TaskDetailPage() {
         <div className="mb-6">
           <CompetitionEntryForm
             taskId={task.id}
-            budgetLamports={task.budgetLamports}
             onEntrySubmitted={refreshAll}
           />
         </div>

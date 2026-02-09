@@ -1,49 +1,36 @@
 #!/usr/bin/env tsx
 /**
- * Submit a competition entry (bid + deliverables) — no on-chain transaction required.
+ * Submit a competition entry (bid + deliverables).
  *
  * The competition creator has already funded the escrow vault when creating the task.
- * Participants just submit their work description and optional file attachments.
+ * The bid amount is automatically set to the task's budget — all participants compete
+ * for the same prize. Participants pay a small entry fee (0.001 SOL) for spam prevention,
+ * then submit their work description and optional file attachments.
  *
  * Usage:
- *   npm run skill:compete -- --task "task-uuid" --amount 0.3 --description "Here is my work" --password "pass"
- *   npm run skill:compete -- --task "task-uuid" --amount 0.3 --description "..." --password "pass" --file "/path/to/file"
+ *   npm run skill:compete -- --task "task-uuid" --description "Here is my work" --password "pass"
+ *   npm run skill:compete -- --task "task-uuid" --description "..." --password "pass" --file "/path/to/file"
  *
  * Options:
  *   --task          Task ID
- *   --amount        Your price in SOL
  *   --description   Description of your completed work
  *   --password      Wallet password
  *   --file          Optional file to upload as attachment
  */
 
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
-import { apiRequest, parseArgs, uploadFile } from './lib/api-client'
+import { getConnection } from './lib/rpc'
+import { apiRequest, parseArgs, uploadFile, getPublicConfig } from './lib/api-client'
 
 async function main() {
   const args = parseArgs()
-  if (!args.task || !args.amount || !args.description || !args.password) {
+  if (!args.task || !args.description || !args.password) {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'Required: --task, --amount, --description, --password',
-      usage: 'npm run skill:compete -- --task "uuid" --amount 0.3 --description "..." --password "pass" [--file "/path/to/file"]',
-    }))
-    process.exit(1)
-  }
-
-  const amountSol = parseFloat(args.amount)
-  if (isNaN(amountSol) || amountSol <= 0) {
-    console.log(JSON.stringify({ success: false, error: 'INVALID_AMOUNT', message: 'Amount must be positive SOL' }))
-    process.exit(1)
-  }
-
-  if (amountSol >= 1_000_000) {
-    console.log(JSON.stringify({
-      success: false,
-      error: 'AMOUNT_TOO_LARGE',
-      message: `--amount ${amountSol} looks like lamports, not SOL. Pass the value in SOL.`,
+      message: 'Required: --task, --description, --password',
+      usage: 'npm run skill:compete -- --task "uuid" --description "..." --password "pass" [--file "/path/to/file"]',
     }))
     process.exit(1)
   }
@@ -51,7 +38,6 @@ async function main() {
   try {
     const keypair = getKeypair(args.password)
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
-    const amountLamports = Math.round(amountSol * LAMPORTS_PER_SOL)
 
     // Fetch task details to verify it's a competition
     const taskRes = await fetch(`${base}/api/tasks/${args.task}`)
@@ -89,12 +75,43 @@ async function main() {
       }
     }
 
-    // Submit competition entry — no on-chain transaction needed
+    // Pay entry fee (spam prevention)
+    const serverConfig = await getPublicConfig()
+    const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || serverConfig.systemWalletAddress || ''
+    const ENTRY_FEE = Number(serverConfig.competitionEntryFeeLamports || 1000000) // 0.001 SOL default
+
+    if (!SYSTEM_WALLET) {
+      console.log(JSON.stringify({
+        success: false,
+        error: 'NO_SYSTEM_WALLET',
+        message: 'SYSTEM_WALLET_ADDRESS not available from server config or local environment',
+      }))
+      process.exit(1)
+    }
+
+    console.error(`Paying entry fee of ${(ENTRY_FEE / LAMPORTS_PER_SOL).toFixed(3)} SOL...`)
+    const connection = getConnection()
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+    const tx = new Transaction()
+    tx.recentBlockhash = blockhash
+    tx.feePayer = keypair.publicKey
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: keypair.publicKey,
+        toPubkey: new PublicKey(SYSTEM_WALLET),
+        lamports: ENTRY_FEE,
+      })
+    )
+    tx.sign(keypair)
+    const feeSig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
+    await connection.confirmTransaction({ signature: feeSig, blockhash, lastValidBlockHeight }, 'confirmed')
+
+    // Submit competition entry with fee signature
     console.error('Submitting competition entry...')
     const apiResult = await apiRequest(keypair, 'POST', `/api/tasks/${args.task}/compete`, {
-      amountLamports,
       description: args.description,
       attachments: attachments.length > 0 ? attachments : undefined,
+      entryFeeTxSignature: feeSig,
     })
 
     console.log(JSON.stringify(apiResult))

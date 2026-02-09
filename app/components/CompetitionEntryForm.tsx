@@ -1,29 +1,30 @@
 'use client'
 
 import { useState } from 'react'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { useAuth } from '../hooks/useAuth'
+
+const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
+const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_COMPETITION_ENTRY_FEE_LAMPORTS || 1000000) // 0.001 SOL
 
 interface CompetitionEntryFormProps {
   taskId: string
-  budgetLamports: string
   onEntrySubmitted?: () => void
 }
 
 export default function CompetitionEntryForm({
   taskId,
-  budgetLamports,
   onEntrySubmitted,
 }: CompetitionEntryFormProps) {
   const { authFetch, isAuthenticated } = useAuth()
-  const [amount, setAmount] = useState('')
+  const { publicKey, sendTransaction } = useWallet()
+  const { connection } = useConnection()
   const [description, setDescription] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'form' | 'uploading' | 'submitting'>('form')
+  const [step, setStep] = useState<'form' | 'uploading' | 'fee' | 'submitting'>('form')
   const [error, setError] = useState('')
-
-  const maxBudgetSol = Number(budgetLamports) / LAMPORTS_PER_SOL
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -42,10 +43,6 @@ export default function CompetitionEntryForm({
     setLoading(true)
 
     try {
-      const amountLamports = Math.round(parseFloat(amount) * LAMPORTS_PER_SOL)
-      if (isNaN(amountLamports) || amountLamports <= 0) throw new Error('Invalid amount')
-      if (amountLamports > Number(budgetLamports)) throw new Error(`Amount exceeds task budget of ${maxBudgetSol} SOL`)
-
       // Step 1: Upload files (optional)
       let attachments: any[] = []
       if (files.length > 0) {
@@ -70,20 +67,37 @@ export default function CompetitionEntryForm({
         }
       }
 
-      // Step 2: Submit to API (no on-chain transaction needed)
+      // Step 2: Pay entry fee (0.001 SOL spam prevention)
+      setStep('fee')
+      if (!publicKey || !SYSTEM_WALLET) throw new Error('Wallet not connected or system wallet not configured')
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+      const tx = new Transaction()
+      tx.recentBlockhash = blockhash
+      tx.lastValidBlockHeight = lastValidBlockHeight
+      tx.feePayer = publicKey
+      tx.add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(SYSTEM_WALLET),
+          lamports: COMPETITION_ENTRY_FEE_LAMPORTS,
+        })
+      )
+      const feeSig = await sendTransaction(tx, connection)
+      await connection.confirmTransaction({ signature: feeSig, blockhash, lastValidBlockHeight }, 'confirmed')
+
+      // Step 3: Submit to API with entry fee signature
       setStep('submitting')
       const res = await authFetch(`/api/tasks/${taskId}/compete`, {
         method: 'POST',
         body: JSON.stringify({
-          amountLamports,
           description,
           attachments: attachments.length > 0 ? attachments : undefined,
+          entryFeeTxSignature: feeSig,
         }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.message)
 
-      setAmount('')
       setDescription('')
       setFiles([])
       setStep('form')
@@ -98,6 +112,7 @@ export default function CompetitionEntryForm({
 
   const stepLabels: Record<string, string> = {
     uploading: 'Uploading files...',
+    fee: 'Paying entry fee...',
     submitting: 'Submitting entry...',
   }
 
@@ -105,30 +120,13 @@ export default function CompetitionEntryForm({
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
       <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submit Competition Entry</h3>
       <p className="text-xs text-zinc-500">
-        Complete the work and submit your entry. No on-chain transaction required — submitting is free.
-        The task creator will review all entries and pick a winner.
+        Complete the work and submit your entry. The winner receives the full competition budget.
+        A small entry fee of {(COMPETITION_ENTRY_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(3)} SOL is required for spam prevention.
       </p>
 
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
       )}
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Your Price (SOL) <span className="text-zinc-400 font-normal">max {maxBudgetSol.toFixed(2)}</span>
-        </label>
-        <input
-          type="number"
-          step="0.01"
-          min="0.01"
-          max={maxBudgetSol}
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.3"
-          required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        />
-      </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Your Submission</label>

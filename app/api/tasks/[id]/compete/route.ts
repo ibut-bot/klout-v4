@@ -3,21 +3,25 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { createNotification } from '@/lib/notifications'
+import { verifyPaymentTx } from '@/lib/solana/verify-tx'
+
+const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS
+const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.COMPETITION_ENTRY_FEE_LAMPORTS || 1000000) // 0.001 SOL default
 
 /**
  * POST /api/tasks/:id/compete
  *
  * Combined bid + submission endpoint for competition mode.
  * Creates a bid and submission atomically in one API call.
+ * Requires a small on-chain fee payment (0.001 SOL) for spam prevention.
  *
  * Body:
- *   amountLamports   - Bid amount in lamports
  *   description      - Submission description (also used as bid description)
  *   attachments?     - Array of attachment objects
- *   multisigAddress  - Escrow vault multisig PDA
- *   vaultAddress     - Escrow vault PDA
- *   proposalIndex    - Payment proposal index
- *   txSignature      - On-chain transaction signature
+ *   entryFeeTxSignature - On-chain tx signature for the entry fee payment
+ *
+ * Note: amountLamports is automatically set to the task's budgetLamports.
+ *       Participants do not specify an amount — the competition budget is fixed by the creator.
  */
 export async function POST(
   request: NextRequest,
@@ -41,12 +45,12 @@ export async function POST(
     )
   }
 
-  const { amountLamports, description, attachments } = body
+  const { description, attachments, entryFeeTxSignature } = body
 
   // --- Validate required fields ---
-  if (!amountLamports || !description) {
+  if (!description || !entryFeeTxSignature) {
     return Response.json(
-      { success: false, error: 'MISSING_FIELDS', message: 'Required: amountLamports, description' },
+      { success: false, error: 'MISSING_FIELDS', message: 'Required: description, entryFeeTxSignature' },
       { status: 400 }
     )
   }
@@ -54,30 +58,6 @@ export async function POST(
   if (typeof description !== 'string' || description.trim().length === 0 || description.length > 10000) {
     return Response.json(
       { success: false, error: 'INVALID_DESCRIPTION', message: 'description must be a non-empty string of at most 10000 characters' },
-      { status: 400 }
-    )
-  }
-
-  // Validate amount
-  const MAX_LAMPORTS = BigInt('1000000000000000000')
-  let parsedLamports: bigint
-  try {
-    parsedLamports = BigInt(amountLamports)
-  } catch {
-    return Response.json(
-      { success: false, error: 'INVALID_AMOUNT', message: 'amountLamports must be a valid integer' },
-      { status: 400 }
-    )
-  }
-  if (parsedLamports <= BigInt(0)) {
-    return Response.json(
-      { success: false, error: 'INVALID_AMOUNT', message: 'amountLamports must be positive' },
-      { status: 400 }
-    )
-  }
-  if (parsedLamports > MAX_LAMPORTS) {
-    return Response.json(
-      { success: false, error: 'INVALID_AMOUNT', message: `amountLamports looks too large. Make sure you are passing lamports, not SOL.` },
       { status: 400 }
     )
   }
@@ -99,12 +79,6 @@ export async function POST(
       { status: 400 }
     )
   }
-  if (parsedLamports > task.budgetLamports) {
-    return Response.json(
-      { success: false, error: 'BID_EXCEEDS_BUDGET', message: `Amount exceeds task budget` },
-      { status: 400 }
-    )
-  }
   if (task.creatorId === userId) {
     return Response.json(
       { success: false, error: 'SELF_BID', message: 'Cannot enter your own competition' },
@@ -120,6 +94,22 @@ export async function POST(
     return Response.json(
       { success: false, error: 'DUPLICATE_ENTRY', message: 'You have already submitted an entry for this competition' },
       { status: 409 }
+    )
+  }
+
+  // Verify entry fee payment
+  if (!SYSTEM_WALLET) {
+    return Response.json(
+      { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet is not configured' },
+      { status: 503 }
+    )
+  }
+
+  const feeVerification = await verifyPaymentTx(entryFeeTxSignature, SYSTEM_WALLET, COMPETITION_ENTRY_FEE_LAMPORTS)
+  if (!feeVerification.valid) {
+    return Response.json(
+      { success: false, error: 'INVALID_ENTRY_FEE', message: feeVerification.error || 'Entry fee payment verification failed' },
+      { status: 400 }
     )
   }
 
@@ -147,7 +137,7 @@ export async function POST(
       data: {
         taskId: id,
         bidderId: userId,
-        amountLamports: parsedLamports,
+        amountLamports: task.budgetLamports,
         description: description.trim(),
       },
     })
@@ -164,7 +154,7 @@ export async function POST(
   })
 
   // Notify task creator
-  const solAmount = (Number(parsedLamports) / 1e9).toFixed(4)
+  const solAmount = (Number(task.budgetLamports) / 1e9).toFixed(4)
   createNotification({
     userId: task.creatorId,
     type: 'SUBMISSION_RECEIVED',
