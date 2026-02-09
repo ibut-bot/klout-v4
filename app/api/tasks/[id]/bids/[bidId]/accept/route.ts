@@ -44,12 +44,33 @@ export async function POST(
     )
   }
 
+  const isCompetition = task.taskType === 'COMPETITION'
+
+  // For competition tasks, a submission with vault details must exist
+  if (isCompetition) {
+    const submission = await prisma.submission.findFirst({ where: { bidId } })
+    if (!submission) {
+      return Response.json(
+        { success: false, error: 'NO_SUBMISSION', message: 'Competition tasks require a submission before the bid can be accepted' },
+        { status: 400 }
+      )
+    }
+    if (!bid.multisigAddress || !bid.vaultAddress) {
+      return Response.json(
+        { success: false, error: 'MISSING_VAULT', message: 'This bid does not have escrow vault details. The bidder must submit deliverables with vault info first.' },
+        { status: 400 }
+      )
+    }
+  }
+
   // Get all pending bids so we can notify rejected bidders
   const pendingBids = await prisma.bid.findMany({
     where: { taskId: id, status: 'PENDING', id: { not: bidId } },
     select: { bidderId: true },
   })
 
+  // For competition tasks, the bid goes straight to ACCEPTED (creator will then fund + approve in one step)
+  // For quote tasks, bid goes to ACCEPTED as before (creator funds separately)
   await prisma.$transaction([
     // Accept this bid
     prisma.bid.update({ where: { id: bidId }, data: { status: 'ACCEPTED' } }),
@@ -69,8 +90,10 @@ export async function POST(
   createNotification({
     userId: bid.bidderId,
     type: 'BID_ACCEPTED',
-    title: 'Your bid was accepted!',
-    body: `Your bid on "${task.title}" has been accepted`,
+    title: isCompetition ? 'Your submission was selected!' : 'Your bid was accepted!',
+    body: isCompetition
+      ? `Your submission on "${task.title}" was selected as the winner`
+      : `Your bid on "${task.title}" has been accepted`,
     linkUrl: `/tasks/${id}`,
   })
 
@@ -79,17 +102,23 @@ export async function POST(
     createNotification({
       userId: rejected.bidderId,
       type: 'BID_REJECTED',
-      title: 'Bid not selected',
-      body: `Another bid was selected for "${task.title}"`,
+      title: isCompetition ? 'Submission not selected' : 'Bid not selected',
+      body: isCompetition
+        ? `Another submission was selected for "${task.title}"`
+        : `Another bid was selected for "${task.title}"`,
       linkUrl: `/tasks/${id}`,
     })
   }
 
   return Response.json({
     success: true,
-    message: 'Bid accepted. Task is now in progress.',
+    message: isCompetition
+      ? 'Submission selected. Fund the vault and approve payment to complete.'
+      : 'Bid accepted. Task is now in progress.',
     bidId,
+    taskType: task.taskType,
     multisigAddress: bid.multisigAddress,
     vaultAddress: bid.vaultAddress,
+    proposalIndex: bid.proposalIndex,
   })
 }

@@ -4,11 +4,13 @@
  *
  * Usage:
  *   npm run skill:tasks:create -- --title "Build a landing page" --description "..." --budget 0.5 --password "mypass"
+ *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --password "mypass"
  *
  * Options:
  *   --title        Task title
  *   --description  Task description
  *   --budget       Budget in SOL (will be converted to lamports)
+ *   --type         Task type: "quote" (default) or "competition"
  *   --password     Wallet password to sign transactions
  *   --dry-run      Validate without creating
  */
@@ -95,11 +97,23 @@ async function main() {
     const signature = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
     await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
 
+    // Resolve task type
+    const taskType = (args.type || 'quote').toUpperCase()
+    if (!['QUOTE', 'COMPETITION'].includes(taskType)) {
+      console.log(JSON.stringify({
+        success: false,
+        error: 'INVALID_TYPE',
+        message: 'Task type must be "quote" or "competition"',
+      }))
+      process.exit(1)
+    }
+
     // Create task via API
     const result = await apiRequest(keypair, 'POST', '/api/tasks', {
       title: args.title,
       description: args.description,
       budgetLamports,
+      taskType,
       paymentTxSignature: signature,
     })
 

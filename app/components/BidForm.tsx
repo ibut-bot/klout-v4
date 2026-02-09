@@ -11,10 +11,11 @@ const ARBITER_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
 interface BidFormProps {
   taskId: string
   creatorWallet: string
+  taskType?: string
   onBidPlaced?: () => void
 }
 
-export default function BidForm({ taskId, creatorWallet, onBidPlaced }: BidFormProps) {
+export default function BidForm({ taskId, creatorWallet, taskType = 'QUOTE', onBidPlaced }: BidFormProps) {
   const { authFetch, isAuthenticated } = useAuth()
   const { connection } = useConnection()
   const { publicKey, signTransaction } = useWallet()
@@ -23,6 +24,8 @@ export default function BidForm({ taskId, creatorWallet, onBidPlaced }: BidFormP
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'form' | 'vault' | 'submitting'>('form')
   const [error, setError] = useState('')
+
+  const isCompetition = taskType === 'COMPETITION'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,31 +39,37 @@ export default function BidForm({ taskId, creatorWallet, onBidPlaced }: BidFormP
 
       if (!ARBITER_WALLET) throw new Error('Arbiter wallet not configured')
 
-      // Step 1: Create 2/3 multisig escrow vault on-chain
-      setStep('vault')
-      const members = [
-        { publicKey: publicKey, permissions: getAllPermissions() },
-        { publicKey: new PublicKey(creatorWallet), permissions: getAllPermissions() },
-        { publicKey: new PublicKey(ARBITER_WALLET), permissions: getAllPermissions() },
-      ]
+      let multisigAddress: string | undefined
+      let vaultAddress: string | undefined
 
-      const vaultResult = await createMultisigVaultWA(
-        connection,
-        { publicKey, signTransaction },
-        members,
-        2 // threshold: 2 of 3
-      )
+      // Only create vault at bid time for QUOTE tasks
+      if (!isCompetition) {
+        setStep('vault')
+        const members = [
+          { publicKey: publicKey, permissions: getAllPermissions() },
+          { publicKey: new PublicKey(creatorWallet), permissions: getAllPermissions() },
+          { publicKey: new PublicKey(ARBITER_WALLET), permissions: getAllPermissions() },
+        ]
 
-      // Step 2: Submit bid with vault details to API
+        const vaultResult = await createMultisigVaultWA(
+          connection,
+          { publicKey, signTransaction },
+          members,
+          2 // threshold: 2 of 3
+        )
+        multisigAddress = vaultResult.multisigPda.toBase58()
+        vaultAddress = vaultResult.vaultPda.toBase58()
+      }
+
+      // Submit bid to API
       setStep('submitting')
+      const bidBody: any = { amountLamports, description }
+      if (multisigAddress) bidBody.multisigAddress = multisigAddress
+      if (vaultAddress) bidBody.vaultAddress = vaultAddress
+
       const res = await authFetch(`/api/tasks/${taskId}/bids`, {
         method: 'POST',
-        body: JSON.stringify({
-          amountLamports,
-          description,
-          multisigAddress: vaultResult.multisigPda.toBase58(),
-          vaultAddress: vaultResult.vaultPda.toBase58(),
-        }),
+        body: JSON.stringify(bidBody),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.message)
@@ -87,7 +96,9 @@ export default function BidForm({ taskId, creatorWallet, onBidPlaced }: BidFormP
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
       <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Place a Bid</h3>
       <p className="text-xs text-zinc-500">
-        Submitting creates a 2/3 multisig escrow vault (you, task creator, platform arbiter).
+        {isCompetition
+          ? 'Submit your bid. Complete the work and submit deliverables with escrow vault to be eligible for selection.'
+          : 'Submitting creates a 2/3 multisig escrow vault (you, task creator, platform arbiter).'}
       </p>
 
       {error && (

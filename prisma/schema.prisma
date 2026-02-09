@@ -12,6 +12,13 @@ datasource db {
 
 // --- Enums ---
 
+enum TaskType {
+  QUOTE
+  COMPETITION
+
+  @@schema("slopwork")
+}
+
 enum TaskStatus {
   OPEN
   IN_PROGRESS
@@ -59,6 +66,7 @@ enum NotificationType {
   NEW_MESSAGE
   DISPUTE_RAISED
   DISPUTE_RESOLVED
+  SUBMISSION_RECEIVED
 
   @@schema("slopwork")
 }
@@ -101,6 +109,7 @@ model Task {
   title               String
   description         String
   budgetLamports      BigInt
+  taskType            TaskType   @default(QUOTE)
   status              TaskStatus @default(OPEN)
   paymentTxSignature  String     @unique
   winningBidId        String?    @unique
@@ -137,6 +146,7 @@ model Bid {
   bidder           User      @relation("Bidder", fields: [bidderId], references: [id])
   wonTask          Task?     @relation("WinningBid")
   disputes         Dispute[]
+  submissions      Submission[]
 
   @@unique([fundingTxSig])
   @@index([taskId])
@@ -206,5 +216,19 @@ model Notification {
   user      User             @relation("UserNotifications", fields: [userId], references: [id])
 
   @@index([userId, read, createdAt])
+  @@schema("slopwork")
+}
+
+model Submission {
+  id          String   @id @default(uuid())
+  bidId       String
+  description String
+  attachments Json?    // Array of { url, key, contentType, size, filename }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bid         Bid      @relation(fields: [bidId], references: [id])
+
+  @@index([bidId])
   @@schema("slopwork")
 }

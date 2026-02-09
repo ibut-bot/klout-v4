@@ -18,6 +18,7 @@ export default function TaskForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
+  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION'>('QUOTE')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
@@ -55,7 +56,7 @@ export default function TaskForm() {
       setStep('creating')
       const res = await authFetch('/api/tasks', {
         method: 'POST',
-        body: JSON.stringify({ title, description, budgetLamports, paymentTxSignature: signature }),
+        body: JSON.stringify({ title, description, budgetLamports, taskType, paymentTxSignature: signature }),
       })
       const data = await res.json()
 
@@ -75,6 +76,40 @@ export default function TaskForm() {
       {error && (
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
       )}
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Task Type</label>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setTaskType('QUOTE')}
+            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+              taskType === 'QUOTE'
+                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
+                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
+            }`}
+          >
+            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Request for Quote</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">
+              Bidders propose, you pick a winner, then they complete the work.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTaskType('COMPETITION')}
+            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+              taskType === 'COMPETITION'
+                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
+                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
+            }`}
+          >
+            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Competition</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">
+              Bidders complete the work first, then you pick the best submission.
+            </span>
+          </button>
+        </div>
+      </div>
 
       <div>
         <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Title</label>

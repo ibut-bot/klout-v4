@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
       title: t.title,
       description: t.description,
       budgetLamports: t.budgetLamports.toString(),
+      taskType: t.taskType,
       status: t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,
@@ -83,10 +84,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType } = body
   if (!title || !description || !budgetLamports || !paymentTxSignature) {
     return Response.json(
       { success: false, error: 'MISSING_FIELDS', message: 'Required: title, description, budgetLamports, paymentTxSignature' },
+      { status: 400 }
+    )
+  }
+
+  // Validate taskType if provided
+  const validTaskTypes = ['QUOTE', 'COMPETITION']
+  const resolvedTaskType = taskType ? String(taskType).toUpperCase() : 'QUOTE'
+  if (!validTaskTypes.includes(resolvedTaskType)) {
+    return Response.json(
+      { success: false, error: 'INVALID_TASK_TYPE', message: 'taskType must be QUOTE or COMPETITION' },
       { status: 400 }
     )
   }
@@ -154,6 +165,7 @@ export async function POST(request: NextRequest) {
       title: title.trim(),
       description: description.trim(),
       budgetLamports: parsedBudget,
+      taskType: resolvedTaskType as any,
       paymentTxSignature,
     },
   })
@@ -165,6 +177,7 @@ export async function POST(request: NextRequest) {
       title: task.title,
       description: task.description,
       budgetLamports: task.budgetLamports.toString(),
+      taskType: task.taskType,
       status: task.status,
       createdAt: task.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${task.id}`,

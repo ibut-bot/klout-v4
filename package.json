@@ -36,7 +36,9 @@
     "skill:profile:remove": "tsx skills/profile-avatar.ts -- --action remove",
     "skill:username:get": "tsx skills/profile-username.ts",
     "skill:username:set": "tsx skills/profile-username.ts -- --action set",
-    "skill:username:remove": "tsx skills/profile-username.ts -- --action remove"
+    "skill:username:remove": "tsx skills/profile-username.ts -- --action remove",
+    "skill:submit": "tsx skills/submit-deliverables.ts",
+    "skill:submissions:list": "tsx skills/list-submissions.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.985.0",

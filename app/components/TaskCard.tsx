@@ -15,6 +15,7 @@ interface TaskCardProps {
   title: string
   description: string
   budgetLamports: string
+  taskType?: string
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -31,7 +32,12 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, createdAt }: TaskCardProps) {
+const TYPE_COLORS: Record<string, string> = {
+  QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+}
+
+export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, createdAt }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
 
   return (
@@ -39,9 +45,16 @@ export default function TaskCard({ id, title, description, budgetLamports, statu
       <div className="rounded-xl border border-zinc-200 p-5 transition-all hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:hover:border-zinc-700">
         <div className="mb-3 flex items-start justify-between gap-3">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
-            {status.replace('_', ' ')}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {taskType && (
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
+                {taskType === 'COMPETITION' ? 'Competition' : 'Quote'}
+              </span>
+            )}
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
+              {status.replace('_', ' ')}
+            </span>
+          </div>
         </div>
         <p className="mb-4 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
         <div className="flex items-center justify-between text-sm">

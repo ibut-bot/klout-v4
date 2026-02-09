@@ -29,6 +29,7 @@ interface MultisigActionsProps {
   bidderProfilePic?: string | null
   isCreator: boolean
   isBidder: boolean
+  taskType?: string
   onUpdate: () => void
 }
 
@@ -46,6 +47,7 @@ export default function MultisigActions({
   bidderProfilePic,
   isCreator,
   isBidder,
+  taskType = 'QUOTE',
   onUpdate,
 }: MultisigActionsProps) {
   const { authFetch, wallet: authWallet } = useAuth()
@@ -249,9 +251,19 @@ export default function MultisigActions({
 
       {/* Status indicator */}
       <div className="rounded-lg bg-zinc-50 px-3 py-2 text-xs dark:bg-zinc-900">
+        {bidStatus === 'ACCEPTED' && taskType === 'QUOTE' && (
+          <p className="text-blue-600 dark:text-blue-400">
+            Bid accepted. {isCreator ? 'Fund the escrow vault to proceed.' : 'Waiting for task creator to fund the escrow vault.'}
+          </p>
+        )}
+        {bidStatus === 'ACCEPTED' && taskType === 'COMPETITION' && (
+          <p className="text-blue-600 dark:text-blue-400">
+            Submission selected. {isCreator ? 'Fund the vault and approve payment to complete.' : 'Waiting for task creator to fund and release payment.'}
+          </p>
+        )}
         {bidStatus === 'FUNDED' && (
           <p className="text-blue-600 dark:text-blue-400">
-            Vault funded. {isBidder ? 'Complete the task and request payment.' : 'Waiting for bidder to complete the task.'}
+            Vault funded. {isBidder ? 'Submit deliverables and request payment.' : 'Waiting for bidder to complete the task.'}
           </p>
         )}
         {bidStatus === 'PAYMENT_REQUESTED' && (
@@ -275,8 +287,8 @@ export default function MultisigActions({
         )}
       </div>
 
-      {/* Bidder: Request Payment (when vault is funded) */}
-      {isBidder && bidStatus === 'FUNDED' && (
+      {/* Bidder: Request Payment (when vault is funded, quote mode only -- competition creates proposal at submission time) */}
+      {isBidder && bidStatus === 'FUNDED' && taskType === 'QUOTE' && (
         <button
           onClick={handleRequestPayment}
           disabled={loading}

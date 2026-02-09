@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       title: t.title,
       description: t.description,
       budgetLamports: t.budgetLamports.toString(),
+      taskType: t.taskType,
       status: t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,

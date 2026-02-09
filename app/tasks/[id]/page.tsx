@@ -16,12 +16,15 @@ import BidForm from '../../components/BidForm'
 import BidList from '../../components/BidList'
 import Chat from '../../components/Chat'
 import MultisigActions from '../../components/MultisigActions'
+import SubmissionForm from '../../components/SubmissionForm'
+import SubmissionList from '../../components/SubmissionList'
 
 interface Task {
   id: string
   title: string
   description: string
   budgetLamports: string
+  taskType: string
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -53,8 +56,19 @@ interface Bid {
   description: string
   multisigAddress: string | null
   vaultAddress: string | null
+  proposalIndex?: number | null
   status: string
+  hasSubmission?: boolean
   createdAt: string
+}
+
+interface SubmissionData {
+  id: string
+  bidId: string
+  description: string
+  attachments: any[] | null
+  createdAt: string
+  bid?: any
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,12 +79,18 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+  COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+}
+
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { wallet, isAuthenticated } = useAuth()
 
   const [task, setTask] = useState<Task | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
+  const [submissions, setSubmissions] = useState<SubmissionData[]>([])
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [selectedBidderId, setSelectedBidderId] = useState<string | null>(null)
@@ -87,9 +107,21 @@ export default function TaskDetailPage() {
     if (data.success) setBids(data.bids)
   }, [id])
 
+  const fetchSubmissions = useCallback(async () => {
+    const res = await fetch(`/api/tasks/${id}/submissions`)
+    const data = await res.json()
+    if (data.success) setSubmissions(data.submissions)
+  }, [id])
+
   useEffect(() => {
-    Promise.all([fetchTask(), fetchBids()]).finally(() => setLoading(false))
-  }, [fetchTask, fetchBids])
+    Promise.all([fetchTask(), fetchBids(), fetchSubmissions()]).finally(() => setLoading(false))
+  }, [fetchTask, fetchBids, fetchSubmissions])
+
+  const refreshAll = () => {
+    fetchTask()
+    fetchBids()
+    fetchSubmissions()
+  }
 
   if (loading) {
     return (
@@ -112,6 +144,20 @@ export default function TaskDetailPage() {
   const isCreator = wallet === task.creatorWallet
   const isBidder = bids.some((b) => b.bidderWallet === wallet)
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
+  const isCompetition = task.taskType === 'COMPETITION'
+
+  // Find current user's bid
+  const myBid = bids.find((b) => b.bidderWallet === wallet)
+  const mySubmission = myBid ? submissions.find((s) => s.bidId === myBid.id) : null
+
+  // Show submission form for bidders:
+  // Competition: bidder has a PENDING bid and hasn't submitted yet
+  // Quote: bidder is the winning bidder, bid is ACCEPTED or FUNDED, and hasn't submitted yet
+  const showSubmissionForm = isAuthenticated && !isCreator && myBid && !mySubmission && (
+    isCompetition
+      ? myBid.status === 'PENDING'
+      : (isWinningBidder && ['ACCEPTED', 'FUNDED'].includes(myBid.status))
+  )
 
   const taskUrl = typeof window !== 'undefined' ? `${window.location.origin}/tasks/${id}` : `/tasks/${id}`
 
@@ -135,6 +181,9 @@ export default function TaskDetailPage() {
             >
               {copied ? 'Copied!' : 'Copy Link'}
             </button>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${TYPE_COLORS[task.taskType] || ''}`}>
+              {task.taskType === 'COMPETITION' ? 'Competition' : 'Quote'}
+            </span>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[task.status] || ''}`}>
               {task.status.replace('_', ' ')}
             </span>
@@ -164,6 +213,12 @@ export default function TaskDetailPage() {
           <span>{task.bidCount} bids</span>
           <span className="text-zinc-400">•</span>
           <span>{task.messageCount} messages</span>
+          {submissions.length > 0 && (
+            <>
+              <span className="text-zinc-400">•</span>
+              <span>{submissions.length} submissions</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -191,7 +246,43 @@ export default function TaskDetailPage() {
             bidderProfilePic={task.winningBid.bidderProfilePic}
             isCreator={isCreator}
             isBidder={isWinningBidder}
-            onUpdate={() => { fetchTask(); fetchBids() }}
+            taskType={task.taskType}
+            onUpdate={refreshAll}
+          />
+        </div>
+      )}
+
+      {/* Submission form for bidders */}
+      {showSubmissionForm && myBid && (
+        <div className="mb-6">
+          <SubmissionForm
+            taskId={task.id}
+            bidId={myBid.id}
+            creatorWallet={task.creatorWallet}
+            amountLamports={myBid.amountLamports}
+            taskType={task.taskType}
+            onSubmitted={refreshAll}
+          />
+        </div>
+      )}
+
+      {/* Submissions section for competition mode or when submissions exist */}
+      {(isCompetition || submissions.length > 0) && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Submissions ({submissions.length})
+          </h2>
+          <SubmissionList
+            submissions={submissions}
+            isCreator={isCreator}
+            taskType={task.taskType}
+            taskStatus={task.status}
+            onSelectWinner={isCreator ? (bidId) => {
+              // This triggers accept + fund flow for competition mode
+              // Handled in BidList's accept flow
+              const bid = bids.find(b => b.id === bidId)
+              if (bid) setSelectedBidderId(bid.bidderId)
+            } : undefined}
           />
         </div>
       )}
@@ -209,7 +300,8 @@ export default function TaskDetailPage() {
               taskId={task.id}
               isCreator={isCreator}
               taskStatus={task.status}
-              onBidAccepted={() => { fetchTask(); fetchBids() }}
+              taskType={task.taskType}
+              onBidAccepted={refreshAll}
               selectedBidId={bids.find(b => b.bidderId === selectedBidderId)?.id}
               onBidSelect={isCreator ? (bidId) => {
                 const bid = bids.find(b => b.id === bidId)
@@ -220,7 +312,12 @@ export default function TaskDetailPage() {
           {/* Bid form */}
           {isAuthenticated && !isCreator && task.status === 'OPEN' && !isBidder && (
             <div className="mt-4">
-              <BidForm taskId={task.id} creatorWallet={task.creatorWallet} onBidPlaced={fetchBids} />
+              <BidForm
+                taskId={task.id}
+                creatorWallet={task.creatorWallet}
+                taskType={task.taskType}
+                onBidPlaced={fetchBids}
+              />
             </div>
           )}
         </div>

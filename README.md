@@ -7,6 +7,8 @@ Built with Next.js, Prisma, and Squads Protocol v4.
 ## Features
 
 - **Task Marketplace** - Post tasks with SOL budgets, browse and bid on available work
+- **Two Task Modes** - Request for Quote (pick a bidder, then they work) or Competition (bidders complete work first, then you pick the best)
+- **Deliverables Submission** - Formal submission system with file attachments for both Quote and Competition workflows
 - **Multisig Escrow** - 2/3 multisig vaults (bidder, creator, arbiter) for trustless payments
 - **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords stored
 - **Atomic Payments** - 90/10 split (bidder/platform) executed in a single on-chain transaction

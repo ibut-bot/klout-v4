@@ -6,12 +6,14 @@
  *   npm run skill:bids:place -- --task "task-uuid" --amount 0.3 --description "I can do this" --password "pass"
  *   npm run skill:bids:place -- --task "task-uuid" --amount 0.3 --description "..." --password "pass" --create-escrow --creator-wallet "addr" --arbiter-wallet "addr"
  *
+ * For competition tasks, vault creation is skipped at bid time (done at submission time instead).
+ *
  * Options:
  *   --task             Task ID to bid on
  *   --amount           Bid amount in SOL
  *   --description      Bid description / proposal
  *   --password         Wallet password
- *   --create-escrow    Also create a 2/3 multisig escrow vault
+ *   --create-escrow    Also create a 2/3 multisig escrow vault (quote tasks only; ignored for competition)
  *   --creator-wallet   Task creator's wallet (required with --create-escrow)
  *   --arbiter-wallet   Arbiter wallet address (required with --create-escrow)
  */
@@ -55,11 +57,20 @@ async function main() {
     const keypair = getKeypair(args.password)
     const amountLamports = Math.round(amountSol * LAMPORTS_PER_SOL)
 
+    // Check task type to decide if vault creation is applicable
+    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    let taskType = 'QUOTE'
+    try {
+      const taskRes = await fetch(`${base}/api/tasks/${args.task}`)
+      const taskData = await taskRes.json()
+      if (taskData.success) taskType = taskData.task.taskType || 'QUOTE'
+    } catch { /* fallback to QUOTE */ }
+
     let multisigAddress: string | undefined
     let vaultAddress: string | undefined
 
-    // Optionally create escrow
-    if (args['create-escrow']) {
+    // Optionally create escrow (only for quote tasks -- competition creates vault at submission time)
+    if (args['create-escrow'] && taskType !== 'COMPETITION') {
       if (!args['creator-wallet'] || !args['arbiter-wallet']) {
         console.log(JSON.stringify({
           success: false,

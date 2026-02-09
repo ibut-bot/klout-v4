@@ -19,11 +19,15 @@ export async function GET(
   const bids = await prisma.bid.findMany({
     where: { taskId: id },
     orderBy: { createdAt: 'desc' },
-    include: { bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } } },
+    include: {
+      bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } },
+      submissions: { orderBy: { createdAt: 'desc' }, take: 1 },
+    },
   })
 
   return Response.json({
     success: true,
+    taskType: task.taskType,
     bids: bids.map((b) => ({
       id: b.id,
       bidderId: b.bidderId,
@@ -34,7 +38,9 @@ export async function GET(
       description: b.description,
       multisigAddress: b.multisigAddress,
       vaultAddress: b.vaultAddress,
+      proposalIndex: b.proposalIndex,
       status: b.status,
+      hasSubmission: b.submissions.length > 0,
       createdAt: b.createdAt.toISOString(),
     })),
   })

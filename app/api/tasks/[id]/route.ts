@@ -46,6 +46,7 @@ export async function GET(
       title: task.title,
       description: task.description,
       budgetLamports: task.budgetLamports.toString(),
+      taskType: task.taskType,
       status: task.status,
       creatorWallet: task.creator.walletAddress,
       creatorUsername: task.creator.username,
