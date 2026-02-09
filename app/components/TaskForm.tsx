@@ -20,7 +20,7 @@ export default function TaskForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
-  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION'>('QUOTE')
+  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION'>('COMPETITION')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
