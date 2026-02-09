@@ -16,18 +16,25 @@ interface Task {
   createdAt: string
 }
 
+const TASK_TYPES = ['all', 'quote', 'competition'] as const
+type TaskTypeFilter = typeof TASK_TYPES[number]
+
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskTypeFilter>('all')
 
   useEffect(() => {
-    fetch('/api/tasks?status=open&limit=12')
+    setLoading(true)
+    const params = new URLSearchParams({ status: 'open', limit: '12' })
+    if (taskTypeFilter !== 'all') params.set('taskType', taskTypeFilter.toUpperCase())
+    fetch(`/api/tasks?${params}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) setTasks(data.tasks)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [taskTypeFilter])
 
   return (
     <div>
@@ -57,11 +64,26 @@ export default function Home() {
 
       {/* Recent Tasks */}
       <section>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Open Tasks</h2>
           <Link href="/tasks" className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
             View all
           </Link>
+        </div>
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          {TASK_TYPES.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTaskTypeFilter(t)}
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+                taskTypeFilter === t
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              {t === 'all' ? 'All Types' : t === 'quote' ? 'Request for Quote' : 'Competition'}
+            </button>
+          ))}
         </div>
 
         {loading ? (

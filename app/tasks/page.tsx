@@ -18,6 +18,8 @@ interface Task {
 }
 
 const STATUSES = ['all', 'open', 'in_progress', 'completed', 'disputed']
+const TASK_TYPES = ['all', 'quote', 'competition'] as const
+type TaskTypeFilter = typeof TASK_TYPES[number]
 
 type ViewMode = 'all' | 'my_tasks' | 'my_bids'
 
@@ -26,6 +28,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
+  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskTypeFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -40,6 +43,7 @@ export default function TasksPage() {
         // Fetch user's created tasks
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (status !== 'all') params.set('status', status)
+        if (taskTypeFilter !== 'all') params.set('taskType', taskTypeFilter.toUpperCase())
         const res = await authFetch(`/api/me/tasks?${params}`)
         data = await res.json()
       } else if (viewMode === 'my_bids' && isAuthenticated) {
@@ -90,6 +94,7 @@ export default function TasksPage() {
         // Fetch all marketplace tasks
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (status !== 'all') params.set('status', status)
+        if (taskTypeFilter !== 'all') params.set('taskType', taskTypeFilter.toUpperCase())
         const res = await fetch(`/api/tasks?${params}`)
         data = await res.json()
       }
@@ -107,7 +112,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchTasks()
-  }, [status, page, viewMode, isAuthenticated])
+  }, [status, page, viewMode, taskTypeFilter, isAuthenticated])
 
   // Reset to 'all' if user logs out while in personal view
   useEffect(() => {
@@ -125,7 +130,7 @@ export default function TasksPage() {
         {isAuthenticated && (
           <div className="flex gap-2">
             <button
-              onClick={() => { setViewMode('all'); setPage(1); setStatus('all') }}
+              onClick={() => { setViewMode('all'); setPage(1); setStatus('all'); setTaskTypeFilter('all') }}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === 'all'
                   ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
@@ -135,7 +140,7 @@ export default function TasksPage() {
               All Tasks
             </button>
             <button
-              onClick={() => { setViewMode('my_tasks'); setPage(1); setStatus('all') }}
+              onClick={() => { setViewMode('my_tasks'); setPage(1); setStatus('all'); setTaskTypeFilter('all') }}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === 'my_tasks'
                   ? 'bg-blue-600 text-white'
@@ -145,7 +150,7 @@ export default function TasksPage() {
               My Tasks
             </button>
             <button
-              onClick={() => { setViewMode('my_bids'); setPage(1); setStatus('all') }}
+              onClick={() => { setViewMode('my_bids'); setPage(1); setStatus('all'); setTaskTypeFilter('all') }}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === 'my_bids'
                   ? 'bg-green-600 text-white'
@@ -171,6 +176,24 @@ export default function TasksPage() {
             }`}
           >
             {s.replace('_', ' ')}
+          </button>
+        ))}
+      </div>
+
+      {/* Task Type Filter */}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-1">Type:</span>
+        {TASK_TYPES.map((t) => (
+          <button
+            key={t}
+            onClick={() => { setTaskTypeFilter(t); setPage(1) }}
+            className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+              taskTypeFilter === t
+                ? 'bg-violet-600 text-white'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+            }`}
+          >
+            {t === 'all' ? 'All Types' : t === 'quote' ? 'Request for Quote' : 'Competition'}
           </button>
         ))}
       </div>

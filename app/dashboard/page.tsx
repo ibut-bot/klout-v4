@@ -58,6 +58,9 @@ const BID_STATUS_COLORS: Record<string, string> = {
   DISPUTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 }
 
+const TASK_TYPES = ['all', 'quote', 'competition'] as const
+type TaskTypeFilter = typeof TASK_TYPES[number]
+
 export default function DashboardPage() {
   const { isAuthenticated, connected, wallet, authFetch } = useAuth()
   const [myTasks, setMyTasks] = useState<Task[]>([])
@@ -65,6 +68,7 @@ export default function DashboardPage() {
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [loadingBids, setLoadingBids] = useState(true)
   const [activeTab, setActiveTab] = useState<'tasks' | 'bids'>('tasks')
+  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskTypeFilter>('all')
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -72,7 +76,9 @@ export default function DashboardPage() {
     const fetchTasks = async () => {
       setLoadingTasks(true)
       try {
-        const res = await authFetch('/api/me/tasks?limit=50')
+        const params = new URLSearchParams({ limit: '50' })
+        if (taskTypeFilter !== 'all') params.set('taskType', taskTypeFilter.toUpperCase())
+        const res = await authFetch(`/api/me/tasks?${params}`)
         const data = await res.json()
         if (data.success) {
           setMyTasks(data.tasks)
@@ -101,7 +107,7 @@ export default function DashboardPage() {
 
     fetchTasks()
     fetchBids()
-  }, [isAuthenticated, authFetch])
+  }, [isAuthenticated, authFetch, taskTypeFilter])
 
   if (!connected) {
     return (
@@ -160,6 +166,26 @@ export default function DashboardPage() {
           My Bids ({myBids.length})
         </button>
       </div>
+
+      {/* Task Type Filter (visible when tasks tab active) */}
+      {activeTab === 'tasks' && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-1">Type:</span>
+          {TASK_TYPES.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTaskTypeFilter(t)}
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+                taskTypeFilter === t
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              {t === 'all' ? 'All Types' : t === 'quote' ? 'Request for Quote' : 'Competition'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* My Tasks Tab */}
       {activeTab === 'tasks' && (

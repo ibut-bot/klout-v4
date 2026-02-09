@@ -3,7 +3,7 @@
  * List tasks created by the authenticated user.
  *
  * Usage:
- *   npm run skill:me:tasks -- --password "pass" [--status OPEN|IN_PROGRESS|COMPLETED|DISPUTED] [--limit 20] [--page 1]
+ *   npm run skill:me:tasks -- --password "pass" [--status OPEN|IN_PROGRESS|COMPLETED|DISPUTED] [--type quote|competition] [--limit 20] [--page 1]
  */
 
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -27,6 +27,7 @@ async function main() {
 
     const params = new URLSearchParams()
     if (args.status) params.set('status', args.status.toUpperCase())
+    if (args.type) params.set('taskType', args.type.toUpperCase())
     if (args.limit) params.set('limit', args.limit)
     if (args.page) params.set('page', args.page)
 
@@ -46,6 +47,7 @@ async function main() {
       id: t.id,
       title: t.title,
       budgetSol: Number(t.budgetLamports) / LAMPORTS_PER_SOL,
+      taskType: t.taskType,
       status: t.status,
       bidCount: t.bidCount,
       createdAt: t.createdAt,

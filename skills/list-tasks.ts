@@ -5,9 +5,11 @@
  * Usage:
  *   npm run skill:tasks:list
  *   npm run skill:tasks:list -- --status open --limit 10 --page 1
+ *   npm run skill:tasks:list -- --type competition
  *
  * Options:
  *   --status   Filter: open, in_progress, completed, disputed, cancelled
+ *   --type     Filter by task type: quote, competition
  *   --limit    Results per page (default 20, max 50)
  *   --page     Page number (default 1)
  */
@@ -20,6 +22,7 @@ async function main() {
 
   const params = new URLSearchParams()
   if (args.status) params.set('status', args.status)
+  if (args.type) params.set('taskType', args.type.toUpperCase())
   if (args.limit) params.set('limit', args.limit)
   if (args.page) params.set('page', args.page)
 

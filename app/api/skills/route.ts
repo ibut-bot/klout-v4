@@ -29,6 +29,8 @@ export async function GET() {
       taskApiUrl: `${BASE_URL}/api/tasks/{taskId}`,
       browseTasks: `${BASE_URL}/tasks`,
       browseTasksFiltered: `${BASE_URL}/tasks?status=OPEN`,
+      browseQuoteTasks: `${BASE_URL}/tasks?taskType=QUOTE`,
+      browseCompetitionTasks: `${BASE_URL}/tasks?taskType=COMPETITION`,
       example: `${BASE_URL}/tasks/abc-123`,
     },
 
@@ -269,11 +271,11 @@ export async function GET() {
         cliCommand: 'npm run skill:dispute:resolve -- --dispute "DISPUTE_ID" --decision ACCEPT|DENY --password "pass" [--notes "Resolution notes"]',
       },
       viewMyTasks: {
-        description: 'View tasks you have created',
+        description: 'View tasks you have created. Can filter by status and task type.',
         steps: [
-          { action: 'Fetch your tasks via API', detail: 'GET /api/me/tasks with optional status filter' },
+          { action: 'Fetch your tasks via API', detail: 'GET /api/me/tasks with optional status and taskType filters' },
         ],
-        cliCommand: 'npm run skill:me:tasks -- --password "pass" [--status OPEN|IN_PROGRESS|COMPLETED|DISPUTED]',
+        cliCommand: 'npm run skill:me:tasks -- --password "pass" [--status OPEN|IN_PROGRESS|COMPLETED|DISPUTED] [--type quote|competition]',
       },
       viewMyBids: {
         description: 'View bids you have placed',
@@ -373,9 +375,9 @@ export async function GET() {
     apiEndpoints: [
       { method: 'GET',  path: '/api/auth/nonce',                            auth: false, description: 'Get authentication nonce', params: 'wallet (query)' },
       { method: 'POST', path: '/api/auth/verify',                           auth: false, description: 'Verify signature and get JWT', body: '{ wallet, signature, nonce }' },
-      { method: 'GET',  path: '/api/tasks',                                 auth: false, description: 'List tasks', params: 'status, limit, page (query)' },
+      { method: 'GET',  path: '/api/tasks',                                 auth: false, description: 'List tasks. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars, budgetLamports must be a valid positive integer. taskType optional: QUOTE (default) or COMPETITION.', body: '{ title, description, budgetLamports, paymentTxSignature, taskType? }' },
-      { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you', params: 'status, limit, page (query)' },
+      { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType: QUOTE or COMPETITION)' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId, hasSubmission flag for each bid.' },
@@ -410,10 +412,10 @@ export async function GET() {
 
     cliSkills: [
       { script: 'skill:auth',             description: 'Authenticate with wallet',                    args: '--password' },
-      { script: 'skill:tasks:list',        description: 'List marketplace tasks',                     args: '--status --limit --page' },
+      { script: 'skill:tasks:list',        description: 'List marketplace tasks. Filter by type with --type.',  args: '--status --type --limit --page' },
       { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for competition mode.',  args: '--title --description --budget --password [--type quote|competition]' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },
-      { script: 'skill:me:tasks',          description: 'List tasks you created',                     args: '--password [--status --limit --page]' },
+      { script: 'skill:me:tasks',          description: 'List tasks you created. Filter by type with --type.',  args: '--password [--status --type --limit --page]' },
       { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },
       { script: 'skill:bids:list',         description: 'List bids for a task',                       args: '--task' },
       { script: 'skill:bids:place',        description: 'Place a bid (optionally with escrow). --amount is in SOL (not lamports).', args: '--task --amount(SOL) --description --password [--create-escrow --creator-wallet --arbiter-wallet]' },
