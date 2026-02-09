@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useAuth } from '../hooks/useAuth'
 
 interface Attachment {
@@ -292,14 +293,16 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
         {isCreator && selectedBidderWallet && (
           <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
             <span>Conversation with</span>
-            {selectedBidderProfilePic ? (
-              <img src={selectedBidderProfilePic} alt="" className="h-4 w-4 rounded-full object-cover" />
-            ) : (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                {selectedBidderWallet.slice(0, 2)}
-              </span>
-            )}
-            <span>{selectedBidderWallet.slice(0, 6)}...{selectedBidderWallet.slice(-4)}</span>
+            <Link href={`/u/${selectedBidderWallet}`} className="inline-flex items-center gap-1.5 hover:text-zinc-700 dark:hover:text-zinc-300">
+              {selectedBidderProfilePic ? (
+                <img src={selectedBidderProfilePic} alt="" className="h-4 w-4 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  {selectedBidderWallet.slice(0, 2)}
+                </span>
+              )}
+              <span>{selectedBidderWallet.slice(0, 6)}...{selectedBidderWallet.slice(-4)}</span>
+            </Link>
           </div>
         )}
       </div>
@@ -320,7 +323,7 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
               {!isMe && (
-                <div className="mr-2 flex-shrink-0">
+                <Link href={`/u/${msg.senderWallet}`} className="mr-2 flex-shrink-0 hover:opacity-80">
                   {msg.senderProfilePic ? (
                     <img src={msg.senderProfilePic} alt="" className="h-7 w-7 rounded-full object-cover" />
                   ) : (
@@ -328,7 +331,7 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
                       {msg.senderWallet.slice(0, 2)}
                     </div>
                   )}
-                </div>
+                </Link>
               )}
               <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
                 isMe
@@ -336,9 +339,9 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
                   : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
               }`}>
                 {!isMe && (
-                  <p className="mb-0.5 text-xs font-medium opacity-60">
+                  <Link href={`/u/${msg.senderWallet}`} className="mb-0.5 block text-xs font-medium opacity-60 hover:opacity-100">
                     {msg.senderWallet.slice(0, 4)}...{msg.senderWallet.slice(-4)}
-                  </p>
+                  </Link>
                 )}
                 {msg.content && <p>{msg.content}</p>}
                 {msg.attachments && msg.attachments.length > 0 && (

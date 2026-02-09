@@ -238,7 +238,9 @@ export default function DisputeDetailPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Creator</span>
-            <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">{shortenWallet(task.creator.walletAddress)}</span>
+            <Link href={`/u/${task.creator.walletAddress}`} className="font-mono text-xs text-zinc-900 dark:text-zinc-100 hover:text-blue-600">
+              {shortenWallet(task.creator.walletAddress)}
+            </Link>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Escrow Amount</span>
@@ -246,7 +248,9 @@ export default function DisputeDetailPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Bidder</span>
-            <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">{shortenWallet(bid.bidder.walletAddress)}</span>
+            <Link href={`/u/${bid.bidder.walletAddress}`} className="font-mono text-xs text-zinc-900 dark:text-zinc-100 hover:text-blue-600">
+              {shortenWallet(bid.bidder.walletAddress)}
+            </Link>
           </div>
           {bid.multisigAddress && (
             <div className="flex justify-between">

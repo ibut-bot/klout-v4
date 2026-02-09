@@ -169,11 +169,22 @@ export default function AdminDisputesPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                 <div>
                   <p className="text-zinc-500">Raised by</p>
                   <p className="text-zinc-900 dark:text-zinc-100 font-mono text-xs">
-                    {dispute.raisedBy} ({shortenWallet(dispute.raisedByWallet)})
+                    {dispute.raisedBy} (
+                    <span
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        window.location.href = `/u/${dispute.raisedByWallet}`
+                      }}
+                      className="hover:text-blue-600 cursor-pointer"
+                    >
+                      {shortenWallet(dispute.raisedByWallet)}
+                    </span>
+                    )
                   </p>
                 </div>
                 <div>

@@ -134,7 +134,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mb-6 rounded-lg bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-        Wallet: <span className="font-mono">{wallet}</span>
+        Wallet: <Link href={`/u/${wallet}`} className="font-mono hover:text-zinc-900 dark:hover:text-zinc-100">{wallet}</Link>
       </div>
 
       {/* Tabs */}
