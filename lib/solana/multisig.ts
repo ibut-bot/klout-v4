@@ -906,19 +906,37 @@ export async function createProposalApproveExecuteWA(
     member: wallet.publicKey,
   })
 
-  // 4. Execute
-  const executeResult = await multisig.instructions.vaultTransactionExecute({
-    connection,
-    multisigPda,
-    transactionIndex,
+  // 4. Execute — built synchronously since we know the inner message accounts
+  const [transactionPda] = multisig.getTransactionPda({ multisigPda, index: transactionIndex })
+  const [proposalPda] = multisig.getProposalPda({ multisigPda, transactionIndex })
+
+  // Remaining accounts mirror the compiled inner message account keys:
+  //   vaultPda (writable signer in inner msg, but PDA signing handled by program → isSigner: false)
+  //   recipient (writable non-signer)
+  //   platformWallet (writable non-signer) — if present
+  //   SystemProgram (read-only non-signer)
+  const anchorRemainingAccounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
+    { pubkey: vaultPda, isSigner: false, isWritable: true },
+    { pubkey: recipient, isSigner: false, isWritable: true },
+  ]
+  if (platformAmount > 0) {
+    anchorRemainingAccounts.push({ pubkey: platformWallet, isSigner: false, isWritable: true })
+  }
+  anchorRemainingAccounts.push({ pubkey: SystemProgram.programId, isSigner: false, isWritable: false })
+
+  const executeIx = multisig.generated.createVaultTransactionExecuteInstruction({
+    multisig: multisigPda,
+    transaction: transactionPda,
+    proposal: proposalPda,
     member: wallet.publicKey,
+    anchorRemainingAccounts,
   })
 
   // Bundle all into one transaction
   const tx = new Transaction()
   tx.recentBlockhash = blockhash
   tx.feePayer = wallet.publicKey
-  tx.add(createVaultTxIx, createProposalIx, approveIx, executeResult.instruction)
+  tx.add(createVaultTxIx, createProposalIx, approveIx, executeIx)
 
   const signedTx = await wallet.signTransaction(tx)
   const sig = await connection.sendRawTransaction(signedTx.serialize(), { maxRetries: 5 })
@@ -985,17 +1003,31 @@ export async function createProposalApproveExecute(
     member: creator.publicKey,
   })
 
-  const executeResult = await multisig.instructions.vaultTransactionExecute({
-    connection,
-    multisigPda,
-    transactionIndex,
+  // Execute — built synchronously since we know the inner message accounts
+  const [transactionPda] = multisig.getTransactionPda({ multisigPda, index: transactionIndex })
+  const [proposalPda] = multisig.getProposalPda({ multisigPda, transactionIndex })
+
+  const anchorRemainingAccounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
+    { pubkey: vaultPda, isSigner: false, isWritable: true },
+    { pubkey: recipient, isSigner: false, isWritable: true },
+  ]
+  if (platformAmount > 0) {
+    anchorRemainingAccounts.push({ pubkey: platformWallet, isSigner: false, isWritable: true })
+  }
+  anchorRemainingAccounts.push({ pubkey: SystemProgram.programId, isSigner: false, isWritable: false })
+
+  const executeIx = multisig.generated.createVaultTransactionExecuteInstruction({
+    multisig: multisigPda,
+    transaction: transactionPda,
+    proposal: proposalPda,
     member: creator.publicKey,
+    anchorRemainingAccounts,
   })
 
   const transaction = new Transaction()
   transaction.recentBlockhash = blockhash
   transaction.feePayer = creator.publicKey
-  transaction.add(createVaultTxIx, createProposalIx, approveIx, executeResult.instruction)
+  transaction.add(createVaultTxIx, createProposalIx, approveIx, executeIx)
   transaction.sign(creator)
 
   const signature = await connection.sendRawTransaction(transaction.serialize(), { maxRetries: 5 })
