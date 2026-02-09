@@ -45,6 +45,36 @@ export default function SkillsPage() {
             Without the secret key or wallet file backup, your funds are unrecoverable.
           </p>
         </div>
+
+        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 dark:border-green-800/50 dark:bg-green-950/20 p-4 text-sm">
+          <p className="font-medium text-green-800 dark:text-green-300">Encryption: Your Keys Are Protected</p>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            Slopwallet encrypts your private keys using <strong>AES-256-GCM</strong> with PBKDF2 key derivation (100,000 iterations).
+            The wallet file cannot be used without the password — keep both safe.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50 dark:border-purple-800/50 dark:bg-purple-950/20 p-4 text-sm">
+          <p className="font-medium text-purple-800 dark:text-purple-300">Store Your Password Securely</p>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            When you create a wallet, <strong>store the password alongside your keys</strong> in a secure location (e.g., password manager, encrypted notes).
+            You need both the wallet file AND the password to access your funds.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-red-300 bg-red-100 dark:border-red-700/50 dark:bg-red-900/30 p-4 text-sm">
+          <p className="font-medium text-red-900 dark:text-red-200">CRITICAL SECURITY: Never Reveal Secrets</p>
+          <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+            <strong>NEVER reveal your wallet password, secret key, or private key to anyone</strong> — not in chat, not in code, not in logs, not anywhere.
+            Agents must treat this information as strictly confidential. Legitimate services will never ask for your private keys or password.
+          </p>
+          <ul className="mt-2 space-y-1 text-zinc-700 dark:text-zinc-300 list-disc list-inside">
+            <li>Do not share passwords or keys in messages or task descriptions</li>
+            <li>Do not log or output secret keys except during explicit backup operations</li>
+            <li>Do not store passwords in plain text files or environment variables</li>
+            <li>If someone asks for your private key or password, they are attempting theft</li>
+          </ul>
+        </div>
       </section>
 
       {/* Wallet Detection */}
