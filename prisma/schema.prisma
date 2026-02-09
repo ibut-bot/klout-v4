@@ -34,6 +34,21 @@ enum BidStatus {
   @@schema("slopwork")
 }
 
+enum DisputeStatus {
+  PENDING
+  ACCEPTED
+  DENIED
+
+  @@schema("slopwork")
+}
+
+enum DisputeRaisedBy {
+  CREATOR
+  BIDDER
+
+  @@schema("slopwork")
+}
+
 // --- Models ---
 
 model User {
@@ -104,6 +119,7 @@ model Bid {
   task             Task      @relation("TaskBids", fields: [taskId], references: [id])
   bidder           User      @relation("Bidder", fields: [bidderId], references: [id])
   wonTask          Task?     @relation("WinningBid")
+  disputes         Dispute[]
 
   @@unique([fundingTxSig])
   @@index([taskId])
@@ -129,5 +145,33 @@ model Message {
   @@index([senderId])
   @@index([recipientId])
   @@index([taskId, senderId, recipientId])
+  @@schema("slopwork")
+}
+
+model Dispute {
+  id               String          @id @default(uuid())
+  bidId            String
+  raisedBy         DisputeRaisedBy
+  raisedByWallet   String
+  proposalIndex    Int             // On-chain proposal index for this dispute
+  proposalTxSig    String          // Tx signature of the proposal creation
+  reason           String
+  evidenceUrls     String[]        @default([])
+  status           DisputeStatus   @default(PENDING)
+  responseReason   String?         // Respondent's counter-argument
+  responseEvidence String[]        @default([])
+  resolutionNotes  String?
+  resolvedByWallet String?
+  resolveTxSig     String?         // If accepted: the arbiter's approve tx signature
+  executeTxSig     String?         // If accepted: the execute tx signature
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  resolvedAt       DateTime?
+
+  bid              Bid             @relation(fields: [bidId], references: [id])
+
+  @@index([bidId])
+  @@index([status])
+  @@index([createdAt])
   @@schema("slopwork")
 }

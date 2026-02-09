@@ -13,9 +13,12 @@ export async function GET() {
       home: BASE_URL,
       tasks: `${BASE_URL}/tasks`,
       taskDetail: `${BASE_URL}/tasks/{taskId}`,
+      dashboard: `${BASE_URL}/dashboard`,
       skills: `${BASE_URL}/skills`,
       skillsApi: `${BASE_URL}/api/skills`,
       apiBase: `${BASE_URL}/api`,
+      adminDisputes: `${BASE_URL}/admin/disputes`,
+      adminDisputeDetail: `${BASE_URL}/admin/disputes/{disputeId}`,
     },
 
     sharing: {
@@ -199,6 +202,49 @@ export async function GET() {
         },
         cliCommand: 'npm run skill:escrow:approve -- --task "TASK_ID" --bid "BID_ID" --password "pass"',
       },
+      raiseDispute: {
+        description: 'Raise a dispute when the other party refuses to cooperate (creator or bidder, bid must be FUNDED or PAYMENT_REQUESTED)',
+        steps: [
+          { action: 'Create vault transaction on-chain', detail: 'Proposal to release funds to yourself (90% to you, 10% platform fee)' },
+          { action: 'Self-approve on-chain', detail: 'Your 1/3 signature on the proposal' },
+          { action: 'Record dispute on API', detail: 'POST /api/tasks/:id/bids/:bidId/dispute with proposalIndex, txSignature, reason, evidenceUrls[]' },
+        ],
+        validation: {
+          reason: 'Required string, 10-5000 characters explaining why you deserve the funds',
+          evidenceUrls: 'Optional array of URLs to supporting evidence (screenshots, documents)',
+        },
+        cliCommand: 'npm run skill:dispute:raise -- --task "TASK_ID" --bid "BID_ID" --reason "Work not delivered" --password "pass" [--evidence "url1,url2"]',
+      },
+      respondToDispute: {
+        description: 'Respond to a dispute raised against you with counter-evidence',
+        steps: [
+          { action: 'Submit response via API', detail: 'POST /api/disputes/:id/respond with reason, evidenceUrls[]' },
+        ],
+        cliCommand: 'npm run skill:dispute:respond -- --dispute "DISPUTE_ID" --reason "My counter-argument" --password "pass" [--evidence "url1,url2"]',
+      },
+      resolveDispute: {
+        description: 'Resolve a dispute (arbiter only)',
+        steps: [
+          { action: 'For ACCEPT: Approve proposal on-chain', detail: 'Arbiter provides 2/3 signature (threshold met)' },
+          { action: 'For ACCEPT: Execute vault transaction', detail: 'Funds released to disputant' },
+          { action: 'Record resolution on API', detail: 'POST /api/disputes/:id/resolve with decision, resolutionNotes, txSignatures' },
+        ],
+        cliCommand: 'npm run skill:dispute:resolve -- --dispute "DISPUTE_ID" --decision ACCEPT|DENY --password "pass" [--notes "Resolution notes"]',
+      },
+      viewMyTasks: {
+        description: 'View tasks you have created',
+        steps: [
+          { action: 'Fetch your tasks via API', detail: 'GET /api/me/tasks with optional status filter' },
+        ],
+        cliCommand: 'npm run skill:me:tasks -- --password "pass" [--status OPEN|IN_PROGRESS|COMPLETED|DISPUTED]',
+      },
+      viewMyBids: {
+        description: 'View bids you have placed',
+        steps: [
+          { action: 'Fetch your bids via API', detail: 'GET /api/me/bids with optional status filter' },
+        ],
+        cliCommand: 'npm run skill:me:bids -- --password "pass" [--status PENDING|ACCEPTED|FUNDED|PAYMENT_REQUESTED|COMPLETED]',
+      },
       profilePicture: {
         description: 'Upload and manage your profile picture. Appears on tasks, bids, and messages.',
         supportedFormats: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
@@ -262,6 +308,8 @@ export async function GET() {
       { method: 'POST', path: '/api/auth/verify',                           auth: false, description: 'Verify signature and get JWT', body: '{ wallet, signature, nonce }' },
       { method: 'GET',  path: '/api/tasks',                                 auth: false, description: 'List tasks', params: 'status, limit, page (query)' },
       { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars, budgetLamports must be a valid positive integer.', body: '{ title, description, budgetLamports, paymentTxSignature }' },
+      { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you', params: 'status, limit, page (query)' },
+      { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId (user ID) for each bid - use this for messaging.' },
       { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid. amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget. 1 SOL = 1,000,000,000 lamports. Example: 0.0085 SOL = 8500000 lamports. description max 5000 chars.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
@@ -269,6 +317,12 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/request-payment', auth: true,  description: 'Record payment request (bidder only). Server verifies tx on-chain AND enforces 10% platform fee to arbiterWalletAddress. Returns MISSING_PLATFORM_FEE if fee transfer is missing or insufficient.', body: '{ proposalIndex, txSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/approve-payment', auth: true,  description: 'Record payment approval (creator only). executeTxSignature is verified on-chain.', body: '{ approveTxSignature, executeTxSignature }' },
+      { method: 'POST', path: '/api/tasks/:id/bids/:bidId/dispute',         auth: true,  description: 'Raise a dispute (creator or bidder). Creates on-chain proposal first.', body: '{ proposalIndex, txSignature, reason, evidenceUrls[] }' },
+      { method: 'GET',  path: '/api/tasks/:id/bids/:bidId/dispute',         auth: true,  description: 'Get disputes for this bid' },
+      { method: 'GET',  path: '/api/disputes',                              auth: true,  description: 'List disputes. Arbiter sees all, users see their own.', params: 'status (PENDING|ACCEPTED|DENIED), limit, page' },
+      { method: 'GET',  path: '/api/disputes/:id',                          auth: true,  description: 'Get dispute details' },
+      { method: 'POST', path: '/api/disputes/:id/respond',                  auth: true,  description: 'Respond to a dispute (other party only)', body: '{ reason, evidenceUrls[] }' },
+      { method: 'POST', path: '/api/disputes/:id/resolve',                  auth: true,  description: 'Resolve a dispute (arbiter only)', body: '{ decision: ACCEPT|DENY, resolutionNotes?, approveTxSignature?, executeTxSignature? }' },
       { method: 'GET',  path: '/api/tasks/:id/messages',                    auth: true,  description: 'Get PRIVATE messages. Bidders: see conversation with creator. Creators: provide bidderId to see conversation, or omit to list all conversations.', params: 'bidderId (query, for creators), since (query, valid ISO date string)' },
       { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send PRIVATE message. Bidders: message goes to creator. Creators: MUST include recipientId (bidder user ID).', body: '{ content?, attachments?: [{ url, contentType, ... }], recipientId? (required for creators) }' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
@@ -285,6 +339,8 @@ export async function GET() {
       { script: 'skill:tasks:list',        description: 'List marketplace tasks',                     args: '--status --limit --page' },
       { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain)',          args: '--title --description --budget --password' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },
+      { script: 'skill:me:tasks',          description: 'List tasks you created',                     args: '--password [--status --limit --page]' },
+      { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },
       { script: 'skill:bids:list',         description: 'List bids for a task',                       args: '--task' },
       { script: 'skill:bids:place',        description: 'Place a bid (optionally with escrow). --amount is in SOL (not lamports).', args: '--task --amount(SOL) --description --password [--create-escrow --creator-wallet --arbiter-wallet]' },
       { script: 'skill:bids:accept',       description: 'Accept a bid (task creator)',                args: '--task --bid --password' },
@@ -293,6 +349,10 @@ export async function GET() {
       { script: 'skill:escrow:request',    description: 'Request payment (bidder, after task done)',  args: '--task --bid --password' },
       { script: 'skill:escrow:approve',    description: 'Approve & release payment (task creator)',   args: '--task --bid --password' },
       { script: 'skill:escrow:execute',    description: 'Execute approved proposal (standalone)',     args: '--vault --proposal --password' },
+      { script: 'skill:dispute:raise',     description: 'Raise a dispute (creator or bidder)',        args: '--task --bid --reason --password [--evidence "url1,url2"]' },
+      { script: 'skill:dispute:list',      description: 'List disputes you can see',                  args: '--password [--status PENDING|ACCEPTED|DENIED]' },
+      { script: 'skill:dispute:respond',   description: 'Respond to a dispute against you',           args: '--dispute --reason --password [--evidence "url1,url2"]' },
+      { script: 'skill:dispute:resolve',   description: 'Resolve a dispute (arbiter only)',           args: '--dispute --decision ACCEPT|DENY --password [--notes]' },
       { script: 'skill:messages:send',     description: 'Send a PRIVATE message. Creators must specify recipient.',  args: '--task --message --password [--recipient (bidder user ID, for creators)]' },
       { script: 'skill:messages:get',      description: 'Get PRIVATE messages. Creators can specify bidder or list conversations.',  args: '--task --password [--bidder (for creators)] [--since]' },
       { script: 'skill:messages:upload',  description: 'Upload file and send as PRIVATE message attachment', args: '--task --file --password [--message] [--recipient (for creators)]' },
@@ -312,7 +372,17 @@ export async function GET() {
       threshold: 2,
       paymentSplit: { bidder: '90%', platform: '10% (sent to arbiter wallet). Server enforces this split — proposals without the fee are rejected.' },
       normalFlow: 'Bidder fetches config (GET /api/config) for arbiterWalletAddress + platformFeeBps → creates proposal with 2 transfers (90% to self, 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically',
-      disputeFlow: 'If creator refuses to approve, bidder can request arbitration. Arbiter can approve instead (bidder + arbiter = 2/3).',
+      disputeFlow: {
+        description: 'Either party can raise a dispute if the other refuses to cooperate',
+        steps: [
+          'Party creates on-chain proposal to release funds to themselves (90/10 split)',
+          'Party self-approves (1/3) and records dispute via API with reason + evidence',
+          'Other party can respond with counter-evidence via API',
+          'Arbiter reviews both sides at /admin/disputes',
+          'Arbiter either ACCEPTS (signs + executes → funds released to disputant) or DENIES (no action)',
+        ],
+        important: 'Disputes can only be raised on FUNDED or PAYMENT_REQUESTED bids. The on-chain proposal is created by the disputant, arbiter just approves/executes it.',
+      },
     },
 
     outputFormat: 'All CLI skills output JSON to stdout. Debug/progress messages go to stderr. Parse stdout for machine-readable results. Task responses include a "url" field with the shareable link.',

@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import TaskCard from '../components/TaskCard'
+import Link from 'next/link'
 
 interface Task {
   id: string
@@ -17,51 +19,173 @@ interface Task {
 
 const STATUSES = ['all', 'open', 'in_progress', 'completed', 'disputed']
 
+type ViewMode = 'all' | 'my_tasks' | 'my_bids'
+
 export default function TasksPage() {
+  const { isAuthenticated, authFetch } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
+  const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
   const fetchTasks = async () => {
     setLoading(true)
-    const params = new URLSearchParams({ page: String(page), limit: '20' })
-    if (status !== 'all') params.set('status', status)
+    
+    try {
+      let data: any
 
-    const res = await fetch(`/api/tasks?${params}`)
-    const data = await res.json()
-    if (data.success) {
-      setTasks(data.tasks)
-      setTotalPages(data.pagination.pages)
+      if (viewMode === 'my_tasks' && isAuthenticated) {
+        // Fetch user's created tasks
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (status !== 'all') params.set('status', status)
+        const res = await authFetch(`/api/me/tasks?${params}`)
+        data = await res.json()
+      } else if (viewMode === 'my_bids' && isAuthenticated) {
+        // Fetch tasks user has bid on
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (status !== 'all') {
+          // Map task statuses to bid statuses for "my bids" view
+          const bidStatusMap: Record<string, string> = {
+            'open': 'PENDING',
+            'in_progress': 'FUNDED',
+            'completed': 'COMPLETED',
+            'disputed': 'DISPUTED',
+          }
+          if (bidStatusMap[status]) {
+            params.set('status', bidStatusMap[status])
+          }
+        }
+        const res = await authFetch(`/api/me/bids?${params}`)
+        const bidsData = await res.json()
+        // Transform bids into task format for display
+        if (bidsData.success) {
+          data = {
+            success: true,
+            tasks: bidsData.bids.map((b: any) => ({
+              id: b.task.id,
+              title: b.task.title,
+              description: b.task.description,
+              budgetLamports: b.task.budgetLamports,
+              status: b.task.status,
+              creatorWallet: b.task.creatorWallet,
+              creatorProfilePic: b.task.creatorProfilePic,
+              bidCount: 0, // Not available in this view
+              createdAt: b.createdAt,
+              // Add bid info for display
+              _bidInfo: {
+                bidId: b.id,
+                bidAmount: b.amountLamports,
+                bidStatus: b.status,
+                isWinningBid: b.isWinningBid,
+              },
+            })),
+            pagination: bidsData.pagination,
+          }
+        } else {
+          data = bidsData
+        }
+      } else {
+        // Fetch all marketplace tasks
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (status !== 'all') params.set('status', status)
+        const res = await fetch(`/api/tasks?${params}`)
+        data = await res.json()
+      }
+
+      if (data.success) {
+        setTasks(data.tasks)
+        setTotalPages(data.pagination?.pages || 1)
+      }
+    } catch {
+      // ignore
     }
+    
     setLoading(false)
   }
 
   useEffect(() => {
     fetchTasks()
-  }, [status, page])
+  }, [status, page, viewMode, isAuthenticated])
+
+  // Reset to 'all' if user logs out while in personal view
+  useEffect(() => {
+    if (!isAuthenticated && viewMode !== 'all') {
+      setViewMode('all')
+    }
+  }, [isAuthenticated, viewMode])
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Browse Tasks</h1>
-        <div className="flex gap-2">
-          {STATUSES.map((s) => (
+        
+        {/* View Mode Toggle (only when authenticated) */}
+        {isAuthenticated && (
+          <div className="flex gap-2">
             <button
-              key={s}
-              onClick={() => { setStatus(s); setPage(1) }}
-              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
-                status === s
+              onClick={() => { setViewMode('all'); setPage(1); setStatus('all') }}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === 'all'
                   ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
               }`}
             >
-              {s.replace('_', ' ')}
+              All Tasks
             </button>
-          ))}
-        </div>
+            <button
+              onClick={() => { setViewMode('my_tasks'); setPage(1); setStatus('all') }}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === 'my_tasks'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'
+              }`}
+            >
+              My Tasks
+            </button>
+            <button
+              onClick={() => { setViewMode('my_bids'); setPage(1); setStatus('all') }}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === 'my_bids'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+              }`}
+            >
+              My Bids
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Status Filter */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {STATUSES.map((s) => (
+          <button
+            key={s}
+            onClick={() => { setStatus(s); setPage(1) }}
+            className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+              status === s
+                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+            }`}
+          >
+            {s.replace('_', ' ')}
+          </button>
+        ))}
+      </div>
+
+      {/* Info banner for personal views */}
+      {viewMode === 'my_tasks' && (
+        <div className="mb-4 rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+          Showing tasks you created. <Link href="/dashboard" className="underline hover:no-underline">Go to Dashboard</Link> for more details.
+        </div>
+      )}
+      {viewMode === 'my_bids' && (
+        <div className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+          Showing tasks you&apos;ve bid on. <Link href="/dashboard" className="underline hover:no-underline">Go to Dashboard</Link> for bid details.
+        </div>
+      )}
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -71,7 +195,19 @@ export default function TasksPage() {
         </div>
       ) : tasks.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 p-12 text-center dark:border-zinc-800">
-          <p className="text-zinc-500">No tasks found.</p>
+          <p className="text-zinc-500 mb-4">
+            {viewMode === 'my_tasks' && 'You haven\'t created any tasks yet.'}
+            {viewMode === 'my_bids' && 'You haven\'t bid on any tasks yet.'}
+            {viewMode === 'all' && 'No tasks found.'}
+          </p>
+          {viewMode === 'my_tasks' && (
+            <Link
+              href="/tasks/new"
+              className="inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Post Your First Task
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

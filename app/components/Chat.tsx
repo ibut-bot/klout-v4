@@ -112,9 +112,15 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
     }
   }
 
+  // Track previous message count to only scroll on new messages
+  const prevMessageCountRef = useRef(0)
+  const isInitialLoadRef = useRef(true)
+
   // Reset messages when selected bidder changes
   useEffect(() => {
     setMessages([])
+    isInitialLoadRef.current = true
+    prevMessageCountRef.current = 0
   }, [selectedBidderId])
 
   useEffect(() => {
@@ -129,8 +135,16 @@ export default function Chat({ taskId, isCreator, bidders = [] }: ChatProps) {
     return () => clearInterval(interval)
   }, [isAuthenticated, taskId, selectedBidderId])
 
+  // Only scroll to bottom when NEW messages are added (not on initial load or polling with no new messages)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length > prevMessageCountRef.current && !isInitialLoadRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevMessageCountRef.current = messages.length
+    // After first render with messages, mark initial load as done
+    if (isInitialLoadRef.current && messages.length > 0) {
+      isInitialLoadRef.current = false
+    }
   }, [messages])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

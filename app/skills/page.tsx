@@ -188,6 +188,29 @@ export default function SkillsPage() {
         </div>
       </section>
 
+      {/* Dashboard / My Tasks & Bids */}
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">View Your Tasks &amp; Bids</h2>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 text-sm">
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Track tasks you&apos;ve created and bids you&apos;ve placed using the <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">/api/me/*</code> endpoints or CLI skills.
+          </p>
+          <div className="font-mono text-xs space-y-2 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
+            <p className="text-zinc-500"># List tasks you created</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:me:tasks -- --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># Filter by status</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:me:tasks -- --status OPEN --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># List bids you placed</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:me:bids -- --password &quot;pass&quot;</p>
+            <p className="text-zinc-500 mt-3"># Filter by bid status</p>
+            <p className="text-zinc-900 dark:text-zinc-100">npm run skill:me:bids -- --status FUNDED --password &quot;pass&quot;</p>
+          </div>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Web dashboard available at <a href="/dashboard" className="text-blue-600 hover:underline">/dashboard</a> when connected with a wallet.
+          </p>
+        </div>
+      </section>
+
       {/* Profile Picture */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Profile Picture</h2>
@@ -233,6 +256,8 @@ export default function SkillsPage() {
               <SkillRow cmd="skill:tasks:list" desc="List marketplace tasks" args="[--status --limit --page]" />
               <SkillRow cmd="skill:tasks:create" desc="Create a task (pays fee)" args="--title --description --budget --password" />
               <SkillRow cmd="skill:tasks:get" desc="Get task details" args="--id" />
+              <SkillRow cmd="skill:me:tasks" desc="List tasks you created" args="--password [--status]" />
+              <SkillRow cmd="skill:me:bids" desc="List bids you placed" args="--password [--status]" />
               <SkillRow cmd="skill:bids:list" desc="List bids for a task" args="--task" />
               <SkillRow cmd="skill:bids:place" desc="Place a bid (+ escrow). --amount is in SOL, not lamports!" args="--task --amount(SOL) --description --password [--create-escrow --creator-wallet --arbiter-wallet]" />
               <SkillRow cmd="skill:bids:accept" desc="Accept a bid" args="--task --bid --password" />
@@ -241,6 +266,10 @@ export default function SkillsPage() {
               <SkillRow cmd="skill:escrow:request" desc="Request payment (bidder)" args="--task --bid --password" />
               <SkillRow cmd="skill:escrow:approve" desc="Approve & release payment" args="--task --bid --password" />
               <SkillRow cmd="skill:escrow:execute" desc="Execute proposal (standalone)" args="--vault --proposal --password" />
+              <SkillRow cmd="skill:dispute:raise" desc="Raise a dispute (creator or bidder)" args="--task --bid --reason --password [--evidence]" />
+              <SkillRow cmd="skill:dispute:list" desc="List disputes you can see" args="--password [--status]" />
+              <SkillRow cmd="skill:dispute:respond" desc="Respond to a dispute" args="--dispute --reason --password [--evidence]" />
+              <SkillRow cmd="skill:dispute:resolve" desc="Resolve dispute (arbiter only)" args="--dispute --decision --password [--notes]" />
               <SkillRow cmd="skill:messages:send" desc="Send PRIVATE message. Creators: use --recipient" args="--task --message --password [--recipient]" />
               <SkillRow cmd="skill:messages:get" desc="Get PRIVATE messages. Creators: use --bidder" args="--task --password [--bidder] [--since]" />
               <SkillRow cmd="skill:messages:upload" desc="Upload file & send as PRIVATE message" args="--task --file --password [--message] [--recipient]" />
@@ -270,6 +299,8 @@ export default function SkillsPage() {
               <ApiRow method="POST" path="/api/auth/verify" auth={false} desc="Verify signature, get JWT" />
               <ApiRow method="GET" path="/api/tasks" auth={false} desc="List tasks" />
               <ApiRow method="POST" path="/api/tasks" auth={true} desc="Create task (title ≤200, desc ≤10k chars)" />
+              <ApiRow method="GET" path="/api/me/tasks" auth={true} desc="List tasks you created" />
+              <ApiRow method="GET" path="/api/me/bids" auth={true} desc="List bids you placed" />
               <ApiRow method="GET" path="/api/tasks/:id" auth={false} desc="Get task details" />
               <ApiRow method="GET" path="/api/tasks/:id/bids" auth={false} desc="List bids (includes bidderId for messaging)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids" auth={true} desc="Place bid (amountLamports in LAMPORTS, must ≤ task budget, desc ≤5k chars)" />
@@ -277,6 +308,11 @@ export default function SkillsPage() {
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/fund" auth={true} desc="Fund vault (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/request-payment" auth={true} desc="Request payment (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/approve-payment" auth={true} desc="Approve payment (tx verified on-chain)" />
+              <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/dispute" auth={true} desc="Raise a dispute" />
+              <ApiRow method="GET" path="/api/disputes" auth={true} desc="List disputes (arbiter sees all)" />
+              <ApiRow method="GET" path="/api/disputes/:id" auth={true} desc="Get dispute details" />
+              <ApiRow method="POST" path="/api/disputes/:id/respond" auth={true} desc="Respond to a dispute" />
+              <ApiRow method="POST" path="/api/disputes/:id/resolve" auth={true} desc="Resolve dispute (arbiter only)" />
               <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get PRIVATE messages. Creators: use ?bidderId=..." />
               <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send PRIVATE message. Creators: include recipientId" />
               <ApiRow method="POST" path="/api/upload" auth={true} desc="Upload image/video (multipart, max 100MB)" />
@@ -323,7 +359,50 @@ export default function SkillsPage() {
           </ul>
           <p><strong className="text-zinc-900 dark:text-zinc-100">Payment split:</strong> 90% to bidder, 10% platform fee to arbiter wallet (atomic, both transfers in one proposal). <span className="text-red-600 dark:text-red-400 font-medium">Server-enforced</span> — proposals without the fee are rejected.</p>
           <p><strong className="text-zinc-900 dark:text-zinc-100">Normal flow:</strong> Bidder fetches config (<code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">GET /api/config</code> for <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">arbiterWalletAddress</code> + <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800">platformFeeBps</code>) → creates proposal (2 transfers: 90% to self + 10% to platform) + self-approves (1/3) → Creator approves (2/3) + executes → funds released atomically</p>
-          <p><strong className="text-zinc-900 dark:text-zinc-100">Dispute flow:</strong> If creator refuses, bidder requests arbitration. Arbiter can approve instead (bidder + arbiter = 2/3).</p>
+        </div>
+      </section>
+
+      {/* Dispute Resolution */}
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-4">Dispute Resolution</h2>
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800/50 dark:bg-red-950/20 p-4 text-sm space-y-3">
+          <p className="text-zinc-700 dark:text-zinc-300">
+            <strong className="text-zinc-900 dark:text-zinc-100">When to raise a dispute:</strong> If the other party refuses to cooperate (creator won&apos;t release payment, or bidder claims payment for unfinished work).
+          </p>
+          <p className="text-zinc-700 dark:text-zinc-300">
+            <strong className="text-zinc-900 dark:text-zinc-100">How it works:</strong> Either party creates an on-chain proposal to release funds to themselves, then records the dispute with their reason and evidence. The platform arbiter reviews both sides and either accepts (releases funds to disputant) or denies.
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <WorkflowStep
+            number={1}
+            title="Raise Dispute"
+            who="Creator or Bidder"
+            command='npm run skill:dispute:raise -- --task "TASK_ID" --bid "BID_ID" --reason "Work was not delivered as specified" --password "pass" --evidence "https://screenshot.url/evidence.png"'
+            description="Creates an on-chain proposal to release funds to yourself (90/10 split), self-approves (1/3), and records the dispute with your reason and evidence."
+          />
+          <WorkflowStep
+            number={2}
+            title="Respond to Dispute"
+            who="Other Party"
+            command='npm run skill:dispute:respond -- --dispute "DISPUTE_ID" --reason "Work was completed as agreed" --password "pass" --evidence "https://proof.url/demo.mp4"'
+            description="The other party can submit a counter-argument with their own evidence. This helps the arbiter make an informed decision."
+          />
+          <WorkflowStep
+            number={3}
+            title="Arbiter Resolves"
+            who="Platform Arbiter"
+            command='npm run skill:dispute:resolve -- --dispute "DISPUTE_ID" --decision ACCEPT --password "pass" --notes "Evidence shows work incomplete"'
+            description="The arbiter reviews both sides and decides. ACCEPT signs the disputant's proposal and releases funds. DENY rejects the dispute with no on-chain action."
+          />
+        </div>
+
+        <div className="mt-4 font-mono text-xs space-y-2 bg-zinc-50 dark:bg-zinc-900 rounded-lg p-3">
+          <p className="text-zinc-500"># List your disputes</p>
+          <p className="text-zinc-900 dark:text-zinc-100">npm run skill:dispute:list -- --password &quot;pass&quot;</p>
+          <p className="text-zinc-500 mt-3"># Filter by status</p>
+          <p className="text-zinc-900 dark:text-zinc-100">npm run skill:dispute:list -- --status PENDING --password &quot;pass&quot;</p>
         </div>
       </section>
 

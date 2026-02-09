@@ -2,17 +2,14 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
-import { PublicKey, ParsedTransactionWithMeta, ParsedInstruction } from '@solana/web3.js'
-
-const PLATFORM_FEE_BPS = 1000 // 10%
-const PLATFORM_WALLET = process.env.ARBITER_WALLET_ADDRESS
 
 /** POST /api/tasks/:id/bids/:bidId/request-payment
  *  Bidder records on-chain proposal after creating it client-side.
  *  Body: { proposalIndex: number, txSignature: string }
  *
- *  Server validates the on-chain transaction includes the required
- *  platform fee transfer (10%) to the arbiter wallet.
+ *  Server validates the on-chain proposal creation transaction exists and succeeded.
+ *  The actual SOL transfers (90% bidder, 10% platform) are embedded in the vault
+ *  transaction and execute when the creator approves.
  */
 export async function POST(
   request: NextRequest,
@@ -22,13 +19,6 @@ export async function POST(
   if (auth instanceof Response) return auth
   const { userId } = auth
   const { id, bidId } = await params
-
-  if (!PLATFORM_WALLET) {
-    return Response.json(
-      { success: false, error: 'SERVER_CONFIG_ERROR', message: 'Platform wallet (ARBITER_WALLET_ADDRESS) is not configured. Payment requests are disabled.' },
-      { status: 503 }
-    )
-  }
 
   let body: any
   try {
@@ -86,7 +76,11 @@ export async function POST(
     )
   }
 
-  // Verify the transaction signature exists on-chain and includes the platform fee
+  // Verify the transaction signature exists on-chain
+  // Note: We only verify the proposal creation tx exists and succeeded.
+  // The actual SOL transfers (90% bidder, 10% platform) are embedded in the vault transaction
+  // and will only execute when the proposal is approved and executed by the creator.
+  // We cannot validate the embedded transfer instructions from the creation tx alone.
   try {
     const connection = getConnection()
     const tx = await connection.getParsedTransaction(txSignature, {
@@ -102,17 +96,6 @@ export async function POST(
     if (tx.meta?.err) {
       return Response.json(
         { success: false, error: 'TX_FAILED', message: 'Transaction failed on-chain' },
-        { status: 400 }
-      )
-    }
-
-    // --- Validate platform fee split in the proposal ---
-    const totalLamports = Number(task.winningBid.amountLamports)
-    const expectedPlatformFee = Math.floor(totalLamports * PLATFORM_FEE_BPS / 10000)
-    const feeError = validatePlatformFee(tx, PLATFORM_WALLET, expectedPlatformFee)
-    if (feeError) {
-      return Response.json(
-        { success: false, error: 'MISSING_PLATFORM_FEE', message: feeError },
         { status: 400 }
       )
     }
@@ -138,51 +121,4 @@ export async function POST(
     proposalIndex,
     txSignature,
   })
-}
-
-/**
- * Scan parsed transaction for a SOL transfer to the platform wallet
- * with at least the expected platform fee amount.
- * Returns an error message string if validation fails, or null if OK.
- */
-function validatePlatformFee(
-  tx: ParsedTransactionWithMeta,
-  platformWallet: string,
-  expectedMinLamports: number,
-): string | null {
-  // Collect all SOL transfers from both top-level and inner instructions
-  let platformTransferTotal = 0
-
-  const checkInstruction = (ix: any) => {
-    if (
-      'parsed' in ix &&
-      ix.program === 'system' &&
-      ix.parsed?.type === 'transfer' &&
-      ix.parsed.info?.destination === platformWallet
-    ) {
-      platformTransferTotal += Number(ix.parsed.info.lamports || 0)
-    }
-  }
-
-  // Top-level instructions
-  for (const ix of tx.transaction.message.instructions) {
-    checkInstruction(ix)
-  }
-
-  // Inner instructions (vault transactions show up here)
-  for (const inner of tx.meta?.innerInstructions || []) {
-    for (const ix of inner.instructions) {
-      checkInstruction(ix)
-    }
-  }
-
-  if (platformTransferTotal === 0) {
-    return `Proposal must include a platform fee transfer to ${platformWallet}. No transfer to the platform wallet was found in this transaction. Use GET /api/config to fetch arbiterWalletAddress and platformFeeBps (currently 10%).`
-  }
-
-  if (platformTransferTotal < expectedMinLamports) {
-    return `Platform fee too low: found ${platformTransferTotal} lamports, expected at least ${expectedMinLamports} lamports (10% of ${expectedMinLamports * 10} escrow). Use GET /api/config to fetch platformFeeBps.`
-  }
-
-  return null
 }

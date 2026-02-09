@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
@@ -8,6 +8,11 @@ import {
   createTransferProposalWA,
   approveAndExecuteWA,
 } from '@/lib/solana/multisig'
+
+interface PlatformConfig {
+  arbiterWalletAddress: string | null
+  platformFeeBps: number
+}
 
 interface MultisigActionsProps {
   taskId: string
@@ -40,22 +45,44 @@ export default function MultisigActions({
   isBidder,
   onUpdate,
 }: MultisigActionsProps) {
-  const { authFetch } = useAuth()
+  const { authFetch, wallet: authWallet } = useAuth()
   const { connection } = useConnection()
   const wallet = useWallet()
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
+  const [config, setConfig] = useState<PlatformConfig | null>(null)
+  const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [disputeReason, setDisputeReason] = useState('')
+  const [disputeLoading, setDisputeLoading] = useState(false)
+
+  // Fetch platform config on mount
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.config) {
+          setConfig({
+            arbiterWalletAddress: data.config.arbiterWalletAddress,
+            platformFeeBps: data.config.platformFeeBps,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   /** Bidder: create proposal + self-approve on-chain, then record in DB */
   const handleRequestPayment = async () => {
     if (!wallet.publicKey || !wallet.signTransaction || !multisigAddress) return
+    if (!config?.arbiterWalletAddress) {
+      setStatus('Error: Platform wallet address not configured. Cannot create payment proposal.')
+      return
+    }
     setLoading(true)
     setStatus('Creating payment proposal on-chain...')
     try {
       const multisigPda = new PublicKey(multisigAddress)
       const recipient = wallet.publicKey // bidder pays themselves
-      const platformAddr = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS
-      const platformWallet = platformAddr ? new PublicKey(platformAddr) : undefined
+      const platformWallet = new PublicKey(config.arbiterWalletAddress)
 
       const { transactionIndex, signature } = await createTransferProposalWA(
         connection,
@@ -128,6 +155,62 @@ export default function MultisigActions({
       setStatus(e.message || 'Failed to approve payment')
     } finally {
       setLoading(false)
+    }
+  }
+
+  /** Either party: raise a dispute by creating a proposal to pay themselves */
+  const handleRaiseDispute = async () => {
+    if (!wallet.publicKey || !wallet.signTransaction || !multisigAddress) return
+    if (!config?.arbiterWalletAddress) {
+      setStatus('Error: Platform wallet address not configured.')
+      return
+    }
+    if (disputeReason.length < 10) {
+      setStatus('Please provide a reason (at least 10 characters)')
+      return
+    }
+
+    setDisputeLoading(true)
+    setStatus('Creating dispute proposal on-chain...')
+    try {
+      const multisigPda = new PublicKey(multisigAddress)
+      // Disputant wants funds released to themselves
+      const recipient = wallet.publicKey
+      const platformWallet = new PublicKey(config.arbiterWalletAddress)
+
+      const { transactionIndex, signature } = await createTransferProposalWA(
+        connection,
+        { publicKey: wallet.publicKey, signTransaction: wallet.signTransaction },
+        multisigPda,
+        recipient,
+        Number(amountLamports),
+        `slopwork-dispute-${taskId}`,
+        platformWallet
+      )
+
+      setStatus('Recording dispute...')
+      const res = await authFetch(`/api/tasks/${taskId}/bids/${bidId}/dispute`, {
+        method: 'POST',
+        body: JSON.stringify({
+          proposalIndex: Number(transactionIndex),
+          txSignature: signature,
+          reason: disputeReason,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setStatus('Dispute raised! The platform arbiter will review your case.')
+        setShowDisputeModal(false)
+        setDisputeReason('')
+        onUpdate()
+      } else {
+        setStatus(data.message || 'Failed to raise dispute')
+      }
+    } catch (e: any) {
+      console.error('Raise dispute error:', e)
+      setStatus(e.message || 'Failed to create dispute proposal')
+    } finally {
+      setDisputeLoading(false)
     }
   }
 
@@ -213,15 +296,59 @@ export default function MultisigActions({
       {(isCreator || isBidder) && ['FUNDED', 'PAYMENT_REQUESTED'].includes(bidStatus) && (
         <p className="text-xs text-zinc-400 text-center">
           Having issues?{' '}
-          <button className="underline text-red-500 hover:text-red-600" disabled>
+          <button
+            onClick={() => setShowDisputeModal(true)}
+            className="underline text-red-500 hover:text-red-600"
+            disabled={loading || disputeLoading}
+          >
             Request Arbitration
-          </button>{' '}
-          (coming soon)
+          </button>
         </p>
       )}
 
       {status && (
         <p className="text-xs text-zinc-600 dark:text-zinc-400 break-all">{status}</p>
+      )}
+
+      {/* Dispute Modal */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 dark:bg-zinc-900">
+            <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Request Arbitration
+            </h3>
+            <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+              By raising a dispute, you are requesting the platform arbiter to review this task
+              and decide how funds should be released. Please explain your issue clearly.
+            </p>
+            <textarea
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              placeholder="Explain why you are raising this dispute (min 10 characters)..."
+              className="mb-4 h-32 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDisputeModal(false)
+                  setDisputeReason('')
+                  setStatus('')
+                }}
+                disabled={disputeLoading}
+                className="flex-1 rounded-lg border border-zinc-300 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRaiseDispute}
+                disabled={disputeLoading || disputeReason.length < 10}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {disputeLoading ? 'Processing...' : 'Raise Dispute'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -93,22 +93,22 @@ export default function Navbar() {
           <Link href="/" className="flex items-center">
             <Image src="/slop favicon.svg" alt="Slopwork" width={40} height={40} />
           </Link>
-          <div className="hidden items-center gap-6 sm:flex">
+          <div className="flex items-center gap-4 sm:gap-6">
             <Link href="/tasks" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
-              Browse Tasks
+              Tasks
             </Link>
-            <Link href="/skills" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
+            {isAuthenticated && (
+              <Link href="/dashboard" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
+                Dashboard
+              </Link>
+            )}
+            <Link href="/skills" className="hidden sm:block text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
               Skills
             </Link>
             {isAuthenticated && (
-              <>
-                <Link href="/tasks/new" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
-                  Post Task
-                </Link>
-                <Link href="/dashboard" className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
-                  Dashboard
-                </Link>
-              </>
+              <Link href="/tasks/new" className="hidden sm:block text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
+                Post Task
+              </Link>
             )}
           </div>
         </div>
