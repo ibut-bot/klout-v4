@@ -90,7 +90,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { wallet, isAuthenticated } = useAuth()
+  const { wallet, isAuthenticated, authFetch } = useAuth()
 
   const [task, setTask] = useState<Task | null>(null)
   const [bids, setBids] = useState<Bid[]>([])
@@ -98,6 +98,8 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [selectedBidderId, setSelectedBidderId] = useState<string | null>(null)
+  // Track message counts per bidder for unread indicator
+  const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
 
   const fetchTask = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}`)
@@ -117,9 +119,29 @@ export default function TaskDetailPage() {
     if (data.success) setSubmissions(data.submissions)
   }, [id])
 
+  const fetchConversations = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch(`/api/tasks/${id}/messages`)
+      const data = await res.json()
+      if (data.success && data.conversations) {
+        const counts: Record<string, number> = {}
+        for (const c of data.conversations) {
+          counts[c.bidderId] = c.messageCount
+        }
+        setMessageCounts(counts)
+      }
+    } catch { /* silent */ }
+  }, [id, isAuthenticated, authFetch])
+
   useEffect(() => {
     Promise.all([fetchTask(), fetchBids(), fetchSubmissions()]).finally(() => setLoading(false))
   }, [fetchTask, fetchBids, fetchSubmissions])
+
+  // Fetch conversation counts for sidebar indicators
+  useEffect(() => {
+    if (isAuthenticated) fetchConversations()
+  }, [isAuthenticated, fetchConversations])
 
   // Auto-select first bidder for competition mode
   useEffect(() => {
@@ -132,6 +154,7 @@ export default function TaskDetailPage() {
     fetchTask()
     fetchBids()
     fetchSubmissions()
+    fetchConversations()
   }
 
   if (loading) {
@@ -342,7 +365,7 @@ export default function TaskDetailPage() {
         ) : null
 
         return (
-          <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+          <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
             {/* Narrow sidebar: entry list */}
             <div>
               <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -382,10 +405,10 @@ export default function TaskDetailPage() {
                           {new Date(sub.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      {sub.attachments && sub.attachments.length > 0 && (
-                        <span className={`text-[10px] ${isActive ? 'opacity-70' : 'text-zinc-400'}`}>
-                          {sub.attachments.length} file{sub.attachments.length > 1 ? 's' : ''}
-                        </span>
+                      {(messageCounts[bid.bidderId] || 0) > 0 && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${isActive ? 'opacity-70' : 'text-amber-500'}`}>
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
                       )}
                     </button>
                   )
