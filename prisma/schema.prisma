@@ -115,6 +115,7 @@ model Task {
   multisigAddress     String?
   vaultAddress        String?
   winningBidId        String?    @unique
+  deadlineAt          DateTime?
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

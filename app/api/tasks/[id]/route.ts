@@ -69,6 +69,7 @@ export async function GET(
         : null,
       bidCount: task._count.bids,
       messageCount: task._count.messages,
+      deadlineAt: task.deadlineAt ? task.deadlineAt.toISOString() : null,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
       url: `${APP_URL}/tasks/${task.id}`,

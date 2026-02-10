@@ -1,8 +1,32 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+function useCountdown(deadlineAt: string | null | undefined) {
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; expired: boolean } | null>(null)
+
+  useEffect(() => {
+    if (!deadlineAt) { setTimeLeft(null); return }
+    const calc = () => {
+      const diff = new Date(deadlineAt).getTime() - Date.now()
+      if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true }
+      return {
+        days: Math.floor(diff / 86400000),
+        hours: Math.floor((diff % 86400000) / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
+        expired: false,
+      }
+    }
+    setTimeLeft(calc())
+    const interval = setInterval(() => setTimeLeft(calc()), 1000)
+    return () => clearInterval(interval)
+  }, [deadlineAt])
+
+  return timeLeft
+}
 
 function formatSol(lamports: string | number): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
@@ -47,6 +71,7 @@ interface Task {
   } | null
   bidCount: number
   messageCount: number
+  deadlineAt: string | null
   createdAt: string
 }
 
@@ -179,13 +204,15 @@ export default function TaskDetailPage() {
   const isBidder = bids.some((b) => b.bidderWallet === wallet)
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
   const isCompetition = task.taskType === 'COMPETITION'
+  const countdown = useCountdown(task.deadlineAt)
+  const isExpired = countdown?.expired === true
 
   // Find current user's bid
   const myBid = bids.find((b) => b.bidderWallet === wallet)
   const mySubmission = myBid ? submissions.find((s) => s.bidId === myBid.id) : null
 
   // Competition entry form: shown when user hasn't entered yet
-  const showCompetitionEntry = isAuthenticated && !isCreator && !isBidder && isCompetition && task.status === 'OPEN'
+  const showCompetitionEntry = isAuthenticated && !isCreator && !isBidder && isCompetition && task.status === 'OPEN' && !isExpired
 
   // Quote submission form: shown after winning bid is accepted/funded
   const showSubmissionForm = isAuthenticated && !isCreator && !isCompetition && myBid && !mySubmission && (
@@ -222,6 +249,32 @@ export default function TaskDetailPage() {
             </span>
           </div>
         </div>
+        {/* Countdown timer for competitions with a deadline */}
+        {isCompetition && countdown && (
+          <div className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm ${
+            countdown.expired
+              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400'
+              : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
+          }`}>
+            {countdown.expired ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span className="font-medium">Competition ended — no more entries accepted</span>
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>
+                  <span className="font-medium">Time remaining:</span>{' '}
+                  {countdown.days > 0 && `${countdown.days}d `}
+                  {String(countdown.hours).padStart(2, '0')}h{' '}
+                  {String(countdown.minutes).padStart(2, '0')}m{' '}
+                  {String(countdown.seconds).padStart(2, '0')}s
+                </span>
+              </>
+            )}
+          </div>
+        )}
         {/* Task info inline */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500">
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">

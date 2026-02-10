@@ -79,6 +79,12 @@ export async function POST(
       { status: 400 }
     )
   }
+  if (task.deadlineAt && new Date() > task.deadlineAt) {
+    return Response.json(
+      { success: false, error: 'COMPETITION_ENDED', message: 'This competition has ended. No more submissions are accepted.' },
+      { status: 400 }
+    )
+  }
   if (task.creatorId === userId) {
     return Response.json(
       { success: false, error: 'SELF_BID', message: 'Cannot enter your own competition' },

@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       creatorUsername: t.creator.username,
       creatorProfilePic: t.creator.profilePicUrl,
       bidCount: t._count.bids,
+      deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
     })),
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION']
@@ -196,6 +197,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Validate optional durationDays (competition only)
+  let deadlineAt: Date | null = null
+  if (durationDays !== undefined && durationDays !== null) {
+    if (!isCompetition) {
+      return Response.json(
+        { success: false, error: 'INVALID_FIELD', message: 'durationDays is only supported for COMPETITION tasks' },
+        { status: 400 }
+      )
+    }
+    const days = Number(durationDays)
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      return Response.json(
+        { success: false, error: 'INVALID_DURATION', message: 'durationDays must be an integer between 1 and 365' },
+        { status: 400 }
+      )
+    }
+    deadlineAt = new Date(Date.now() + days * 86400000)
+  }
+
   // Check for duplicate tx signature
   const existing = await prisma.task.findFirst({ where: { paymentTxSignature } })
   if (existing) {
@@ -214,6 +234,7 @@ export async function POST(request: NextRequest) {
       taskType: resolvedTaskType as any,
       paymentTxSignature,
       ...(isCompetition ? { multisigAddress, vaultAddress } : {}),
+      ...(deadlineAt ? { deadlineAt } : {}),
     },
   })
 
@@ -226,6 +247,7 @@ export async function POST(request: NextRequest) {
       budgetLamports: task.budgetLamports.toString(),
       taskType: task.taskType,
       status: task.status,
+      deadlineAt: task.deadlineAt ? task.deadlineAt.toISOString() : null,
       createdAt: task.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${task.id}`,
     },

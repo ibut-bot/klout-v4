@@ -14,6 +14,7 @@ interface Task {
   creatorWallet: string
   creatorProfilePic?: string | null
   bidCount: number
+  deadlineAt?: string | null
   createdAt: string
 }
 

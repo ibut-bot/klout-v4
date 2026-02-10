@@ -4,13 +4,14 @@
  *
  * Usage:
  *   npm run skill:tasks:create -- --title "Build a landing page" --description "..." --budget 0.5 --password "mypass"
- *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --password "mypass"
+ *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "mypass"
  *
  * Options:
  *   --title        Task title
  *   --description  Task description
  *   --budget       Budget in SOL (will be converted to lamports)
  *   --type         Task type: "quote" (default) or "competition"
+ *   --duration     (Competition only) Duration in days (1-365). After this, no new entries accepted.
  *   --password     Wallet password to sign transactions
  *   --dry-run      Validate without creating
  */
@@ -55,6 +56,21 @@ async function main() {
     const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || serverConfig.systemWalletAddress || ''
     const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || serverConfig.taskFeeLamports || 10000000)
 
+    // Validate optional duration (competition only)
+    let durationDays: number | undefined
+    if (args.duration) {
+      const d = parseInt(args.duration)
+      if (isNaN(d) || d < 1 || d > 365) {
+        console.log(JSON.stringify({
+          success: false,
+          error: 'INVALID_DURATION',
+          message: 'Duration must be an integer between 1 and 365 days',
+        }))
+        process.exit(1)
+      }
+      durationDays = d
+    }
+
     if (args['dry-run']) {
       console.log(JSON.stringify({
         success: true,
@@ -66,6 +82,7 @@ async function main() {
           feeLamports: TASK_FEE_LAMPORTS,
           systemWallet: SYSTEM_WALLET,
           network: serverConfig.network,
+          ...(durationDays ? { durationDays } : {}),
         },
         message: 'Dry run passed. Remove --dry-run to create.',
       }))
@@ -131,6 +148,7 @@ async function main() {
       taskType,
       paymentTxSignature: signature,
       ...vaultDetails,
+      ...(durationDays ? { durationDays } : {}),
     })
 
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'

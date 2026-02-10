@@ -56,6 +56,17 @@ async function main() {
       process.exit(1)
     }
 
+    // Check if competition has expired before paying entry fee
+    if (task.deadlineAt && new Date(task.deadlineAt) < new Date()) {
+      console.log(JSON.stringify({
+        success: false,
+        error: 'COMPETITION_ENDED',
+        message: 'This competition has ended. No more submissions are accepted.',
+        deadlineAt: task.deadlineAt,
+      }))
+      process.exit(1)
+    }
+
     // Upload file if provided
     let attachments: any[] = []
     if (args.file) {

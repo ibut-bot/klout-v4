@@ -21,6 +21,7 @@ export default function TaskForm() {
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
   const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION'>('COMPETITION')
+  const [durationDays, setDurationDays] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
@@ -79,6 +80,7 @@ export default function TaskForm() {
           title, description, budgetLamports, taskType,
           paymentTxSignature: signature,
           ...vaultDetails,
+          ...(taskType === 'COMPETITION' && durationDays ? { durationDays: parseInt(durationDays) } : {}),
         }),
       })
       const data = await res.json()
@@ -176,6 +178,25 @@ export default function TaskForm() {
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
         </p>
       </div>
+
+      {taskType === 'COMPETITION' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Duration (days) — optional</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            max="365"
+            value={durationDays}
+            onChange={(e) => setDurationDays(e.target.value)}
+            placeholder="e.g. 7"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+          <p className="mt-1 text-xs text-zinc-500">
+            How many days the competition runs. After this, no new entries are accepted. Leave empty for no deadline.
+          </p>
+        </div>
+      )}
 
       <button
         type="submit"

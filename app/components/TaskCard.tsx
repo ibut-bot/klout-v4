@@ -21,6 +21,7 @@ interface TaskCardProps {
   creatorUsername?: string | null
   creatorProfilePic?: string | null
   bidCount: number
+  deadlineAt?: string | null
   createdAt: string
 }
 
@@ -37,7 +38,15 @@ const TYPE_COLORS: Record<string, string> = {
   COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, createdAt }: TaskCardProps) {
+function getDeadlineLabel(deadlineAt: string): string {
+  const diff = new Date(deadlineAt).getTime() - Date.now()
+  if (diff <= 0) return 'Ended'
+  if (diff < 3600000) return `${Math.ceil(diff / 60000)}m left`
+  if (diff < 86400000) return `${Math.ceil(diff / 3600000)}h left`
+  return `${Math.ceil(diff / 86400000)}d left`
+}
+
+export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, deadlineAt, createdAt }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
 
   return (
@@ -61,6 +70,15 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           <div className="flex items-center gap-4">
             <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatSol(budgetLamports)}</span>
             <span className="text-zinc-500">{bidCount} bid{bidCount !== 1 ? 's' : ''}</span>
+            {deadlineAt && (
+              <span className={`text-xs font-medium ${
+                new Date(deadlineAt).getTime() <= Date.now()
+                  ? 'text-red-500 dark:text-red-400'
+                  : 'text-amber-600 dark:text-amber-400'
+              }`}>
+                {getDeadlineLabel(deadlineAt)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-zinc-400">
             <Link

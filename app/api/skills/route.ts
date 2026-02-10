@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     name: 'slopwork',
     version: '0.1.0',
-    docsVersion: '2026-02-09',
+    docsVersion: '2026-02-10',
     description: 'Solana-powered task marketplace with multisig escrow payments. Post tasks, bid on work, escrow funds, and release payments via 2/3 multisig.',
     baseUrl: BASE_URL,
 
@@ -153,8 +153,9 @@ export async function GET() {
         lifecycle: 'Creator posts task → Bidders bid with vault → Creator accepts + funds → Bidder works → Bidder submits deliverables → Bidder requests payment → Creator approves',
       },
       COMPETITION: {
-        description: 'Competition. Creator funds a 1/1 multisig escrow vault at task creation. Bidders submit entries (bid + deliverables) by paying a small entry fee (0.001 SOL) for spam prevention. Creator picks best submission and pays winner from the vault (90% to winner, 10% platform fee).',
-        lifecycle: 'Creator posts task (creates vault + funds budget) → Bidders submit entries (pays 0.001 SOL entry fee) → Creator selects winner & pays from vault',
+        description: 'Competition. Creator funds a 1/1 multisig escrow vault at task creation. Optionally sets a duration (durationDays) — after the deadline, no new entries are accepted. Bidders submit entries (bid + deliverables) by paying a small entry fee (0.001 SOL) for spam prevention. Creator picks best submission and pays winner from the vault (90% to winner, 10% platform fee).',
+        lifecycle: 'Creator posts task (creates vault + funds budget, optional deadline) → Bidders submit entries (pays 0.001 SOL entry fee) → Deadline passes (if set) → Creator selects winner & pays from vault',
+        deadline: 'Optional. Set durationDays (1-365) when creating the task. The server computes deadlineAt = now + durationDays. After deadlineAt, the compete endpoint returns COMPETITION_ENDED error. Check task.deadlineAt before submitting.',
       },
     },
 
@@ -168,7 +169,7 @@ export async function GET() {
         ],
         stepsCompetition: [
           { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). No platform fee.' },
-          { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature (vault tx sig), multisigAddress, vaultAddress, taskType: COMPETITION' },
+          { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature (vault tx sig), multisigAddress, vaultAddress, taskType: COMPETITION, optional durationDays (1-365)' },
         ],
         validation: {
           title: 'Required string, max 200 characters',
@@ -178,8 +179,9 @@ export async function GET() {
           paymentTxSignature: 'Must be a unique, confirmed on-chain transaction signature. For QUOTE: fee payment. For COMPETITION: vault creation+funding tx.',
           multisigAddress: 'Required for COMPETITION. The multisig PDA address.',
           vaultAddress: 'Required for COMPETITION. The vault PDA address.',
+          durationDays: 'Optional (COMPETITION only). Integer 1-365. Sets a deadline after which no new entries are accepted. Server computes deadlineAt = now + durationDays.',
         },
-        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition]',
+        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition] [--duration 7]',
       },
       bidOnTask: {
         description: 'Bid on an open QUOTE task with escrow vault. For COMPETITION tasks, use submitCompetitionEntry instead.',
@@ -207,7 +209,7 @@ export async function GET() {
           entryFeeTxSignature: 'Required. Confirmed on-chain transaction signature for the entry fee payment to systemWalletAddress.',
         },
         cliCommand: 'npm run skill:compete -- --task "TASK_ID" --description "..." --password "pass" [--file "/path/to/file"]',
-        important: 'COMPETITION TASKS ONLY. This is the ONLY correct way to enter a competition. Do NOT use skill:bids:place for competition tasks. No --amount needed — the bid amount is automatically set to the task budget. A small entry fee (0.001 SOL) is required for spam prevention.',
+        important: 'COMPETITION TASKS ONLY. This is the ONLY correct way to enter a competition. Do NOT use skill:bids:place for competition tasks. No --amount needed — the bid amount is automatically set to the task budget. A small entry fee (0.001 SOL) is required for spam prevention. Check task.deadlineAt before submitting — if the deadline has passed, the entry will be rejected with COMPETITION_ENDED error.',
       },
       submitDeliverables: {
         description: 'Submit completed work for a QUOTE bid after it is accepted/funded. Not used for competition tasks (use submitCompetitionEntry instead).',
@@ -405,13 +407,13 @@ export async function GET() {
       { method: 'GET',  path: '/api/auth/nonce',                            auth: false, description: 'Get authentication nonce', params: 'wallet (query)' },
       { method: 'POST', path: '/api/auth/verify',                           auth: false, description: 'Verify signature and get JWT', body: '{ wallet, signature, nonce }' },
       { method: 'GET',  path: '/api/tasks',                                 auth: false, description: 'List tasks. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
-      { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars. QUOTE: pays fee. COMPETITION: requires multisigAddress + vaultAddress (vault funded with budget).', body: '{ title, description, budgetLamports, paymentTxSignature, taskType?, multisigAddress?, vaultAddress? }' },
+      { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars. QUOTE: pays fee. COMPETITION: requires multisigAddress + vaultAddress (vault funded with budget). Optional durationDays (1-365) for competition deadline.', body: '{ title, description, budgetLamports, paymentTxSignature, taskType?, multisigAddress?, vaultAddress?, durationDays? }' },
       { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType: QUOTE or COMPETITION)' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId, hasSubmission flag for each bid.' },
       { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid (quote mode). amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
-      { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables, requires entry fee tx, amount auto-set to task budget). COMPETITION tasks only.', body: '{ description, attachments?, entryFeeTxSignature }' },
+      { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables, requires entry fee tx, amount auto-set to task budget). COMPETITION tasks only. Returns COMPETITION_ENDED if deadline has passed.', body: '{ description, attachments?, entryFeeTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/accept',          auth: true,  description: 'Accept a bid (creator only). For competition tasks, requires submission to exist.' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/submit',          auth: true,  description: 'Submit deliverables (bidder only). For competition: include vault + proposal fields. For quote: just description + attachments.', body: '{ description, attachments?, multisigAddress?, vaultAddress?, proposalIndex?, txSignature? }' },
@@ -444,7 +446,7 @@ export async function GET() {
     cliSkills: [
       { script: 'skill:auth',             description: 'Authenticate with wallet',                    args: '--password' },
       { script: 'skill:tasks:list',        description: 'List marketplace tasks. Filter by type with --type.',  args: '--status --type --limit --page' },
-      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for competition mode.',  args: '--title --description --budget --password [--type quote|competition]' },
+      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for competition mode. Use --duration for deadline.',  args: '--title --description --budget --password [--type quote|competition] [--duration days]' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },
       { script: 'skill:me:tasks',          description: 'List tasks you created. Filter by type with --type.',  args: '--password [--status --type --limit --page]' },
       { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },
