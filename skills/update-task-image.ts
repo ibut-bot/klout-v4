@@ -16,7 +16,7 @@ import { apiRequest, parseArgs, uploadFile } from './lib/api-client'
 import { getKeypair } from './lib/wallet'
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2))
+  const args = parseArgs()
 
   if (!args.task || !args.password) {
     return {
@@ -76,10 +76,7 @@ async function main() {
 
   // Update the task
   console.error(`Updating task ${args.task}...`)
-  const result = await apiRequest(keypair, `/api/tasks/${args.task}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ imageUrl }),
-  })
+  const result = await apiRequest(keypair, 'PATCH', `/api/tasks/${args.task}`, { imageUrl })
 
   if (!result.success) {
     return {
