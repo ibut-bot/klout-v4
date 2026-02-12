@@ -148,13 +148,27 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
     'media.fields': 'url,preview_image_url,type',
   })
 
-  const res = await fetch(`${X_TWEET_URL}/${postId}?${params.toString()}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+  let res: Response
+  let attempts = 0
+  const maxRetries = 3
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`X tweet fetch failed: ${err}`)
+  while (true) {
+    res = await fetch(`${X_TWEET_URL}/${postId}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (res.status === 429 && attempts < maxRetries) {
+      const retryAfter = Number(res.headers.get('retry-after') || 5)
+      await new Promise((r) => setTimeout(r, retryAfter * 1000))
+      attempts++
+      continue
+    }
+
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`X tweet fetch failed: ${err}`)
+    }
+    break
   }
 
   const json = await res.json()

@@ -66,6 +66,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         method: 'POST',
         body: JSON.stringify({ postUrl, apiFeeTxSig: sig }),
       })
+
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        throw new Error('Server error – please try again in a moment')
+      }
       const data = await res.json()
 
       if (data.success) {

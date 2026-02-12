@@ -6,6 +6,9 @@ import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
 
+// Allow up to 60s for Solana + X API + Anthropic calls
+export const maxDuration = 60
+
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000) // ~10c SOL
 
@@ -128,10 +131,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if (existing) {
-    return Response.json(
-      { success: false, error: 'DUPLICATE', message: 'This post has already been submitted to this campaign' },
-      { status: 409 }
-    )
+    // If a previous attempt got stuck in a processing state (e.g. timeout),
+    // delete it so the user can retry
+    const processingStates = ['READING_VIEWS', 'CHECKING_CONTENT']
+    if (processingStates.includes(existing.status)) {
+      await prisma.campaignSubmission.delete({ where: { id: existing.id } })
+    } else {
+      return Response.json(
+        { success: false, error: 'DUPLICATE', message: 'This post has already been submitted to this campaign' },
+        { status: 409 }
+      )
+    }
   }
 
   // 5. Check budget remaining
