@@ -56,11 +56,17 @@ body {
 .wallet-adapter-modal-title {
   color: #ededed !important;
 }
+.wallet-adapter-modal-list {
+  gap: 8px !important;
+}
 .wallet-adapter-modal-list li {
   background-color: #1c1c1c !important;
+  border: 1px solid #333 !important;
+  border-radius: 12px !important;
 }
 .wallet-adapter-modal-list li:hover {
   background-color: #262626 !important;
+  border-color: #facc15 !important;
 }
 
 /* Scrollbar styling */

@@ -78,50 +78,116 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
     return () => clearInterval(interval)
   }, [deadlineAt])
 
+  const hasCampaignImage = isCampaign && imageUrl
+
+  // Campaign card with full-bleed image
+  if (hasCampaignImage) {
+    return (
+      <Link href={`/tasks/${id}`} className="block group">
+        <div className="relative rounded-2xl overflow-hidden h-[460px] transition-all hover:shadow-xl hover:shadow-accent/10 hover:ring-1 hover:ring-accent/30">
+          {/* Full-bleed image */}
+          <img
+            src={imageUrl}
+            alt={title}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" style={{ top: '35%' }} />
+
+          {/* Content on overlay */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col p-4 pt-0">
+            <h3 className="text-lg font-bold text-white group-hover:text-accent transition-colors line-clamp-1 mb-1">
+              {title}
+            </h3>
+            <p className="line-clamp-2 text-sm text-zinc-300/80 mb-3">{description}</p>
+
+            {/* Tags row */}
+            <div className="mb-3 flex items-center gap-3 text-xs font-semibold">
+              <span className="text-accent">
+                {formatSol(budgetLamports)}
+              </span>
+              {countdown && !countdown.isEnded && (
+                <span className="text-zinc-300">
+                  {countdown.label}
+                </span>
+              )}
+              {countdown?.isEnded && (
+                <span className="text-red-400">
+                  Ended
+                </span>
+              )}
+            </div>
+
+            {/* Budget Progress Bar */}
+            <div className="mb-3">
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="text-zinc-400 font-medium">Budget Used</span>
+                <span className="font-semibold text-zinc-300">{budgetUsedPercent}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 backdrop-blur-sm">
+                <div
+                  className="h-full rounded-full bg-accent transition-all duration-500"
+                  style={{ width: `${budgetUsedPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Footer meta */}
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-zinc-400">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {participantCount}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Link
+                  href={`/u/${creatorWallet}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 hover:text-zinc-200 transition-colors"
+                >
+                  {creatorProfilePic ? (
+                    <img
+                      src={creatorProfilePic}
+                      alt=""
+                      className="h-5 w-5 rounded-full object-cover ring-1 ring-white/20"
+                    />
+                  ) : (
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[10px] font-medium text-zinc-300">
+                      {creatorWallet.slice(0, 2)}
+                    </div>
+                  )}
+                  <span className="text-xs" title={creatorWallet}>{creatorUsername || `${creatorWallet.slice(0, 4)}...${creatorWallet.slice(-4)}`}</span>
+                </Link>
+                <span className="text-xs text-zinc-500">{timeAgo}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Link>
+    )
+  }
+
+  // Default card (non-campaign or no image)
   return (
     <Link href={`/tasks/${id}`} className="block group">
-      <div className="rounded-xl border border-k-border bg-surface overflow-hidden transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5">
-        {/* Campaign Image */}
-        {isCampaign && imageUrl && (
-          <div className="relative h-44 w-full bg-zinc-900">
-            <img
-              src={imageUrl}
-              alt={title}
-              className="h-full w-full object-cover"
-            />
-            {/* Status badge on image */}
-            <span className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
-              {status.replace('_', ' ')}
-            </span>
-            {/* Countdown overlay */}
-            {countdown && !countdown.isEnded && (
-              <div className="absolute top-2 right-2 rounded-lg bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                {countdown.label}
-              </div>
-            )}
-            {countdown?.isEnded && (
-              <div className="absolute top-2 right-2 rounded-lg bg-red-500/90 px-2 py-1 text-xs font-medium text-white">
-                Ended
-              </div>
-            )}
-          </div>
-        )}
-        
+      <div className="rounded-2xl border border-k-border bg-surface overflow-hidden transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5">
         <div className="p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
             <h3 className="text-base font-semibold text-white group-hover:text-accent transition-colors line-clamp-1">{title}</h3>
-            {(!isCampaign || !imageUrl) && (
-              <div className="flex items-center gap-1.5">
-                {taskType && (
-                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
-                    {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
-                  </span>
-                )}
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
-                  {status.replace('_', ' ')}
+            <div className="flex items-center gap-1.5">
+              {taskType && (
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
+                  {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
                 </span>
-              </div>
-            )}
+              )}
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
+                {status.replace('_', ' ')}
+              </span>
+            </div>
           </div>
           
           <p className="mb-3 line-clamp-2 text-sm text-zinc-500">{description}</p>
@@ -131,25 +197,18 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-semibold text-accent">
               {formatSol(budgetLamports)}
             </span>
-            {isCampaign && imageUrl && taskType && (
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
-                Campaign
-              </span>
-            )}
           </div>
           
           {/* Budget Progress Bar for Campaigns */}
           {isCampaign && (
             <div className="mb-3">
-              <div className="mb-1 flex items-center justify-between text-xs">
-                <span className="text-zinc-500">Budget Used</span>
-                <span className="font-medium text-zinc-400">
-                  {budgetUsedPercent}%
-                </span>
+              <div className="mb-1.5 flex items-center justify-between text-xs">
+                <span className="text-zinc-500 font-medium">Budget Used</span>
+                <span className="font-semibold text-zinc-400">{budgetUsedPercent}%</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
                 <div 
-                  className="h-full rounded-full bg-accent transition-all duration-300"
+                  className="h-full rounded-full bg-accent transition-all duration-500"
                   style={{ width: `${budgetUsedPercent}%` }}
                 />
               </div>

@@ -90,8 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const walletAddr = publicKey.toBase58()
 
     if (didAutoAuthRef.current === walletAddr) return
-    didAutoAuthRef.current = walletAddr
 
+    // Try to restore cached token
     const stored = localStorage.getItem('slopwork_token')
     const storedWallet = localStorage.getItem('slopwork_wallet')
     const storedExpiry = localStorage.getItem('slopwork_token_expiry')
@@ -101,15 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (expiry > Date.now() / 1000 + 300) {
         setToken(stored)
         setWallet(storedWallet)
+        didAutoAuthRef.current = walletAddr
         return
       }
     }
 
+    // Wait for signMessage to be available before attempting auth
+    if (!signMessage) return
+
+    didAutoAuthRef.current = walletAddr
+
     const timer = setTimeout(() => {
-      if (!authenticatingRef.current) authenticate()
+      if (!authenticatingRef.current) {
+        authenticate().then(result => {
+          // If auth failed, allow retry on next effect run
+          if (!result) didAutoAuthRef.current = null
+        })
+      }
     }, 500)
     return () => clearTimeout(timer)
-  }, [publicKey, authenticate])
+  }, [publicKey, signMessage, authenticate])
 
   const authFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {

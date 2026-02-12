@@ -165,12 +165,24 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
       rateLimitReset: res.headers.get('x-rate-limit-reset'),
     })
 
-    if (res.status === 429 && attempts < maxRetries) {
-      const retryAfter = Number(res.headers.get('retry-after') || 5)
-      console.log(`[X API] Rate limited, retrying in ${retryAfter}s (attempt ${attempts + 1}/${maxRetries})`)
-      await new Promise((r) => setTimeout(r, retryAfter * 1000))
-      attempts++
-      continue
+    if (res.status === 429) {
+      const resetEpoch = Number(res.headers.get('x-rate-limit-reset') || 0)
+      const waitMs = resetEpoch ? (resetEpoch * 1000 - Date.now()) : 0
+
+      // Only retry if the reset is within 90 seconds and we have attempts left
+      if (attempts < maxRetries && waitMs > 0 && waitMs <= 90_000) {
+        console.log(`[X API] Rate limited, retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempts + 1}/${maxRetries})`)
+        await new Promise((r) => setTimeout(r, waitMs + 1000))
+        attempts++
+        continue
+      }
+
+      // Rate limit window too long — don't hang the request
+      const resetDate = resetEpoch ? new Date(resetEpoch * 1000).toISOString() : 'unknown'
+      throw new Error(
+        `X API rate limit exceeded (limit: ${res.headers.get('x-rate-limit-limit')}/15min). ` +
+        `Resets at ${resetDate}. Your X Developer app may still be on the Free tier.`
+      )
     }
 
     if (!res.ok) {
