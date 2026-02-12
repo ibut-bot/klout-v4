@@ -1,6 +1,6 @@
 # Klout
 
-Monetize your X reach. Get paid to promote brands and products to your audience on X/Twitter.
+Monetize your Klout. Get paid to promote brands and products to your audience on X/Twitter.
 
 Built with Next.js, Prisma, Solana, and Squads Protocol v4.
 

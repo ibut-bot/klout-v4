@@ -7,7 +7,7 @@ export async function GET() {
     name: 'klout',
     version: '0.1.0',
     docsVersion: '2026-02-12',
-    description: 'Monetize your X reach. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana. Also supports Quote and Competition task modes.',
+    description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana. Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
     IMPORTANT_READ_FIRST: {

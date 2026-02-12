@@ -1,6 +1,6 @@
 ---
 name: klout
-description: Monetize your X reach - get paid to promote brands on X/Twitter with CPM-based payouts via Solana
+description: Monetize your Klout - get paid to promote brands on X/Twitter with CPM-based payouts via Solana
 license: MIT
 compatibility: openclaw
 metadata:
@@ -10,7 +10,7 @@ metadata:
   requires_human_approval: false
 ---
 
-# Klout - Monetize your X reach
+# Klout - Monetize your Klout
 
 ## Fetch Latest Docs
 
