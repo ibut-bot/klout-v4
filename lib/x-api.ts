@@ -157,8 +157,17 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
       headers: { Authorization: `Bearer ${accessToken}` },
     })
 
+    // Log rate limit headers for debugging
+    console.log('[X API] Tweet lookup response:', {
+      status: res.status,
+      rateLimit: res.headers.get('x-rate-limit-limit'),
+      rateLimitRemaining: res.headers.get('x-rate-limit-remaining'),
+      rateLimitReset: res.headers.get('x-rate-limit-reset'),
+    })
+
     if (res.status === 429 && attempts < maxRetries) {
       const retryAfter = Number(res.headers.get('retry-after') || 5)
+      console.log(`[X API] Rate limited, retrying in ${retryAfter}s (attempt ${attempts + 1}/${maxRetries})`)
       await new Promise((r) => setTimeout(r, retryAfter * 1000))
       attempts++
       continue
@@ -166,7 +175,7 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
 
     if (!res.ok) {
       const err = await res.text()
-      throw new Error(`X tweet fetch failed: ${err}`)
+      throw new Error(`X tweet fetch failed (${res.status}): ${err}`)
     }
     break
   }
