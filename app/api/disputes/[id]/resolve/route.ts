@@ -56,6 +56,16 @@ export async function POST(
     )
   }
 
+  // Validate resolutionNotes length
+  if (resolutionNotes !== undefined && resolutionNotes !== null) {
+    if (typeof resolutionNotes !== 'string' || resolutionNotes.length > 5000) {
+      return Response.json(
+        { success: false, error: 'INVALID_NOTES', message: 'resolutionNotes must be a string of at most 5000 characters' },
+        { status: 400 }
+      )
+    }
+  }
+
   const dispute = await prisma.dispute.findUnique({
     where: { id },
     include: {

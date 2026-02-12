@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
+import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
@@ -34,7 +35,11 @@ interface RouteContext {
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
-  const { userId } = auth
+  const { userId, wallet } = auth
+
+  // Rate limit campaign submissions (calls X API + AI — expensive)
+  const rl = rateLimitResponse(`campaignSubmit:${wallet}`, RATE_LIMITS.campaignSubmit)
+  if (rl) return rl
 
   const { id: taskId } = await context.params
 
@@ -327,8 +332,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 12. Update submission and reduce budget atomically
-  const [updatedSubmission] = await prisma.$transaction([
-    prisma.campaignSubmission.update({
+  // Use interactive transaction to prevent race condition where concurrent requests overspend
+  const updatedSubmission = await prisma.$transaction(async (tx) => {
+    // Re-read budget inside the transaction to get a consistent snapshot
+    const freshConfig = await tx.campaignConfig.findUnique({ where: { taskId } })
+    if (!freshConfig || freshConfig.budgetRemainingLamports <= BigInt(0)) {
+      // Budget exhausted between our earlier check and now
+      await tx.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: 'Campaign budget has been exhausted.' },
+      })
+      return null
+    }
+
+    // Recalculate payout against fresh budget
+    const safePayout = actualPayout > freshConfig.budgetRemainingLamports
+      ? freshConfig.budgetRemainingLamports
+      : actualPayout
+
+    if (safePayout <= BigInt(0)) {
+      await tx.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: 'Campaign budget has been exhausted.' },
+      })
+      return null
+    }
+
+    const updated = await tx.campaignSubmission.update({
       where: { id: submission.id },
       data: {
         status: 'APPROVED',
@@ -336,16 +366,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
         viewsReadAt: now,
         contentCheckPassed: true,
         contentCheckExplanation: contentCheck.explanation,
-        payoutLamports: actualPayout,
+        payoutLamports: safePayout,
       },
-    }),
-    prisma.campaignConfig.update({
+    })
+
+    await tx.campaignConfig.update({
       where: { taskId },
       data: {
-        budgetRemainingLamports: { decrement: actualPayout },
+        budgetRemainingLamports: { decrement: safePayout },
       },
-    }),
-  ])
+    })
+
+    return updated
+  })
+
+  if (!updatedSubmission) {
+    return Response.json(
+      { success: false, error: 'BUDGET_EXHAUSTED', message: 'Campaign budget has been exhausted' },
+      { status: 400 }
+    )
+  }
 
   // 13. Notify campaign creator
   await createNotification({

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/api-helpers'
 import { prisma } from '@/lib/db'
+import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 
 // Username validation: 3-20 chars, alphanumeric and underscores only
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/
@@ -23,7 +24,10 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
-  const { userId } = auth
+  const { userId, wallet } = auth
+
+  const rl = rateLimitResponse(`profileUpdate:${wallet}`, RATE_LIMITS.profileUpdate)
+  if (rl) return rl
 
   let body: { username: string }
   try {

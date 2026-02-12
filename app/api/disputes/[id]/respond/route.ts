@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
+import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 
 /** POST /api/disputes/:id/respond
  *  Respond to a dispute raised against you.
@@ -14,8 +15,11 @@ export async function POST(
 ) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
-  const { userId } = auth
+  const { userId, wallet } = auth
   const { id } = await params
+
+  const rl = rateLimitResponse(`disputeAction:${wallet}`, RATE_LIMITS.disputeAction)
+  if (rl) return rl
 
   let body: any
   try {
@@ -40,6 +44,24 @@ export async function POST(
       { success: false, error: 'INVALID_REASON', message: 'reason must be between 10 and 5000 characters' },
       { status: 400 }
     )
+  }
+
+  // Validate evidenceUrls
+  if (evidenceUrls !== undefined) {
+    if (!Array.isArray(evidenceUrls) || evidenceUrls.length > 10) {
+      return Response.json(
+        { success: false, error: 'INVALID_EVIDENCE', message: 'evidenceUrls must be an array of at most 10 URLs' },
+        { status: 400 }
+      )
+    }
+    for (const url of evidenceUrls) {
+      if (typeof url !== 'string' || url.length > 2000 || !/^https?:\/\//.test(url)) {
+        return Response.json(
+          { success: false, error: 'INVALID_EVIDENCE_URL', message: 'Each evidenceUrl must be a valid HTTP(S) URL (max 2000 chars)' },
+          { status: 400 }
+        )
+      }
+    }
   }
 
   const dispute = await prisma.dispute.findUnique({

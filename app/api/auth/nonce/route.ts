@@ -36,6 +36,21 @@ export async function GET(request: NextRequest) {
     where: { expiresAt: { lt: new Date() } },
   })
 
+  // Limit active nonces per wallet to prevent DB spam (max 5 concurrent)
+  const activeNonces = await prisma.authNonce.count({
+    where: { walletAddress: wallet, expiresAt: { gte: new Date() } },
+  })
+  if (activeNonces >= 5) {
+    // Delete the oldest nonce for this wallet to make room
+    const oldest = await prisma.authNonce.findFirst({
+      where: { walletAddress: wallet },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (oldest) {
+      await prisma.authNonce.delete({ where: { id: oldest.id } })
+    }
+  }
+
   await prisma.authNonce.create({
     data: { walletAddress: wallet, nonce, expiresAt },
   })

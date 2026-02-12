@@ -55,6 +55,24 @@ export async function POST(
     )
   }
 
+  // Validate evidenceUrls
+  if (evidenceUrls !== undefined) {
+    if (!Array.isArray(evidenceUrls) || evidenceUrls.length > 10) {
+      return Response.json(
+        { success: false, error: 'INVALID_EVIDENCE', message: 'evidenceUrls must be an array of at most 10 URLs' },
+        { status: 400 }
+      )
+    }
+    for (const url of evidenceUrls) {
+      if (typeof url !== 'string' || url.length > 2000 || !/^https?:\/\//.test(url)) {
+        return Response.json(
+          { success: false, error: 'INVALID_EVIDENCE_URL', message: 'Each evidenceUrl must be a valid HTTP(S) URL (max 2000 chars)' },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
   const task = await prisma.task.findUnique({
     where: { id },
     include: {

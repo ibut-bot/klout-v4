@@ -134,11 +134,19 @@ export async function PATCH(
   const { imageUrl } = body
 
   // Validate imageUrl if provided
-  if (imageUrl !== undefined && imageUrl !== null && typeof imageUrl !== 'string') {
-    return Response.json(
-      { success: false, error: 'INVALID_IMAGE_URL', message: 'imageUrl must be a string or null' },
-      { status: 400 }
-    )
+  if (imageUrl !== undefined && imageUrl !== null) {
+    if (typeof imageUrl !== 'string') {
+      return Response.json(
+        { success: false, error: 'INVALID_IMAGE_URL', message: 'imageUrl must be a string or null' },
+        { status: 400 }
+      )
+    }
+    if (imageUrl.length > 2000 || (imageUrl && !/^https?:\/\//.test(imageUrl))) {
+      return Response.json(
+        { success: false, error: 'INVALID_IMAGE_URL', message: 'imageUrl must be a valid HTTP(S) URL (max 2000 chars)' },
+        { status: 400 }
+      )
+    }
   }
 
   // Update task

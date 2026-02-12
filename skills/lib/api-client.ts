@@ -158,7 +158,7 @@ export async function uploadFile(
     png: 'image/png',
     gif: 'image/gif',
     webp: 'image/webp',
-    svg: 'image/svg+xml',
+    // svg intentionally excluded — can contain embedded scripts (XSS risk)
     mp4: 'video/mp4',
     webm: 'video/webm',
     mov: 'video/quicktime',

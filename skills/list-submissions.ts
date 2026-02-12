@@ -1,34 +1,35 @@
 #!/usr/bin/env tsx
 /**
- * List submissions for a task
+ * List submissions for a task (requires authentication)
  *
  * Usage:
- *   npm run skill:submissions:list -- --task "task-uuid"
- *   npm run skill:submissions:list -- --task "task-uuid" --bid "bid-uuid"
+ *   npm run skill:submissions:list -- --task "task-uuid" --password "pass"
+ *   npm run skill:submissions:list -- --task "task-uuid" --password "pass" --bid "bid-uuid"
  *
  * Options:
- *   --task    Task ID (required)
- *   --bid     Bid ID (optional, filter by specific bid)
+ *   --task      Task ID (required)
+ *   --password  Wallet password (required — endpoint requires auth)
+ *   --bid       Bid ID (optional, filter by specific bid)
  */
 
-import { parseArgs } from './lib/api-client'
+import { parseArgs, apiRequest } from './lib/api-client'
+import { getKeypair } from './lib/wallet'
 
 async function main() {
   const args = parseArgs()
-  if (!args.task) {
+  if (!args.task || !args.password) {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'Required: --task',
-      usage: 'npm run skill:submissions:list -- --task "uuid" [--bid "uuid"]',
+      message: 'Required: --task, --password',
+      usage: 'npm run skill:submissions:list -- --task "uuid" --password "pass" [--bid "uuid"]',
     }))
     process.exit(1)
   }
 
   try {
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
-    const res = await fetch(`${base}/api/tasks/${args.task}/submissions`)
-    const data = await res.json()
+    const keypair = getKeypair(args.password)
+    const data = await apiRequest(keypair, 'GET', `/api/tasks/${args.task}/submissions`)
 
     if (!data.success) {
       console.log(JSON.stringify(data))

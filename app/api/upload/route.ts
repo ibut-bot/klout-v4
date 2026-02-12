@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { randomBytes } from 'crypto'
 import { requireAuth } from '@/lib/api-helpers'
+import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { s3, BUCKET_NAME } from '@/lib/s3'
 import { execFile } from 'child_process'
 import { writeFile, readFile, unlink, mkdtemp } from 'fs/promises'
@@ -11,12 +12,11 @@ import path from 'path'
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
 
 const ALLOWED_TYPES: Record<string, string> = {
-  // Images
+  // Images (SVG intentionally excluded — can contain embedded scripts / XSS)
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/gif': 'gif',
   'image/webp': 'webp',
-  'image/svg+xml': 'svg',
   // Video
   'video/mp4': 'mp4',
   'video/webm': 'webm',
@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
   // Authenticate
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
+
+  // Rate limit uploads
+  const rl = rateLimitResponse(`upload:${auth.wallet}`, RATE_LIMITS.upload)
+  if (rl) return rl
 
   let formData: FormData
   try {

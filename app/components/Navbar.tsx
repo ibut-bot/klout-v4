@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications, type Notification } from '../hooks/useNotifications'
 
@@ -44,6 +44,7 @@ export default function Navbar() {
   const { isAuthenticated, connected, loading, wallet, authFetch } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications()
   const router = useRouter()
+  const pathname = usePathname()
   const [profilePic, setProfilePic] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -213,37 +214,72 @@ export default function Navbar() {
     setShowDropdown(false)
   }
 
+  const navItems = [
+    { href: '/tasks', label: 'Campaigns', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+      </svg>
+    ), auth: false },
+    { href: '/dashboard', label: 'Dashboard', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+      </svg>
+    ), auth: true },
+    { href: '/admin/disputes', label: 'Disputes', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M3.236 15.764l7.07-12.728a2 2 0 013.388 0l7.07 12.728A2 2 0 0118.834 18H5.166a2 2 0 01-1.93-2.236z" />
+      </svg>
+    ), auth: true },
+    { href: '/skills', label: 'Skills', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ), auth: false },
+    { href: '/tasks/new', label: 'Post Task', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+      </svg>
+    ), auth: true },
+  ]
+
+  const isActive = (href: string) => {
+    if (href === '/tasks') return pathname === '/tasks' || pathname === '/tasks/'
+    return pathname.startsWith(href)
+  }
+
   return (
     <nav className="sticky top-0 z-50 border-b border-k-border bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center">
-            <Image src="/Klout1.svg" alt="Klout" width={40} height={40} />
-          </Link>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <Link href="/tasks" className="text-sm text-zinc-400 transition hover:text-accent">
-              Campaigns
-            </Link>
-            {isAuthenticated && (
-              <Link href="/dashboard" className="text-sm text-zinc-400 transition hover:text-accent">
-                Dashboard
-              </Link>
-            )}
-            {isAuthenticated && (
-              <Link href="/admin/disputes" className="text-sm text-zinc-400 transition hover:text-accent">
-                Disputes
-              </Link>
-            )}
-            <Link href="/skills" className="hidden sm:block text-sm text-zinc-400 transition hover:text-accent">
-              Skills
-            </Link>
-            {isAuthenticated && (
-              <Link href="/tasks/new" className="hidden sm:block text-sm text-zinc-400 transition hover:text-accent">
-                Post Task
-              </Link>
-            )}
-          </div>
+      <div className="flex h-14 items-center justify-between px-6 lg:px-12">
+        {/* Left — Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/Klout1.svg" alt="Klout" width={32} height={32} />
+          <span className="hidden sm:inline text-base font-bold text-white">Klout</span>
+        </Link>
+
+        {/* Center — Nav items */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+          {navItems
+            .filter((item) => !item.auth || isAuthenticated)
+            .map((item) => {
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    active
+                      ? 'bg-accent text-black'
+                      : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
+                  }`}
+                >
+                  {item.icon}
+                  <span className="hidden sm:inline">{item.label}</span>
+                </Link>
+              )
+            })}
         </div>
+
+        {/* Right — Actions */}
         <div className="flex items-center gap-3">
           {connected && loading && (
             <span className="text-sm text-zinc-500">Signing in...</span>

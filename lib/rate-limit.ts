@@ -45,6 +45,10 @@ export const RATE_LIMITS = {
   taskCreate: { limit: 10, windowSeconds: 3600 } as RateLimitConfig,
   bidCreate: { limit: 10, windowSeconds: 3600 } as RateLimitConfig,
   message: { limit: 60, windowSeconds: 3600 } as RateLimitConfig,
+  upload: { limit: 30, windowSeconds: 3600 } as RateLimitConfig,
+  campaignSubmit: { limit: 20, windowSeconds: 3600 } as RateLimitConfig,
+  profileUpdate: { limit: 10, windowSeconds: 3600 } as RateLimitConfig,
+  disputeAction: { limit: 5, windowSeconds: 3600 } as RateLimitConfig,
   default: { limit: 60, windowSeconds: 60 } as RateLimitConfig,
 }
 

@@ -32,6 +32,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
   }
 
+  // Only the task creator can view all campaign submissions
+  // Submitters can only see their own via query param filtering
+  const isCreator = task.creatorId === auth.userId
+  if (!isCreator) {
+    // Non-creators can only see their own submissions
+    // (handled below via forced filter)
+  }
+
   const { searchParams } = request.nextUrl
   const status = searchParams.get('status')?.toUpperCase()
   const page = Math.max(1, Number(searchParams.get('page') || 1))
@@ -40,6 +48,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const where: any = { taskId }
   if (status) {
     where.status = status
+  }
+  // Non-creators can only see their own submissions
+  if (!isCreator) {
+    where.submitterId = auth.userId
   }
 
   const [submissions, total] = await Promise.all([

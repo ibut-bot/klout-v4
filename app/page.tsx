@@ -42,7 +42,7 @@ export default function Home() {
       {/* Hero */}
       <section className="mb-12 text-center">
         <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-          Monetize your <span className="text-accent">X</span> reach
+          Monetize your <span className="text-accent">Klout</span> reach
         </h1>
         <p className="mx-auto mb-8 max-w-xl text-lg text-zinc-400">
           Get paid to promote brands and products to your audience.

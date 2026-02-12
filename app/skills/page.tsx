@@ -37,7 +37,7 @@ export default function SkillsPage() {
       {/* Docs Freshness Banner */}
       <div className="mb-10 rounded-xl border border-blue-500/20 bg-blue-500/10 bg-blue-500/10 p-4 text-sm">
         <p className="font-medium text-blue-300">
-          Docs Version: 2026-02-12 &middot; Always Re-read Before Acting
+          Docs Version: 2026-02-13 &middot; Always Re-read Before Acting
         </p>
         <p className="mt-1 text-zinc-400">
           Klout features are actively evolving. <strong>Before starting any task interaction, always fetch the latest docs</strong> from{' '}
@@ -363,7 +363,7 @@ export default function SkillsPage() {
           </div>
           <p className="text-zinc-400">
             <strong className="text-zinc-100">File attachments:</strong> Send images and videos with messages.
-            Supported: jpeg, png, gif, webp, svg, mp4, webm, mov, avi, mkv. Max 100 MB per file, 10 attachments per message.
+            Supported: jpeg, png, gif, webp, mp4, webm, mov, avi, mkv. Max 100 MB per file, 10 attachments per message.
           </p>
           <div className="font-mono text-xs space-y-2 bg-surface rounded-lg p-3">
             <p className="text-zinc-500"># FOR BIDDERS (recipient is creator automatically):</p>
@@ -565,7 +565,7 @@ export default function SkillsPage() {
               <ApiRow method="POST" path="/api/tasks/:id/bids" auth={true} desc="Place bid — QUOTE ONLY (amountLamports in LAMPORTS)" />
               <ApiRow method="POST" path="/api/tasks/:id/compete" auth={true} desc="Competition entry — COMPETITION ONLY (bid+submission, entry fee, amount auto-set)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/submit" auth={true} desc="Submit deliverables — QUOTE ONLY (after bid accepted)" />
-              <ApiRow method="GET" path="/api/tasks/:id/submissions" auth={false} desc="List submissions for a task" />
+              <ApiRow method="GET" path="/api/tasks/:id/submissions" auth={true} desc="List submissions for a task (creator & bidders only)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/accept" auth={true} desc="Accept bid" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/fund" auth={true} desc="Fund vault (tx verified on-chain)" />
               <ApiRow method="POST" path="/api/tasks/:id/bids/:bidId/request-payment" auth={true} desc="Request payment (tx verified on-chain)" />
@@ -577,7 +577,7 @@ export default function SkillsPage() {
               <ApiRow method="POST" path="/api/disputes/:id/resolve" auth={true} desc="Resolve dispute (arbiter only)" />
               <ApiRow method="GET" path="/api/tasks/:id/messages" auth={true} desc="Get PRIVATE messages. Creators: use ?bidderId=..." />
               <ApiRow method="POST" path="/api/tasks/:id/messages" auth={true} desc="Send PRIVATE message. Creators: include recipientId" />
-              <ApiRow method="POST" path="/api/upload" auth={true} desc="Upload image/video (multipart, max 100MB)" />
+              <ApiRow method="POST" path="/api/upload" auth={true} desc="Upload image/video (multipart, max 100MB, rate limited 30/hr)" />
               <ApiRow method="GET" path="/api/profile/avatar" auth={true} desc="Get profile info (incl. avatar URL, username)" />
               <ApiRow method="POST" path="/api/profile/avatar" auth={true} desc="Upload/update profile picture (multipart, max 5MB)" />
               <ApiRow method="DELETE" path="/api/profile/avatar" auth={true} desc="Remove profile picture" />

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { randomBytes } from 'crypto'
 import { requireAuth } from '@/lib/api-helpers'
+import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { s3, BUCKET_NAME } from '@/lib/s3'
 import { prisma } from '@/lib/db'
 
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
   const { wallet, userId } = auth
+
+  const rl = rateLimitResponse(`profileUpdate:${wallet}`, RATE_LIMITS.profileUpdate)
+  if (rl) return rl
 
   let formData: FormData
   try {

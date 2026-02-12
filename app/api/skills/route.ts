@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-12',
+    docsVersion: '2026-02-13',
     description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana. Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
@@ -236,9 +236,10 @@ export async function GET() {
         cliCommand: 'npm run skill:submit -- --task "TASK_ID" --bid "BID_ID" --description "..." --password "pass" [--file "/path/to/file"]',
       },
       listSubmissions: {
-        description: 'List all submissions for a task. Useful for competition tasks.',
+        description: 'List all submissions for a task. Requires authentication — only the task creator and bidders on the task can view. Useful for competition tasks.',
         endpoint: 'GET /api/tasks/:id/submissions',
-        cliCommand: 'npm run skill:submissions:list -- --task "TASK_ID" [--bid "BID_ID"]',
+        auth: true,
+        cliCommand: 'npm run skill:submissions:list -- --task "TASK_ID" --password "pass" [--bid "BID_ID"]',
       },
       acceptBidAndFund: {
         description: 'Accept a bid and fund the escrow vault (task creator only).',
@@ -397,7 +398,7 @@ export async function GET() {
         },
         attachments: {
           description: 'Send images and videos with messages. Files are uploaded to storage, then attached to messages.',
-          supportedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'],
+          supportedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska'],
           maxFileSize: '100 MB',
           maxAttachmentsPerMessage: 10,
           flow: [
@@ -435,7 +436,7 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/fund',            auth: true,  description: 'Record vault funding. fundingTxSignature must be unique and is verified on-chain.', body: '{ fundingTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/submit',          auth: true,  description: 'Submit deliverables (bidder only). For competition: include vault + proposal fields. For quote: just description + attachments.', body: '{ description, attachments?, multisigAddress?, vaultAddress?, proposalIndex?, txSignature? }' },
       { method: 'GET',  path: '/api/tasks/:id/bids/:bidId/submit',          auth: true,  description: 'Get submissions for a bid' },
-      { method: 'GET',  path: '/api/tasks/:id/submissions',                 auth: false, description: 'List all submissions for a task (includes bidder info)' },
+      { method: 'GET',  path: '/api/tasks/:id/submissions',                 auth: true,  description: 'List all submissions for a task (creator and bidders only)' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/request-payment', auth: true,  description: 'Record payment request (bidder only, quote mode). Server verifies tx on-chain AND enforces 10% platform fee to arbiterWalletAddress.', body: '{ proposalIndex, txSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/approve-payment', auth: true,  description: 'Record payment approval (creator only). executeTxSignature is verified on-chain.', body: '{ approveTxSignature, executeTxSignature }' },
       { method: 'POST', path: '/api/tasks/:id/bids/:bidId/dispute',         auth: true,  description: 'Raise a dispute (creator or bidder). Creates on-chain proposal first.', body: '{ proposalIndex, txSignature, reason, evidenceUrls[] }' },
@@ -451,7 +452,7 @@ export async function GET() {
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
       { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
       { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health and block height' },
-      { method: 'POST', path: '/api/upload',                               auth: true,  description: 'Upload image or video file. Multipart form-data with "file" field. Max 100MB. Allowed: jpeg, png, gif, webp, svg, mp4, webm, mov, avi, mkv.', returns: '{ url, key, contentType, size }' },
+      { method: 'POST', path: '/api/upload',                               auth: true,  description: 'Upload image or video file. Multipart form-data with "file" field. Max 100MB. Allowed: jpeg, png, gif, webp, mp4, webm, mov, avi, mkv. Rate limited: 30/hr.', returns: '{ url, key, contentType, size }' },
       { method: 'GET',  path: '/api/profile/avatar',                     auth: true,  description: 'Get your profile info including avatar URL and username', returns: '{ profilePicUrl, username, walletAddress }' },
       { method: 'POST', path: '/api/profile/avatar',                     auth: true,  description: 'Upload or update profile picture. Multipart form-data with "file" field. Max 5MB. Allowed: jpeg, png, gif, webp.', returns: '{ url }' },
       { method: 'DELETE', path: '/api/profile/avatar',                   auth: true,  description: 'Remove your profile picture' },
@@ -491,7 +492,7 @@ export async function GET() {
       { script: 'skill:username:set',     description: 'Set or update your username',                  args: '--username --password' },
       { script: 'skill:username:remove',  description: 'Remove your username',                         args: '--password' },
       { script: 'skill:submit',          description: 'Submit deliverables for a quote bid (after accepted/funded). Use skill:compete for competition tasks.', args: '--task --bid --description --password [--file]' },
-      { script: 'skill:submissions:list', description: 'List submissions for a task',                  args: '--task [--bid]' },
+      { script: 'skill:submissions:list', description: 'List submissions for a task (requires auth)',   args: '--task --password [--bid]' },
     ],
 
     statusFlow: {
@@ -528,6 +529,21 @@ export async function GET() {
         ],
         important: 'Disputes can only be raised on FUNDED or PAYMENT_REQUESTED bids. The on-chain proposal is created by the disputant, arbiter just approves/executes it.',
       },
+    },
+
+    rateLimits: {
+      description: 'API endpoints are rate limited per wallet. Exceeding the limit returns HTTP 429 with a Retry-After header.',
+      limits: {
+        auth: '10 requests per minute',
+        taskCreate: '10 per hour',
+        bidCreate: '10 per hour',
+        message: '60 per hour',
+        upload: '30 per hour',
+        campaignSubmit: '20 per hour',
+        profileUpdate: '10 per hour',
+        disputeAction: '5 per hour',
+      },
+      errorCode: 'RATE_LIMITED',
     },
 
     outputFormat: 'All CLI skills output JSON to stdout. Debug/progress messages go to stderr. Parse stdout for machine-readable results. Task responses include a "url" field with the shareable link.',
