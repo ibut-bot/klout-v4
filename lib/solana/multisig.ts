@@ -855,7 +855,7 @@ export async function createProposalApproveExecuteWA(
   multisigPda: PublicKey,
   recipient: PublicKey,
   totalLamports: number,
-  platformWallet: PublicKey,
+  platformWallet?: PublicKey,
   memo?: string,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
@@ -867,7 +867,7 @@ export async function createProposalApproveExecuteWA(
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
   ]
-  if (platformAmount > 0) {
+  if (platformAmount > 0 && platformWallet) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
     )
@@ -919,7 +919,7 @@ export async function createProposalApproveExecuteWA(
     { pubkey: vaultPda, isSigner: false, isWritable: true },
     { pubkey: recipient, isSigner: false, isWritable: true },
   ]
-  if (platformAmount > 0) {
+  if (platformAmount > 0 && platformWallet) {
     anchorRemainingAccounts.push({ pubkey: platformWallet, isSigner: false, isWritable: true })
   }
   anchorRemainingAccounts.push({ pubkey: SystemProgram.programId, isSigner: false, isWritable: false })

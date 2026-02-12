@@ -36,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 const TYPE_COLORS: Record<string, string> = {
   QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
   COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+  CAMPAIGN: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
 }
 
 function getDeadlineLabel(deadlineAt: string): string {
@@ -57,7 +58,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           <div className="flex items-center gap-1.5">
             {taskType && (
               <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
-                {taskType === 'COMPETITION' ? 'Competition' : 'Quote'}
+                {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
               </span>
             )}
             <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>

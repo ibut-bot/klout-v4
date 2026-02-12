@@ -15,6 +15,7 @@ datasource db {
 enum TaskType {
   QUOTE
   COMPETITION
+  CAMPAIGN
 
   @@schema("slopwork")
 }
@@ -67,6 +68,22 @@ enum NotificationType {
   DISPUTE_RAISED
   DISPUTE_RESOLVED
   SUBMISSION_RECEIVED
+  CAMPAIGN_SUBMISSION_APPROVED
+  CAMPAIGN_SUBMISSION_REJECTED
+  CAMPAIGN_PAYMENT_REQUEST
+  CAMPAIGN_PAYMENT_COMPLETED
+
+  @@schema("slopwork")
+}
+
+enum CampaignSubmissionStatus {
+  PENDING_PAYMENT
+  READING_VIEWS
+  CHECKING_CONTENT
+  APPROVED
+  REJECTED
+  PAID
+  PAYMENT_FAILED
 
   @@schema("slopwork")
 }
@@ -81,11 +98,20 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  tasks             Task[]          @relation("TaskCreator")
-  bids              Bid[]           @relation("Bidder")
-  sentMessages      Message[]       @relation("MessageSender")
-  receivedMessages  Message[]       @relation("MessageRecipient")
-  notifications     Notification[]  @relation("UserNotifications")
+  // X (Twitter) account linking
+  xUserId         String?   @unique
+  xUsername        String?
+  xAccessToken    String?
+  xRefreshToken   String?
+  xTokenExpiresAt DateTime?
+
+  tasks                Task[]               @relation("TaskCreator")
+  bids                 Bid[]                @relation("Bidder")
+  sentMessages         Message[]            @relation("MessageSender")
+  receivedMessages     Message[]            @relation("MessageRecipient")
+  notifications        Notification[]       @relation("UserNotifications")
+  campaignSubmissions  CampaignSubmission[] @relation("CampaignSubmitter")
+
   @@index([walletAddress])
   @@index([username])
   @@schema("slopwork")
@@ -119,10 +145,12 @@ model Task {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  creator             User       @relation("TaskCreator", fields: [creatorId], references: [id])
-  winningBid          Bid?       @relation("WinningBid", fields: [winningBidId], references: [id])
-  bids                Bid[]      @relation("TaskBids")
+  creator             User                @relation("TaskCreator", fields: [creatorId], references: [id])
+  winningBid          Bid?                @relation("WinningBid", fields: [winningBidId], references: [id])
+  bids                Bid[]               @relation("TaskBids")
   messages            Message[]
+  campaignConfig      CampaignConfig?
+  campaignSubmissions CampaignSubmission[]
 
   @@index([creatorId])
   @@index([status])
@@ -233,5 +261,47 @@ model Submission {
   bid         Bid      @relation(fields: [bidId], references: [id])
 
   @@index([bidId])
+  @@schema("slopwork")
+}
+
+model CampaignConfig {
+  id                      String @id @default(cuid())
+  taskId                  String @unique
+  cpmLamports             BigInt   // Cost per 1000 views in lamports
+  budgetRemainingLamports BigInt   // Tracks remaining budget
+  guidelines              Json     // { dos: string[], donts: string[] }
+  minViews                Int    @default(100)
+
+  task                    Task   @relation(fields: [taskId], references: [id])
+
+  @@schema("slopwork")
+}
+
+model CampaignSubmission {
+  id                      String                   @id @default(cuid())
+  taskId                  String
+  submitterId             String
+  postUrl                 String
+  xPostId                 String
+  viewCount               Int?
+  viewsReadAt             DateTime?
+  apiFeeTxSig             String?
+  contentCheckPassed      Boolean?
+  contentCheckExplanation String?
+  payoutLamports          BigInt?
+  status                  CampaignSubmissionStatus @default(PENDING_PAYMENT)
+  rejectionReason         String?
+  paymentTxSig            String?
+  paymentProposalIndex    BigInt?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  task                    Task                     @relation(fields: [taskId], references: [id])
+  submitter               User                     @relation("CampaignSubmitter", fields: [submitterId], references: [id])
+
+  @@unique([taskId, xPostId])
+  @@index([taskId])
+  @@index([submitterId])
+  @@index([status])
   @@schema("slopwork")
 }

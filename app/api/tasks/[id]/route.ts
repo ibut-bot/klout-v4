@@ -28,6 +28,7 @@ export async function GET(
           bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         },
       },
+      campaignConfig: true,
       _count: { select: { bids: true, messages: true } },
     },
   })
@@ -65,6 +66,14 @@ export async function GET(
             bidderWallet: task.winningBid.bidder.walletAddress,
             bidderUsername: task.winningBid.bidder.username,
             bidderProfilePic: task.winningBid.bidder.profilePicUrl,
+          }
+        : null,
+      campaignConfig: task.campaignConfig
+        ? {
+            cpmLamports: task.campaignConfig.cpmLamports.toString(),
+            budgetRemainingLamports: task.campaignConfig.budgetRemainingLamports.toString(),
+            guidelines: task.campaignConfig.guidelines,
+            minViews: task.campaignConfig.minViews,
           }
         : null,
       bidCount: task._count.bids,

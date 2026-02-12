@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
     where.status = status
   }
-  if (taskType && ['QUOTE', 'COMPETITION'].includes(taskType)) {
+  if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
   }
 
@@ -89,19 +89,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines } = body
 
   // Validate taskType early so we know which fields to require
-  const validTaskTypes = ['QUOTE', 'COMPETITION']
+  const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
   const resolvedTaskType = taskType ? String(taskType).toUpperCase() : 'QUOTE'
   if (!validTaskTypes.includes(resolvedTaskType)) {
     return Response.json(
-      { success: false, error: 'INVALID_TASK_TYPE', message: 'taskType must be QUOTE or COMPETITION' },
+      { success: false, error: 'INVALID_TASK_TYPE', message: 'taskType must be QUOTE, COMPETITION, or CAMPAIGN' },
       { status: 400 }
     )
   }
 
   const isCompetition = resolvedTaskType === 'COMPETITION'
+  const isCampaign = resolvedTaskType === 'CAMPAIGN'
 
   if (!title || !description || !budgetLamports || !paymentTxSignature) {
     return Response.json(
@@ -110,12 +111,41 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Competition tasks require vault details
-  if (isCompetition && (!multisigAddress || !vaultAddress)) {
+  // Competition and Campaign tasks require vault details
+  if ((isCompetition || isCampaign) && (!multisigAddress || !vaultAddress)) {
     return Response.json(
-      { success: false, error: 'MISSING_FIELDS', message: 'Competition tasks also require: multisigAddress, vaultAddress' },
+      { success: false, error: 'MISSING_FIELDS', message: `${resolvedTaskType} tasks also require: multisigAddress, vaultAddress` },
       { status: 400 }
     )
+  }
+
+  // Campaign tasks require CPM and guidelines
+  if (isCampaign) {
+    if (!cpmLamports) {
+      return Response.json(
+        { success: false, error: 'MISSING_FIELDS', message: 'CAMPAIGN tasks require: cpmLamports' },
+        { status: 400 }
+      )
+    }
+    const parsedCpm = Number(cpmLamports)
+    if (!Number.isFinite(parsedCpm) || parsedCpm <= 0) {
+      return Response.json(
+        { success: false, error: 'INVALID_CPM', message: 'cpmLamports must be a positive number' },
+        { status: 400 }
+      )
+    }
+    if (!guidelines || typeof guidelines !== 'object') {
+      return Response.json(
+        { success: false, error: 'MISSING_FIELDS', message: 'CAMPAIGN tasks require: guidelines ({ dos: string[], donts: string[] })' },
+        { status: 400 }
+      )
+    }
+    if (!Array.isArray(guidelines.dos) || !Array.isArray(guidelines.donts)) {
+      return Response.json(
+        { success: false, error: 'INVALID_GUIDELINES', message: 'guidelines must have dos and donts arrays' },
+        { status: 400 }
+      )
+    }
   }
 
   if (typeof title !== 'string' || title.trim().length === 0 || title.length > MAX_TITLE_LENGTH) {
@@ -151,7 +181,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Verify the payment/funding transaction
-  if (isCompetition) {
+  if (isCompetition || isCampaign) {
     // Competition tasks: no platform fee, but verify the tx exists and is confirmed on-chain
     // The paymentTxSignature is the vault creation + funding transaction
     const { getConnection } = await import('@/lib/solana/connection')
@@ -200,9 +230,9 @@ export async function POST(request: NextRequest) {
   // Validate optional durationDays (competition only)
   let deadlineAt: Date | null = null
   if (durationDays !== undefined && durationDays !== null) {
-    if (!isCompetition) {
+    if (!isCompetition && !isCampaign) {
       return Response.json(
-        { success: false, error: 'INVALID_FIELD', message: 'durationDays is only supported for COMPETITION tasks' },
+        { success: false, error: 'INVALID_FIELD', message: 'durationDays is only supported for COMPETITION and CAMPAIGN tasks' },
         { status: 400 }
       )
     }
@@ -223,6 +253,54 @@ export async function POST(request: NextRequest) {
       { success: false, error: 'DUPLICATE_TX', message: 'This payment transaction has already been used' },
       { status: 409 }
     )
+  }
+
+  // Use a transaction for campaign tasks to create both Task + CampaignConfig atomically
+  if (isCampaign) {
+    const result = await prisma.$transaction(async (tx) => {
+      const task = await tx.task.create({
+        data: {
+          creatorId: userId,
+          title: title.trim(),
+          description: description.trim(),
+          budgetLamports: parsedBudget,
+          taskType: 'CAMPAIGN',
+          paymentTxSignature,
+          multisigAddress,
+          vaultAddress,
+          ...(deadlineAt ? { deadlineAt } : {}),
+        },
+      })
+
+      await tx.campaignConfig.create({
+        data: {
+          taskId: task.id,
+          cpmLamports: BigInt(cpmLamports),
+          budgetRemainingLamports: parsedBudget,
+          guidelines: {
+            dos: guidelines.dos.map((d: string) => String(d).trim()).filter(Boolean),
+            donts: guidelines.donts.map((d: string) => String(d).trim()).filter(Boolean),
+          },
+        },
+      })
+
+      return task
+    })
+
+    return Response.json({
+      success: true,
+      task: {
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        budgetLamports: result.budgetLamports.toString(),
+        taskType: result.taskType,
+        status: result.status,
+        deadlineAt: result.deadlineAt ? result.deadlineAt.toISOString() : null,
+        createdAt: result.createdAt.toISOString(),
+        url: `${APP_URL}/tasks/${result.id}`,
+      },
+    }, { status: 201 })
   }
 
   const task = await prisma.task.create({

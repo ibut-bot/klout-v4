@@ -58,7 +58,7 @@ const BID_STATUS_COLORS: Record<string, string> = {
   DISPUTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 }
 
-const TASK_TYPES = ['all', 'quote', 'competition'] as const
+const TASK_TYPES = ['all', 'quote', 'competition', 'campaign'] as const
 type TaskTypeFilter = typeof TASK_TYPES[number]
 
 export default function DashboardPage() {

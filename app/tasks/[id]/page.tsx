@@ -44,6 +44,8 @@ import SubmissionForm from '../../components/SubmissionForm'
 import SubmissionList from '../../components/SubmissionList'
 import CompetitionEntryForm from '../../components/CompetitionEntryForm'
 import SelectWinnerButton, { type WinnerBid } from '../../components/SelectWinnerButton'
+import CampaignDashboard from '../../components/CampaignDashboard'
+import CampaignSubmitForm from '../../components/CampaignSubmitForm'
 
 interface Task {
   id: string
@@ -111,6 +113,7 @@ const STATUS_COLORS: Record<string, string> = {
 const TYPE_COLORS: Record<string, string> = {
   QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
   COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+  CAMPAIGN: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
 }
 
 export default function TaskDetailPage() {
@@ -125,11 +128,19 @@ export default function TaskDetailPage() {
   const [selectedBidderId, setSelectedBidderId] = useState<string | null>(null)
   // Track message counts per bidder for unread indicator
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
+  // Campaign-specific state
+  const [campaignConfig, setCampaignConfig] = useState<{
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; minViews: number
+  } | null>(null)
+  const [xLinked, setXLinked] = useState(false)
 
   const fetchTask = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}`)
     const data = await res.json()
-    if (data.success) setTask(data.task)
+    if (data.success) {
+      setTask(data.task)
+      if (data.task.campaignConfig) setCampaignConfig(data.task.campaignConfig)
+    }
   }, [id])
 
   const fetchBids = useCallback(async () => {
@@ -159,9 +170,22 @@ export default function TaskDetailPage() {
     } catch { /* silent */ }
   }, [id, isAuthenticated, authFetch])
 
+  const fetchXStatus = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch('/api/auth/x/status')
+      const data = await res.json()
+      if (data.success) setXLinked(data.linked)
+    } catch {}
+  }, [isAuthenticated, authFetch])
+
   useEffect(() => {
     Promise.all([fetchTask(), fetchBids(), fetchSubmissions()]).finally(() => setLoading(false))
   }, [fetchTask, fetchBids, fetchSubmissions])
+
+  useEffect(() => {
+    if (isAuthenticated) fetchXStatus()
+  }, [isAuthenticated, fetchXStatus])
 
   // Fetch conversation counts for sidebar indicators
   useEffect(() => {
@@ -207,6 +231,7 @@ export default function TaskDetailPage() {
   const isBidder = bids.some((b) => b.bidderWallet === wallet)
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
   const isCompetition = task.taskType === 'COMPETITION'
+  const isCampaign = task.taskType === 'CAMPAIGN'
   const isExpired = countdown?.expired === true
 
   // Find current user's bid
@@ -244,15 +269,15 @@ export default function TaskDetailPage() {
               {copied ? 'Copied!' : 'Copy Link'}
             </button>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${TYPE_COLORS[task.taskType] || ''}`}>
-              {task.taskType === 'COMPETITION' ? 'Competition' : 'Quote'}
+              {task.taskType === 'COMPETITION' ? 'Competition' : task.taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
             </span>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[task.status] || ''}`}>
               {task.status.replace('_', ' ')}
             </span>
           </div>
         </div>
-        {/* Countdown timer for competitions with a deadline */}
-        {isCompetition && countdown && (
+        {/* Countdown timer for competitions/campaigns with a deadline */}
+        {(isCompetition || isCampaign) && countdown && (
           <div className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm ${
             countdown.expired
               ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400'
@@ -261,7 +286,7 @@ export default function TaskDetailPage() {
             {countdown.expired ? (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span className="font-medium">Competition ended — no more entries accepted</span>
+                <span className="font-medium">{isCampaign ? 'Campaign' : 'Competition'} ended — no more submissions accepted</span>
               </>
             ) : (
               <>
@@ -505,7 +530,7 @@ export default function TaskDetailPage() {
       })()}
 
       {/* Quote mode: Submissions (if any) above, then Bids (left) + Chat (right) */}
-      {!isCompetition && submissions.length > 0 && (
+      {!isCompetition && !isCampaign && submissions.length > 0 && (
         <div className="mb-6">
           <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Submissions ({submissions.length})
@@ -523,7 +548,54 @@ export default function TaskDetailPage() {
         </div>
       )}
 
-      {!isCompetition && (
+      {/* Campaign mode */}
+      {isCampaign && (
+        <div className="space-y-6">
+          {/* Campaign dashboard for creator */}
+          {isCreator && task.multisigAddress && (
+            <CampaignDashboard
+              taskId={task.id}
+              multisigAddress={task.multisigAddress}
+              isCreator={true}
+            />
+          )}
+
+          {/* Campaign submission form for participants */}
+          {isAuthenticated && !isCreator && campaignConfig && task.status === 'OPEN' && !isExpired && (
+            <CampaignSubmitForm
+              taskId={task.id}
+              guidelines={campaignConfig.guidelines}
+              cpmLamports={campaignConfig.cpmLamports}
+              budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
+              xLinked={xLinked}
+              onSubmitted={fetchTask}
+            />
+          )}
+
+          {/* Campaign dashboard for non-creators (read-only view) */}
+          {isAuthenticated && !isCreator && task.multisigAddress && (
+            <CampaignDashboard
+              taskId={task.id}
+              multisigAddress={task.multisigAddress}
+              isCreator={false}
+            />
+          )}
+
+          {/* Campaign info for logged-out users */}
+          {!isAuthenticated && campaignConfig && (
+            <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+              <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Campaign Details</h3>
+              <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+                <p>CPM: {(Number(campaignConfig.cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL per 1,000 views</p>
+                <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isCompetition && !isCampaign && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
             <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">

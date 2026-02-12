@@ -34,6 +34,10 @@ const NOTIF_ICONS: Record<string, string> = {
   NEW_MESSAGE: '💬',
   DISPUTE_RAISED: '⚠️',
   DISPUTE_RESOLVED: '⚖️',
+  CAMPAIGN_SUBMISSION_APPROVED: '📢',
+  CAMPAIGN_SUBMISSION_REJECTED: '🚫',
+  CAMPAIGN_PAYMENT_REQUEST: '📋',
+  CAMPAIGN_PAYMENT_COMPLETED: '💸',
 }
 
 export default function Navbar() {
@@ -49,6 +53,8 @@ export default function Navbar() {
   const [usernameInput, setUsernameInput] = useState('')
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [savingUsername, setSavingUsername] = useState(false)
+  const [xUsername, setXUsername] = useState<string | null>(null)
+  const [linkingX, setLinkingX] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
@@ -65,9 +71,16 @@ export default function Navbar() {
           }
         })
         .catch(() => {})
+      authFetch('/api/auth/x/status')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.linked) setXUsername(data.xUsername)
+        })
+        .catch(() => {})
     } else {
       setProfilePic(null)
       setUsername(null)
+      setXUsername(null)
     }
   }, [isAuthenticated, authFetch])
 
@@ -176,6 +189,28 @@ export default function Navbar() {
   const handleCancelUsername = () => {
     setEditingUsername(false)
     setUsernameError(null)
+  }
+
+  const handleLinkX = async () => {
+    setLinkingX(true)
+    try {
+      const res = await authFetch('/api/auth/x/authorize')
+      const data = await res.json()
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch {
+      setLinkingX(false)
+    }
+  }
+
+  const handleUnlinkX = async () => {
+    try {
+      const res = await authFetch('/api/auth/x/unlink', { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) setXUsername(null)
+    } catch {}
+    setShowDropdown(false)
   }
 
   return (
@@ -334,6 +369,27 @@ export default function Navbar() {
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       {username ? 'Change Username' : 'Set Username'}
+                    </button>
+                  )}
+
+                  {/* X Account linking */}
+                  {xUsername ? (
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300">@{xUsername}</span>
+                      <button
+                        onClick={handleUnlinkX}
+                        className="text-xs text-red-500 hover:text-red-600"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleLinkX}
+                      disabled={linkingX}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      {linkingX ? 'Redirecting...' : 'Link X Account'}
                     </button>
                   )}
 

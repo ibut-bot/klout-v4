@@ -19,7 +19,7 @@ interface Task {
 }
 
 const STATUSES = ['all', 'open', 'in_progress', 'completed', 'disputed']
-const TASK_TYPES = ['all', 'quote', 'competition'] as const
+const TASK_TYPES = ['all', 'quote', 'competition', 'campaign'] as const
 type TaskTypeFilter = typeof TASK_TYPES[number]
 
 type ViewMode = 'all' | 'my_tasks' | 'my_bids'

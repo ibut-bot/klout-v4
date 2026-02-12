@@ -20,11 +20,16 @@ export default function TaskForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
-  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION'>('COMPETITION')
+  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION' | 'CAMPAIGN'>('COMPETITION')
   const [durationDays, setDurationDays] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
+
+  // Campaign-specific fields
+  const [cpm, setCpm] = useState('')
+  const [dos, setDos] = useState<string[]>([''])
+  const [donts, setDonts] = useState<string[]>([''])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,8 +44,8 @@ export default function TaskForm() {
       let signature: string
       let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
 
-      if (taskType === 'COMPETITION') {
-        // Competition: create 1/1 multisig vault and fund it with budget
+      if (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') {
+        // Competition/Campaign: create 1/1 multisig vault and fund it with budget
         if (!signTransaction) throw new Error('Wallet does not support signing')
         setStep('paying')
         const result = await createMultisigVaultAndFundWA(
@@ -74,13 +79,22 @@ export default function TaskForm() {
 
       // Create task via API
       setStep('creating')
+      const campaignFields = taskType === 'CAMPAIGN' ? {
+        cpmLamports: Math.round(parseFloat(cpm) * LAMPORTS_PER_SOL),
+        guidelines: {
+          dos: dos.map(d => d.trim()).filter(Boolean),
+          donts: donts.map(d => d.trim()).filter(Boolean),
+        },
+      } : {}
+
       const res = await authFetch('/api/tasks', {
         method: 'POST',
         body: JSON.stringify({
           title, description, budgetLamports, taskType,
           paymentTxSignature: signature,
           ...vaultDetails,
-          ...(taskType === 'COMPETITION' && durationDays ? { durationDays: parseInt(durationDays) } : {}),
+          ...campaignFields,
+          ...((taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && durationDays ? { durationDays: parseInt(durationDays) } : {}),
         }),
       })
       const data = await res.json()
@@ -133,6 +147,20 @@ export default function TaskForm() {
               Bidders complete the work first, then you pick the best submission.
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setTaskType('CAMPAIGN')}
+            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+              taskType === 'CAMPAIGN'
+                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
+                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
+            }`}
+          >
+            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Campaign</span>
+            <span className="mt-0.5 block text-xs text-zinc-500">
+              Promote an X post. Pay participants per view based on CPM.
+            </span>
+          </button>
         </div>
       </div>
 
@@ -173,13 +201,74 @@ export default function TaskForm() {
           className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
         <p className="mt-1 text-xs text-zinc-500">
-          {taskType === 'COMPETITION'
+          {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
             ? 'This budget will be locked in an escrow vault when you post the task.'
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
         </p>
       </div>
 
-      {taskType === 'COMPETITION' && (
+      {taskType === 'CAMPAIGN' && (
+        <>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">CPM — Cost per 1,000 views (SOL)</label>
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={cpm}
+              onChange={(e) => setCpm(e.target.value)}
+              placeholder="0.01"
+              required
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+            <p className="mt-1 text-xs text-zinc-500">How much you pay per 1,000 views on a promoted post.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Guidelines — Do&apos;s</label>
+            {dos.map((d, i) => (
+              <div key={i} className="mb-2 flex gap-2">
+                <input
+                  type="text"
+                  value={d}
+                  onChange={(e) => { const n = [...dos]; n[i] = e.target.value; setDos(n) }}
+                  placeholder={`Guideline ${i + 1}`}
+                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+                {dos.length > 1 && (
+                  <button type="button" onClick={() => setDos(dos.filter((_, j) => j !== i))}
+                    className="px-2 text-red-500 hover:text-red-600 text-sm">Remove</button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setDos([...dos, ''])}
+              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add guideline</button>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Guidelines — Don&apos;ts</label>
+            {donts.map((d, i) => (
+              <div key={i} className="mb-2 flex gap-2">
+                <input
+                  type="text"
+                  value={d}
+                  onChange={(e) => { const n = [...donts]; n[i] = e.target.value; setDonts(n) }}
+                  placeholder={`Don't ${i + 1}`}
+                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+                {donts.length > 1 && (
+                  <button type="button" onClick={() => setDonts(donts.filter((_, j) => j !== i))}
+                    className="px-2 text-red-500 hover:text-red-600 text-sm">Remove</button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setDonts([...donts, ''])}
+              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add guideline</button>
+          </div>
+        </>
+      )}
+
+      {(taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && (
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Duration (days) — optional</label>
           <input
@@ -193,7 +282,7 @@ export default function TaskForm() {
             className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           />
           <p className="mt-1 text-xs text-zinc-500">
-            How many days the competition runs. After this, no new entries are accepted. Leave empty for no deadline.
+            How many days the {taskType === 'CAMPAIGN' ? 'campaign' : 'competition'} runs. After this, no new submissions are accepted. Leave empty for no deadline.
           </p>
         </div>
       )}
@@ -205,9 +294,9 @@ export default function TaskForm() {
       >
         {loading
           ? step === 'paying'
-            ? taskType === 'COMPETITION' ? 'Creating escrow vault...' : 'Paying posting fee...'
-            : 'Creating task...'
-          : 'Post Task'}
+            ? (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') ? 'Creating escrow vault...' : 'Paying posting fee...'
+            : taskType === 'CAMPAIGN' ? 'Creating campaign...' : 'Creating task...'
+          : taskType === 'CAMPAIGN' ? 'Launch Campaign' : 'Post Task'}
       </button>
     </form>
   )
