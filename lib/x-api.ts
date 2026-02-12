@@ -129,14 +129,23 @@ export function extractPostId(url: string): string | null {
   return match ? match[1] : null
 }
 
-/** Fetch post metrics and content from X API */
+export interface PostMedia {
+  type: 'photo' | 'video' | 'animated_gif'
+  url?: string            // direct URL for photos
+  previewImageUrl?: string // thumbnail for videos/gifs
+}
+
+/** Fetch post metrics, content, and media from X API */
 export async function getPostMetrics(postId: string, accessToken: string): Promise<{
   viewCount: number
   text: string
   authorId: string
+  media: PostMedia[]
 }> {
   const params = new URLSearchParams({
-    'tweet.fields': 'public_metrics,text,author_id',
+    'tweet.fields': 'public_metrics,text,author_id,attachments',
+    'expansions': 'attachments.media_keys',
+    'media.fields': 'url,preview_image_url,type',
   })
 
   const res = await fetch(`${X_TWEET_URL}/${postId}?${params.toString()}`, {
@@ -148,11 +157,22 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
     throw new Error(`X tweet fetch failed: ${err}`)
   }
 
-  const { data } = await res.json()
+  const json = await res.json()
+  const data = json.data
+  const includes = json.includes
+
+  // Parse media from includes
+  const media: PostMedia[] = (includes?.media ?? []).map((m: any) => ({
+    type: m.type as PostMedia['type'],
+    url: m.url || undefined,
+    previewImageUrl: m.preview_image_url || undefined,
+  }))
+
   return {
     viewCount: data.public_metrics?.impression_count ?? 0,
     text: data.text,
     authorId: data.author_id,
+    media,
   }
 }
 

@@ -60,6 +60,7 @@ const STATUS_BADGE: Record<string, string> = {
   CHECKING_CONTENT: 'bg-blue-500/20 text-blue-400',
   APPROVED: 'bg-green-500/20 text-green-400',
   REJECTED: 'bg-red-500/20 text-red-400',
+  CREATOR_REJECTED: 'bg-orange-500/20 text-orange-400',
   PAID: 'bg-emerald-500/20 text-emerald-400',
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
@@ -69,6 +70,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
   const [stats, setStats] = useState<CampaignStats | null>(null)
   const [submissions, setSubmissions] = useState<CampaignSubmission[]>([])
   const [loading, setLoading] = useState(true)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectLoading, setRejectLoading] = useState(false)
+  const [rejectError, setRejectError] = useState('')
 
   const fetchData = useCallback(async () => {
     try {
@@ -82,6 +87,33 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
     } catch {}
     setLoading(false)
   }, [taskId, authFetch])
+
+  const handleReject = async (submissionId: string) => {
+    if (!rejectReason.trim()) {
+      setRejectError('Please provide a reason for rejection')
+      return
+    }
+    setRejectLoading(true)
+    setRejectError('')
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions/${submissionId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setRejectError(data.message || 'Failed to reject submission')
+      } else {
+        setRejectingId(null)
+        setRejectReason('')
+        fetchData()
+      }
+    } catch {
+      setRejectError('Network error')
+    }
+    setRejectLoading(false)
+  }
 
   useEffect(() => {
     fetchData()
@@ -185,8 +217,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
                         {s.status.replace('_', ' ')}
                       </span>
-                      {s.status === 'REJECTED' && s.rejectionReason && (
-                        <p className="mt-0.5 text-xs text-red-500" title={s.rejectionReason}>
+                      {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
+                        <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`} title={s.rejectionReason}>
+                          {s.status === 'CREATOR_REJECTED' ? 'Creator: ' : ''}
                           {s.rejectionReason.length > 50 ? s.rejectionReason.slice(0, 50) + '...' : s.rejectionReason}
                         </p>
                       )}
@@ -197,17 +230,58 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
                     {isCreator && (
                       <td className="py-3">
                         {s.status === 'APPROVED' && s.payoutLamports && (
-                          <CampaignPayButton
-                            taskId={taskId}
-                            submissionId={s.id}
-                            multisigAddress={multisigAddress}
-                            recipientWallet={s.submitter.walletAddress}
-                            payoutLamports={s.payoutLamports}
-                            onPaid={fetchData}
-                          />
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                              <CampaignPayButton
+                                taskId={taskId}
+                                submissionId={s.id}
+                                multisigAddress={multisigAddress}
+                                recipientWallet={s.submitter.walletAddress}
+                                payoutLamports={s.payoutLamports}
+                                onPaid={fetchData}
+                              />
+                              <button
+                                onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError('') }}
+                                className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                            {rejectingId === s.id && (
+                              <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  placeholder="Reason for rejection..."
+                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
+                                  rows={2}
+                                  maxLength={500}
+                                />
+                                {rejectError && <p className="text-xs text-red-500">{rejectError}</p>}
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleReject(s.id)}
+                                    disabled={rejectLoading}
+                                    className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    {rejectLoading ? 'Rejecting...' : 'Confirm Reject'}
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingId(null)}
+                                    className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                         {s.status === 'PAID' && s.paymentTxSig && (
                           <span className="text-xs text-emerald-600">Paid</span>
+                        )}
+                        {s.status === 'CREATOR_REJECTED' && (
+                          <span className="text-xs text-orange-400">Rejected by you</span>
                         )}
                       </td>
                     )}

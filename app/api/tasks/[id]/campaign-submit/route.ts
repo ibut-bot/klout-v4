@@ -183,7 +183,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  let postMetrics: { viewCount: number; text: string; authorId: string }
+  let postMetrics: { viewCount: number; text: string; authorId: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
   try {
     postMetrics = await getPostMetrics(xPostId, accessToken)
   } catch (err: any) {
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const guidelines = config.guidelines as { dos: string[]; donts: string[] }
   let contentCheck: { passed: boolean; explanation: string }
   try {
-    contentCheck = await checkContentGuidelines(postMetrics.text, guidelines)
+    contentCheck = await checkContentGuidelines(postMetrics.text, guidelines, postMetrics.media)
   } catch (err: any) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },

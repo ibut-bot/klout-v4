@@ -13,7 +13,7 @@
  */
 
 import { apiRequest, parseArgs, uploadFile } from './lib/api-client'
-import { loadKeypair } from './lib/wallet'
+import { getKeypair } from './lib/wallet'
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
@@ -45,7 +45,7 @@ async function main() {
   }
 
   // Load keypair
-  const keypair = loadKeypair(args.password)
+  const keypair = getKeypair(args.password)
   if (!keypair) {
     return {
       success: false,

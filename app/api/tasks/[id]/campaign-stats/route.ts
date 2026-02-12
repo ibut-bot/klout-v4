@@ -40,8 +40,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const totalSubmissions = submissions.length
   const approved = submissions.filter((s) => s.status === 'APPROVED').length
   const paid = submissions.filter((s) => s.status === 'PAID').length
-  const rejected = submissions.filter((s) => s.status === 'REJECTED').length
-  const pending = submissions.filter((s) => !['APPROVED', 'PAID', 'REJECTED'].includes(s.status)).length
+  const rejected = submissions.filter((s) => s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED').length
+  const pending = submissions.filter((s) => !['APPROVED', 'PAID', 'REJECTED', 'CREATOR_REJECTED'].includes(s.status)).length
 
   const totalViews = submissions
     .filter((s) => s.viewCount !== null)
