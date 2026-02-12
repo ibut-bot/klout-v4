@@ -28,6 +28,7 @@ export default function TaskForm() {
 
   // Campaign-specific fields
   const [cpm, setCpm] = useState('')
+  const [minViews, setMinViews] = useState('100')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
 
@@ -133,6 +134,7 @@ export default function TaskForm() {
       setStep('creating')
       const campaignFields = taskType === 'CAMPAIGN' ? {
         cpmLamports: Math.round(parseFloat(cpm) * LAMPORTS_PER_SOL),
+        minViews: parseInt(minViews) || 100,
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
           donts: donts.map(d => d.trim()).filter(Boolean),
@@ -270,6 +272,20 @@ export default function TaskForm() {
               className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <p className="mt-1 text-xs text-zinc-600">How much you pay per 1,000 views on a promoted post.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Minimum Views Threshold</label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={minViews}
+              onChange={(e) => setMinViews(e.target.value)}
+              placeholder="100"
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <p className="mt-1 text-xs text-zinc-600">Posts must have at least this many views to qualify for payout. Set to 0 to accept all posts.</p>
           </div>
 
           <div>

@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, minViews } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -286,6 +286,7 @@ export async function POST(request: NextRequest) {
             dos: guidelines.dos.map((d: string) => String(d).trim()).filter(Boolean),
             donts: guidelines.donts.map((d: string) => String(d).trim()).filter(Boolean),
           },
+          ...(minViews !== undefined ? { minViews: Math.max(0, parseInt(minViews) || 100) } : {}),
         },
       })
 
