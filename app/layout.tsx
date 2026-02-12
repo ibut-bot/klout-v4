@@ -8,17 +8,17 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Slopwork - Solana Task Marketplace',
-  description: 'Post tasks, bid with escrow, get paid via multisig.',
+  title: 'Klout - Monetize your X reach',
+  description: 'Monetize your X reach.',
   icons: {
-    icon: '/logo.svg',
+    icon: '/Klout1.svg',
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-zinc-950`}>
+    <html lang="en" className="dark">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <WalletProvider>
           <Navbar />
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>

@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
       take: limit,
       include: {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
-        _count: { select: { bids: true } },
+        _count: { select: { bids: true, campaignSubmissions: true } },
+        campaignConfig: { select: { budgetRemainingLamports: true } },
       },
     }),
     prisma.task.count({ where }),
@@ -60,6 +61,9 @@ export async function GET(request: NextRequest) {
       creatorUsername: t.creator.username,
       creatorProfilePic: t.creator.profilePicUrl,
       bidCount: t._count.bids,
+      submissionCount: t._count.campaignSubmissions,
+      budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
+      imageUrl: t.imageUrl,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
@@ -89,7 +93,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -269,6 +273,7 @@ export async function POST(request: NextRequest) {
           multisigAddress,
           vaultAddress,
           ...(deadlineAt ? { deadlineAt } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
         },
       })
 
@@ -313,6 +318,7 @@ export async function POST(request: NextRequest) {
       paymentTxSignature,
       ...(isCompetition ? { multisigAddress, vaultAddress } : {}),
       ...(deadlineAt ? { deadlineAt } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
     },
   })
 

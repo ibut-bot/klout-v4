@@ -59,7 +59,7 @@ async function main() {
       newStatus: updated?.status,
       signature,
       explorerUrl: `https://solscan.io/tx/${signature}`,
-      message: 'Payment executed successfully! If this was for a slopwork task, also call the approve-payment API.',
+      message: 'Payment executed successfully! If this was for a Klout task, also call the approve-payment API.',
     }))
   } catch (e: any) {
     console.log(JSON.stringify({

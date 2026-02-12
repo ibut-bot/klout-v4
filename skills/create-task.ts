@@ -1,17 +1,22 @@
 #!/usr/bin/env tsx
 /**
- * Create a new task on the Slopwork marketplace
+ * Create a new task on the Klout marketplace
  *
  * Usage:
  *   npm run skill:tasks:create -- --title "Build a landing page" --description "..." --budget 0.5 --password "mypass"
  *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "mypass"
+ *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --dos "Include link,Mention product" --donts "No spam" --image "/path/to/image.jpg" --password "mypass"
  *
  * Options:
  *   --title        Task title
  *   --description  Task description
  *   --budget       Budget in SOL (will be converted to lamports)
- *   --type         Task type: "quote" (default) or "competition"
- *   --duration     (Competition only) Duration in days (1-365). After this, no new entries accepted.
+ *   --type         Task type: "quote" (default), "competition", or "campaign"
+ *   --duration     (Competition/Campaign) Duration in days (1-365). After this, no new entries accepted.
+ *   --image        (Campaign) Path to campaign image file
+ *   --cpm          (Campaign) Cost per 1000 views in SOL
+ *   --dos          (Campaign) Comma-separated list of dos guidelines
+ *   --donts        (Campaign) Comma-separated list of donts guidelines
  *   --password     Wallet password to sign transactions
  *   --dry-run      Validate without creating
  */
@@ -20,7 +25,7 @@ import { Keypair, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/w
 import { PublicKey } from '@solana/web3.js'
 import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
-import { apiRequest, parseArgs, getPublicConfig } from './lib/api-client'
+import { apiRequest, parseArgs, getPublicConfig, uploadFile } from './lib/api-client'
 import { createMultisigVaultAndFund } from '../lib/solana/multisig'
 
 async function main() {
@@ -91,20 +96,68 @@ async function main() {
 
     // Resolve task type
     const taskType = (args.type || 'quote').toUpperCase()
-    if (!['QUOTE', 'COMPETITION'].includes(taskType)) {
+    if (!['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
       console.log(JSON.stringify({
         success: false,
         error: 'INVALID_TYPE',
-        message: 'Task type must be "quote" or "competition"',
+        message: 'Task type must be "quote", "competition", or "campaign"',
       }))
       process.exit(1)
+    }
+
+    // Campaign-specific validation
+    let campaignFields: any = {}
+    if (taskType === 'CAMPAIGN') {
+      if (!args.cpm) {
+        console.log(JSON.stringify({
+          success: false,
+          error: 'MISSING_ARGS',
+          message: 'Campaign tasks require --cpm (cost per 1000 views in SOL)',
+        }))
+        process.exit(1)
+      }
+      
+      const cpmSol = parseFloat(args.cpm)
+      if (isNaN(cpmSol) || cpmSol <= 0) {
+        console.log(JSON.stringify({
+          success: false,
+          error: 'INVALID_CPM',
+          message: 'CPM must be a positive number in SOL',
+        }))
+        process.exit(1)
+      }
+
+      // Parse guidelines
+      const dos = args.dos ? args.dos.split(',').map((s: string) => s.trim()).filter(Boolean) : []
+      const donts = args.donts ? args.donts.split(',').map((s: string) => s.trim()).filter(Boolean) : []
+
+      campaignFields = {
+        cpmLamports: Math.round(cpmSol * LAMPORTS_PER_SOL),
+        guidelines: { dos, donts },
+      }
+
+      // Upload image if provided
+      if (args.image) {
+        console.error(`Uploading campaign image: ${args.image}...`)
+        const uploadResult = await uploadFile(keypair, args.image)
+        if (!uploadResult.success) {
+          console.log(JSON.stringify({
+            success: false,
+            error: 'IMAGE_UPLOAD_FAILED',
+            message: uploadResult.message || 'Failed to upload campaign image',
+          }))
+          process.exit(1)
+        }
+        campaignFields.imageUrl = uploadResult.url
+        console.error(`Image uploaded: ${uploadResult.url}`)
+      }
     }
 
     let signature: string
     let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
 
-    if (taskType === 'COMPETITION') {
-      // Competition: create 1/1 multisig vault and fund it with budget
+    if (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') {
+      // Competition/Campaign: create 1/1 multisig vault and fund it with budget
       console.error('Creating escrow vault and funding with budget...')
       const result = await createMultisigVaultAndFund(connection, keypair, budgetLamports)
       signature = result.signature
@@ -149,6 +202,7 @@ async function main() {
       paymentTxSignature: signature,
       ...vaultDetails,
       ...(durationDays ? { durationDays } : {}),
+      ...campaignFields,
     })
 
     const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'

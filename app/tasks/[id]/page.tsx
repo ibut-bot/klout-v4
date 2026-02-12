@@ -103,17 +103,17 @@ interface SubmissionData {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  COMPLETED: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  DISPUTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
+  OPEN: 'bg-green-500/20 text-green-400',
+  IN_PROGRESS: 'bg-blue-500/20 text-blue-400',
+  COMPLETED: 'bg-zinc-700/50 text-zinc-400',
+  DISPUTED: 'bg-red-500/20 text-red-400',
+  CANCELLED: 'bg-zinc-700/50 text-zinc-500',
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-  COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  CAMPAIGN: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  QUOTE: 'bg-indigo-500/20 text-indigo-400',
+  COMPETITION: 'bg-amber-500/20 text-amber-400',
+  CAMPAIGN: 'bg-accent/20 text-accent',
 }
 
 export default function TaskDetailPage() {
@@ -212,9 +212,9 @@ export default function TaskDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl">
-        <div className="h-8 w-64 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900 mb-4" />
-        <div className="h-4 w-full animate-pulse rounded bg-zinc-100 dark:bg-zinc-900 mb-2" />
-        <div className="h-4 w-3/4 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-8 w-64 animate-pulse rounded bg-surface mb-4" />
+        <div className="h-4 w-full animate-pulse rounded bg-surface mb-2" />
+        <div className="h-4 w-3/4 animate-pulse rounded bg-surface" />
       </div>
     )
   }
@@ -222,7 +222,7 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <div className="mx-auto max-w-4xl text-center py-16">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Task not found</h1>
+        <h1 className="text-2xl font-bold text-white">Task not found</h1>
       </div>
     )
   }
@@ -260,11 +260,11 @@ export default function TaskDetailPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="mb-3 flex items-start justify-between">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{task.title}</h1>
+          <h1 className="text-2xl font-bold text-white">{task.title}</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={copyLink}
-              className="shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+              className="shrink-0 rounded-full border border-k-border px-3 py-1 text-xs font-medium text-zinc-400 transition hover:border-k-border-hover hover:bg-surface"
             >
               {copied ? 'Copied!' : 'Copy Link'}
             </button>
@@ -280,8 +280,8 @@ export default function TaskDetailPage() {
         {(isCompetition || isCampaign) && countdown && (
           <div className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm ${
             countdown.expired
-              ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400'
-              : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300'
+              ? 'border-red-500/20 bg-red-500/10 text-red-400'
+              : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
           }`}>
             {countdown.expired ? (
               <>
@@ -304,10 +304,10 @@ export default function TaskDetailPage() {
         )}
         {/* Task info inline */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500">
-          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="font-semibold text-accent">
             {formatSol(task.budgetLamports)}
           </span>
-          <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-700 dark:hover:text-zinc-300">
+          <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-300">
             {task.creatorProfilePic ? (
               <img
                 src={task.creatorProfilePic}
@@ -315,7 +315,7 @@ export default function TaskDetailPage() {
                 className="h-[30px] w-[30px] rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-zinc-200 text-xs font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+              <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-zinc-800 text-xs font-medium text-zinc-600 bg-zinc-800 text-zinc-300">
                 {task.creatorWallet.slice(0, 2)}
               </div>
             )}
@@ -337,7 +337,7 @@ export default function TaskDetailPage() {
 
       {/* Description */}
       <div className="mb-6">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-600 text-zinc-400">
           {task.description}
         </p>
       </div>
@@ -407,16 +407,16 @@ export default function TaskDetailPage() {
 
         // Build pinned content for the chat panel
         const pinnedContent = displaySub ? (
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <div className="rounded-lg border border-k-border bg-surface p-3 border-k-border bg-surface">
             <p className="mb-2 text-xs font-medium text-zinc-500">Submission</p>
-            <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
+            <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300 text-zinc-300">
               {displaySub.description}
             </p>
             {displaySub.attachments && displaySub.attachments.length > 0 && (
               <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {(displaySub.attachments as any[]).map((att: any, i: number) =>
                   att.contentType?.startsWith('video/') ? (
-                    <div key={i} className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div key={i} className="overflow-hidden rounded-lg border border-k-border border-k-border">
                       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                       <video
                         src={att.url}
@@ -429,12 +429,12 @@ export default function TaskDetailPage() {
                       <p className="truncate px-2 py-1 text-xs text-zinc-500">{att.filename || 'Video'}</p>
                     </div>
                   ) : att.contentType?.startsWith('image/') ? (
-                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-k-border border-k-border">
                       <img src={att.url} alt={att.filename || ''} className="h-28 w-full object-cover" />
                       <p className="truncate px-2 py-1 text-xs text-zinc-500">{att.filename || 'Image'}</p>
                     </a>
                   ) : (
-                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex h-20 items-center justify-center rounded-lg border border-zinc-200 text-xs text-blue-500 underline dark:border-zinc-700">
+                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex h-20 items-center justify-center rounded-lg border border-k-border text-xs text-accent underline border-k-border">
                       {att.filename || 'Download'}
                     </a>
                   )
@@ -458,7 +458,7 @@ export default function TaskDetailPage() {
             {/* Narrow sidebar: entry list - only shown to creator */}
             {isCreator && (
             <div>
-              <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              <h2 className="mb-3 text-sm font-semibold text-white">
                 Entries ({visibleSubmissions.length})
               </h2>
               <div className="max-h-[560px] space-y-1 overflow-y-auto">
@@ -472,8 +472,8 @@ export default function TaskDetailPage() {
                       onClick={() => setSelectedBidderId(bid.bidderId)}
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
                         isActive
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          ? 'bg-accent text-black'
+                          : 'hover:bg-surface-hover hover:bg-surface-hover'
                       }`}
                     >
                       {bid.bidderProfilePic ? (
@@ -481,14 +481,14 @@ export default function TaskDetailPage() {
                       ) : (
                         <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
                           isActive
-                            ? 'bg-zinc-700 text-zinc-200 dark:bg-zinc-300 dark:text-zinc-700'
-                            : 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300'
+                            ? 'bg-accent/30 text-accent'
+                            : 'bg-zinc-800 text-zinc-600 bg-zinc-800 text-zinc-300'
                         }`}>
                           {bid.bidderWallet.slice(0, 2)}
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className={`truncate text-xs font-medium ${isActive ? '' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                        <p className={`truncate text-xs font-medium ${isActive ? '' : 'text-zinc-100'}`}>
                           {bid.bidderUsername || `${bid.bidderWallet.slice(0, 4)}...${bid.bidderWallet.slice(-4)}`}
                         </p>
                         <p className={`truncate text-[10px] ${isActive ? 'opacity-70' : 'text-zinc-400'}`}>
@@ -521,7 +521,7 @@ export default function TaskDetailPage() {
                 pinnedContent={pinnedContent}
               />
             ) : (
-              <div className="flex items-center justify-center rounded-xl border border-zinc-200 p-8 dark:border-zinc-800">
+              <div className="flex items-center justify-center rounded-xl border border-k-border p-8 border-k-border">
                 <p className="text-sm text-zinc-500">Sign in to view messages and submissions.</p>
               </div>
             )}
@@ -532,7 +532,7 @@ export default function TaskDetailPage() {
       {/* Quote mode: Submissions (if any) above, then Bids (left) + Chat (right) */}
       {!isCompetition && !isCampaign && submissions.length > 0 && (
         <div className="mb-6">
-          <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="mb-3 text-lg font-semibold text-white">
             Submissions ({submissions.length})
           </h2>
           <SubmissionList
@@ -583,9 +583,9 @@ export default function TaskDetailPage() {
 
           {/* Campaign info for logged-out users */}
           {!isAuthenticated && campaignConfig && (
-            <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-              <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Campaign Details</h3>
-              <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <div className="rounded-xl border border-k-border p-4 border-k-border">
+              <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
+              <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
                 <p>CPM: {(Number(campaignConfig.cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL per 1,000 views</p>
                 <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
                 <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
@@ -598,7 +598,7 @@ export default function TaskDetailPage() {
       {!isCompetition && !isCampaign && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
-            <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <h2 className="mb-3 text-lg font-semibold text-white">
               Bids ({bids.length})
             </h2>
             <div className="max-h-[500px] overflow-y-auto pr-2">

@@ -61,9 +61,9 @@ function shortenWallet(addr: string): string {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  DENIED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  PENDING: 'bg-amber-500/20 text-amber-400',
+  ACCEPTED: 'bg-green-500/20 text-green-400',
+  DENIED: 'bg-red-500/20 text-red-400',
 }
 
 export default function DisputeDetailPage() {
@@ -187,8 +187,8 @@ export default function DisputeDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl">
-        <div className="h-8 w-64 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900 mb-4" />
-        <div className="h-64 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+        <div className="h-8 w-64 animate-pulse rounded bg-surface mb-4" />
+        <div className="h-64 animate-pulse rounded-xl bg-surface" />
       </div>
     )
   }
@@ -196,8 +196,8 @@ export default function DisputeDetailPage() {
   if (!dispute || !task || !bid) {
     return (
       <div className="mx-auto max-w-4xl py-16 text-center">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">Dispute Not Found</h1>
-        <Link href="/admin/disputes" className="text-blue-600 hover:underline">
+        <h1 className="text-2xl font-bold text-white mb-4">Dispute Not Found</h1>
+        <Link href="/admin/disputes" className="text-accent hover:underline">
           Back to disputes
         </Link>
       </div>
@@ -211,11 +211,11 @@ export default function DisputeDetailPage() {
     <div className="mx-auto max-w-4xl">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/admin/disputes" className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 mb-2 inline-block">
+        <Link href="/admin/disputes" className="text-sm text-zinc-500 hover:text-zinc-300 mb-2 inline-block">
           ← Back to disputes
         </Link>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Dispute Resolution</h1>
+          <h1 className="text-2xl font-bold text-white">Dispute Resolution</h1>
           <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_BADGE[dispute.status]}`}>
             {dispute.status}
           </span>
@@ -223,32 +223,32 @@ export default function DisputeDetailPage() {
       </div>
 
       {/* Task Info */}
-      <section className="mb-6 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
-        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Task Details</h2>
+      <section className="mb-6 rounded-xl border border-k-border p-5">
+        <h2 className="font-semibold text-zinc-100 mb-3">Task Details</h2>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-zinc-500">Title</span>
-            <Link href={`/tasks/${task.id}`} className="text-blue-600 hover:underline truncate max-w-xs">
+            <Link href={`/tasks/${task.id}`} className="text-accent hover:underline truncate max-w-xs">
               {task.title}
             </Link>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Budget</span>
-            <span className="text-zinc-900 dark:text-zinc-100">{formatSol(task.budgetLamports)}</span>
+            <span className="text-zinc-100">{formatSol(task.budgetLamports)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Creator</span>
-            <Link href={`/u/${task.creator.walletAddress}`} className="font-mono text-xs text-zinc-900 dark:text-zinc-100 hover:text-blue-600">
+            <Link href={`/u/${task.creator.walletAddress}`} className="font-mono text-xs text-zinc-100 hover:text-accent">
               {shortenWallet(task.creator.walletAddress)}
             </Link>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Escrow Amount</span>
-            <span className="text-zinc-900 dark:text-zinc-100 font-semibold">{formatSol(bid.amountLamports)}</span>
+            <span className="text-zinc-100 font-semibold">{formatSol(bid.amountLamports)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-500">Bidder</span>
-            <Link href={`/u/${bid.bidder.walletAddress}`} className="font-mono text-xs text-zinc-900 dark:text-zinc-100 hover:text-blue-600">
+            <Link href={`/u/${bid.bidder.walletAddress}`} className="font-mono text-xs text-zinc-100 hover:text-accent">
               {shortenWallet(bid.bidder.walletAddress)}
             </Link>
           </div>
@@ -259,7 +259,7 @@ export default function DisputeDetailPage() {
                 href={`https://solscan.io/account/${bid.multisigAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-xs text-blue-600 hover:underline"
+                className="font-mono text-xs text-accent hover:underline"
               >
                 {shortenWallet(bid.multisigAddress)}
               </a>
@@ -269,14 +269,14 @@ export default function DisputeDetailPage() {
       </section>
 
       {/* Disputant's Claim */}
-      <section className="mb-6 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
+      <section className="mb-6 rounded-xl border border-k-border p-5">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="font-semibold text-zinc-100">
             {dispute.raisedBy === 'CREATOR' ? 'Creator' : 'Bidder'}&apos;s Claim
           </h2>
           <span className="text-xs text-zinc-500">(Disputant)</span>
         </div>
-        <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-3 whitespace-pre-wrap">
+        <p className="text-sm text-zinc-300 mb-3 whitespace-pre-wrap">
           {dispute.reason}
         </p>
         {dispute.evidenceUrls.length > 0 && (
@@ -285,7 +285,7 @@ export default function DisputeDetailPage() {
             <ul className="space-y-1">
               {dispute.evidenceUrls.map((url, i) => (
                 <li key={i}>
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline break-all">
                     {url}
                   </a>
                 </li>
@@ -293,13 +293,13 @@ export default function DisputeDetailPage() {
             </ul>
           </div>
         )}
-        <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-4 text-xs text-zinc-500">
+        <div className="mt-3 pt-3 border-t border-k-border flex items-center gap-4 text-xs text-zinc-500">
           <span>Proposal #{dispute.proposalIndex}</span>
           <a
             href={`https://solscan.io/tx/${dispute.proposalTxSig}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
+            className="text-accent hover:underline"
           >
             View on Solscan
           </a>
@@ -307,16 +307,16 @@ export default function DisputeDetailPage() {
       </section>
 
       {/* Respondent's Response */}
-      <section className="mb-6 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
+      <section className="mb-6 rounded-xl border border-k-border p-5">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="font-semibold text-zinc-100">
             {dispute.raisedBy === 'CREATOR' ? 'Bidder' : 'Creator'}&apos;s Response
           </h2>
           <span className="text-xs text-zinc-500">(Respondent)</span>
         </div>
         {dispute.responseReason ? (
           <>
-            <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+            <p className="text-sm text-zinc-300 whitespace-pre-wrap">
               {dispute.responseReason}
             </p>
             {dispute.responseEvidence.length > 0 && (
@@ -325,7 +325,7 @@ export default function DisputeDetailPage() {
                 <ul className="space-y-1">
                   {dispute.responseEvidence.map((url, i) => (
                     <li key={i}>
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline break-all">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline break-all">
                         {url}
                       </a>
                     </li>
@@ -341,19 +341,19 @@ export default function DisputeDetailPage() {
 
       {/* Resolution Section */}
       {dispute.status !== 'PENDING' ? (
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 bg-zinc-50 dark:bg-zinc-900/50">
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Resolution</h2>
+        <section className="rounded-xl border border-k-border p-5 bg-surface/50">
+          <h2 className="font-semibold text-zinc-100 mb-3">Resolution</h2>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-zinc-500">Decision</span>
-              <span className={dispute.status === 'ACCEPTED' ? 'text-green-600' : 'text-red-600'}>
+              <span className={dispute.status === 'ACCEPTED' ? 'text-green-400' : 'text-red-400'}>
                 {dispute.status}
               </span>
             </div>
             {dispute.resolutionNotes && (
               <div>
                 <span className="text-zinc-500 block mb-1">Notes</span>
-                <p className="text-zinc-700 dark:text-zinc-300">{dispute.resolutionNotes}</p>
+                <p className="text-zinc-300">{dispute.resolutionNotes}</p>
               </div>
             )}
             {dispute.executeTxSig && (
@@ -363,7 +363,7 @@ export default function DisputeDetailPage() {
                   href={`https://solscan.io/tx/${dispute.executeTxSig}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline font-mono text-xs"
+                  className="text-accent hover:underline font-mono text-xs"
                 >
                   View on Solscan
                 </a>
@@ -371,31 +371,31 @@ export default function DisputeDetailPage() {
             )}
             <div className="flex justify-between">
               <span className="text-zinc-500">Resolved</span>
-              <span className="text-zinc-900 dark:text-zinc-100">
+              <span className="text-zinc-100">
                 {dispute.resolvedAt ? new Date(dispute.resolvedAt).toLocaleString() : '-'}
               </span>
             </div>
           </div>
         </section>
       ) : canResolve ? (
-        <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-5">
-          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Resolve Dispute</h2>
+        <section className="rounded-xl border border-k-border p-5">
+          <h2 className="font-semibold text-zinc-100 mb-4">Resolve Dispute</h2>
 
           <div className="mb-4">
-            <label className="block text-sm text-zinc-600 dark:text-zinc-400 mb-1">
+            <label className="block text-sm text-zinc-400 mb-1">
               Resolution Notes (optional)
             </label>
             <textarea
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
               placeholder="Explain your decision..."
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400"
+              className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100 placeholder-zinc-400"
               rows={3}
             />
           </div>
 
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-700 dark:text-red-400">
+            <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -411,7 +411,7 @@ export default function DisputeDetailPage() {
             <button
               onClick={() => handleResolve('DENY')}
               disabled={resolving}
-              className="flex-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {resolving ? 'Processing...' : 'Deny Dispute'}
             </button>
@@ -423,7 +423,7 @@ export default function DisputeDetailPage() {
           </p>
         </section>
       ) : (
-        <section className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-5 text-center">
+        <section className="rounded-xl border border-dashed border-k-border p-5 text-center">
           <p className="text-sm text-zinc-500">
             {!isArbiterWallet
               ? 'Only the platform arbiter can resolve disputes.'

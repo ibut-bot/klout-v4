@@ -55,13 +55,13 @@ function formatSol(lamports: string | number): string {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING_PAYMENT: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  READING_VIEWS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  CHECKING_CONTENT: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  PAID: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-  PAYMENT_FAILED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  PENDING_PAYMENT: 'bg-yellow-500/20 text-yellow-400',
+  READING_VIEWS: 'bg-blue-500/20 text-blue-400',
+  CHECKING_CONTENT: 'bg-blue-500/20 text-blue-400',
+  APPROVED: 'bg-green-500/20 text-green-400',
+  REJECTED: 'bg-red-500/20 text-red-400',
+  PAID: 'bg-emerald-500/20 text-emerald-400',
+  PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
 export default function CampaignDashboard({ taskId, multisigAddress, isCreator }: Props) {
@@ -88,7 +88,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
   }, [fetchData])
 
   if (loading) {
-    return <div className="animate-pulse rounded-xl border border-zinc-200 p-6 dark:border-zinc-800 h-48" />
+    return <div className="animate-pulse rounded-xl border border-zinc-200 p-6 border-k-border h-48" />
   }
 
   if (!stats) return null
@@ -101,21 +101,21 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
           <p className="text-xs text-zinc-500">Total Budget</p>
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{formatSol(stats.totalBudgetLamports)} SOL</p>
+          <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.totalBudgetLamports)} SOL</p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
           <p className="text-xs text-zinc-500">Remaining</p>
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{formatSol(stats.budgetRemainingLamports)} SOL</p>
+          <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.budgetRemainingLamports)} SOL</p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
           <p className="text-xs text-zinc-500">Total Views</p>
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{stats.totalViews.toLocaleString()}</p>
+          <p className="text-lg font-semibold text-zinc-100">{stats.totalViews.toLocaleString()}</p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+        <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
           <p className="text-xs text-zinc-500">Submissions</p>
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{stats.totalSubmissions}</p>
+          <p className="text-lg font-semibold text-zinc-100">{stats.totalSubmissions}</p>
           <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paid} paid, {stats.rejected} rejected</p>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
           <span>Budget used: {budgetPct.toFixed(1)}%</span>
           <span>CPM: {formatSol(stats.cpmLamports)} SOL</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700 bg-surface">
           <div
             className="h-full rounded-full bg-green-500 transition-all"
             style={{ width: `${Math.min(budgetPct, 100)}%` }}
@@ -136,14 +136,14 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
 
       {/* Submissions Table */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Submissions</h3>
+        <h3 className="mb-3 text-sm font-semibold text-white">Submissions</h3>
         {submissions.length === 0 ? (
           <p className="text-sm text-zinc-500">No submissions yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <tr className="border-b border-k-border">
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Submitter</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
@@ -155,30 +155,30 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
               </thead>
               <tbody>
                 {submissions.map((s) => (
-                  <tr key={s.id} className="border-b border-zinc-100 dark:border-zinc-800/50">
+                  <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
                         {s.submitter.profilePicUrl ? (
                           <img src={s.submitter.profilePicUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
                         ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-400 bg-zinc-700 text-zinc-300">
                             {s.submitter.walletAddress.slice(0, 2)}
                           </div>
                         )}
-                        <span className="text-zinc-700 dark:text-zinc-300">
+                        <span className="text-zinc-300">
                           {s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || `${s.submitter.walletAddress.slice(0, 6)}...`}
                         </span>
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                      <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-blue-400">
                         View Post
                       </a>
                     </td>
-                    <td className="py-3 pr-4 text-zinc-700 dark:text-zinc-300">
+                    <td className="py-3 pr-4 text-zinc-300">
                       {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
                     </td>
-                    <td className="py-3 pr-4 text-zinc-700 dark:text-zinc-300">
+                    <td className="py-3 pr-4 text-zinc-300">
                       {s.payoutLamports ? `${formatSol(s.payoutLamports)} SOL` : '-'}
                     </td>
                     <td className="py-3 pr-4">

@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * List tasks from the Slopwork marketplace
+ * List tasks from the Klout marketplace
  *
  * Usage:
  *   npm run skill:tasks:list

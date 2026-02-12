@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Authenticate with Slopwork API using local wallet
+ * Authenticate with Klout API using local wallet
  *
  * Usage:
  *   npm run skill:auth -- --password "mypass"

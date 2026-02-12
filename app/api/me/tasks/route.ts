@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
     where.status = status
   }
-  if (taskType && ['QUOTE', 'COMPETITION'].includes(taskType)) {
+  if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
   }
 
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
       take: limit,
       include: {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
-        _count: { select: { bids: true } },
+        _count: { select: { bids: true, campaignSubmissions: true } },
+        campaignConfig: { select: { budgetRemainingLamports: true } },
         winningBid: {
           include: {
             bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } },
@@ -62,6 +63,10 @@ export async function GET(request: NextRequest) {
       creatorUsername: t.creator.username,
       creatorProfilePic: t.creator.profilePicUrl,
       bidCount: t._count.bids,
+      submissionCount: t._count.campaignSubmissions,
+      budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
+      imageUrl: t.imageUrl,
+      deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
       winningBid: t.winningBid ? {

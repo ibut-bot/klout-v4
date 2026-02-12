@@ -152,8 +152,8 @@ export default function SubmissionForm({
   const solAmount = (Number(amountLamports) / LAMPORTS_PER_SOL).toFixed(4)
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submit Deliverables</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-k-border p-5">
+      <h3 className="text-lg font-semibold text-white">Submit Deliverables</h3>
       <p className="text-xs text-zinc-500">
         {isCompetition
           ? `Submit your completed work. This will create a ${solAmount} SOL escrow vault with a payment proposal for the task creator to approve.`
@@ -161,30 +161,30 @@ export default function SubmissionForm({
       </p>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
+        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Description</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe what you've delivered, how to access/use it..."
           rows={4}
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="mb-1 block text-sm font-medium text-zinc-300">
           Attachments {files.length > 0 && `(${files.length})`}
         </label>
         <input
           type="file"
           multiple
           onChange={handleFileChange}
-          className="w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-300"
+          className="w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-300 hover:file:bg-zinc-700 text-zinc-400 file:bg-zinc-800 file:text-zinc-300"
         />
         {files.length > 0 && (
           <div className="mt-2 space-y-1">
@@ -192,7 +192,7 @@ export default function SubmissionForm({
               <div key={i} className="flex items-center gap-2 text-xs text-zinc-500">
                 <span className="truncate">{f.name}</span>
                 <span className="text-zinc-400">({(f.size / 1024).toFixed(0)} KB)</span>
-                <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-600">
+                <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-400">
                   Remove
                 </button>
               </div>

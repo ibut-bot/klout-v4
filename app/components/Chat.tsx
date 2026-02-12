@@ -290,19 +290,19 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
     : null
 
   return (
-    <div className="flex h-[600px] flex-col rounded-xl border border-zinc-200 dark:border-zinc-800">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="flex h-[600px] flex-col rounded-xl border border-k-border">
+      <div className="border-b border-k-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-white">
             {isCreator ? 'Private Messages' : 'Messages with Task Creator'}
           </h3>
         {isCreator && selectedBidderWallet && (
           <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
             <span>Conversation with</span>
-            <Link href={`/u/${selectedBidderWallet}`} className="inline-flex items-center gap-1.5 hover:text-zinc-700 dark:hover:text-zinc-300">
+            <Link href={`/u/${selectedBidderWallet}`} className="inline-flex items-center gap-1.5 hover:text-zinc-300">
               {selectedBidderProfilePic ? (
                 <img src={selectedBidderProfilePic} alt="" className="h-5 w-5 rounded-full object-cover" />
               ) : (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-[8px] font-medium text-zinc-300">
                   {selectedBidderWallet.slice(0, 2)}
                 </span>
               )}
@@ -338,7 +338,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
                   {msg.senderProfilePic ? (
                     <img src={msg.senderProfilePic} alt="" className="h-[35px] w-[35px] rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-[35px] w-[35px] items-center justify-center rounded-full bg-zinc-200 text-xs font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    <div className="flex h-[35px] w-[35px] items-center justify-center rounded-full bg-zinc-700 text-xs font-medium text-zinc-300">
                       {msg.senderWallet.slice(0, 2)}
                     </div>
                   )}
@@ -346,8 +346,8 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
               )}
               <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
                 isMe
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                  ? 'bg-accent text-black'
+                  : 'bg-zinc-700/50 text-zinc-100'
               }`}>
                 {!isMe && (
                   <Link href={`/u/${msg.senderWallet}`} className="mb-0.5 block text-xs font-medium opacity-60 hover:opacity-100">
@@ -397,17 +397,17 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
       </div>
 
       {error && (
-        <div className="px-4 py-1 text-xs text-red-600">{error}</div>
+        <div className="px-4 py-1 text-xs text-red-400">{error}</div>
       )}
 
       {pendingFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-wrap gap-2 px-3 pt-2 border-t border-k-border">
           {pendingFiles.map((file, i) => (
             <div
               key={i}
-              className="flex items-center gap-1 rounded-lg bg-zinc-100 px-2 py-1 text-xs dark:bg-zinc-800"
+              className="flex items-center gap-1 rounded-lg bg-surface px-2 py-1 text-xs"
             >
-              <span className="max-w-[100px] truncate text-zinc-700 dark:text-zinc-300">
+              <span className="max-w-[100px] truncate text-zinc-300">
                 {file.name}
               </span>
               <button
@@ -422,7 +422,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
         </div>
       )}
 
-      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
+      <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-k-border p-3">
         <input
           ref={fileInputRef}
           type="file"
@@ -435,7 +435,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={sending}
-          className="rounded-lg border border-zinc-300 p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          className="rounded-lg border border-k-border p-2 text-zinc-500 hover:bg-surface-hover hover:text-zinc-300 disabled:opacity-50"
           title="Attach image or video"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -447,12 +447,12 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="flex-1 rounded-lg border border-k-border bg-surface px-3 py-2 text-sm focus:outline-none text-zinc-100"
         />
         <button
           type="submit"
           disabled={sending || (!input.trim() && pendingFiles.length === 0)}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
         >
           {uploading ? 'Uploading...' : sending ? 'Sending...' : 'Send'}
         </button>

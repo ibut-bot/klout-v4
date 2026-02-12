@@ -100,8 +100,8 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
 
   if (!xLinked) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
-        <p className="text-sm text-amber-800 dark:text-amber-300">
+      <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-4">
+        <p className="text-sm text-amber-300">
           You need to link your X account before submitting to campaigns. Go to the profile dropdown and click &quot;Link X Account&quot;.
         </p>
       </div>
@@ -109,22 +109,22 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Submit Your Post</h3>
+    <div className="rounded-xl border border-k-border p-4">
+      <h3 className="mb-3 text-sm font-semibold text-white">Submit Your Post</h3>
 
       {/* Campaign Info */}
-      <div className="mb-4 space-y-2 rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-400">
+      <div className="mb-4 space-y-2 rounded-lg bg-zinc-800/50 p-3 text-xs text-zinc-400">
         <div className="flex justify-between">
           <span>CPM (per 1,000 views):</span>
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">{cpmSol} SOL</span>
+          <span className="font-medium text-zinc-100">{cpmSol} SOL</span>
         </div>
         <div className="flex justify-between">
           <span>Budget remaining:</span>
-          <span className={`font-medium ${budgetExhausted ? 'text-red-500' : 'text-zinc-900 dark:text-zinc-100'}`}>{remainingSol} SOL</span>
+          <span className={`font-medium ${budgetExhausted ? 'text-red-500' : 'text-zinc-100'}`}>{remainingSol} SOL</span>
         </div>
         <div className="flex justify-between">
           <span>Verification fee:</span>
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">{feeSol} SOL</span>
+          <span className="font-medium text-zinc-100">{feeSol} SOL</span>
         </div>
       </div>
 
@@ -133,16 +133,16 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         <div className="mb-4 space-y-2 text-xs">
           {guidelines.dos.length > 0 && (
             <div>
-              <p className="font-medium text-green-700 dark:text-green-400">Do&apos;s:</p>
-              <ul className="ml-4 list-disc text-zinc-600 dark:text-zinc-400">
+              <p className="font-medium text-green-400">Do&apos;s:</p>
+              <ul className="ml-4 list-disc text-zinc-400">
                 {guidelines.dos.map((d, i) => <li key={i}>{d}</li>)}
               </ul>
             </div>
           )}
           {guidelines.donts.length > 0 && (
             <div>
-              <p className="font-medium text-red-700 dark:text-red-400">Don&apos;ts:</p>
-              <ul className="ml-4 list-disc text-zinc-600 dark:text-zinc-400">
+              <p className="font-medium text-red-400">Don&apos;ts:</p>
+              <ul className="ml-4 list-disc text-zinc-400">
                 {guidelines.donts.map((d, i) => <li key={i}>{d}</li>)}
               </ul>
             </div>
@@ -151,7 +151,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
       )}
 
       {budgetExhausted ? (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
           Campaign budget has been exhausted. No more submissions accepted.
         </div>
       ) : (
@@ -164,19 +164,19 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
               placeholder="https://x.com/yourhandle/status/..."
               required
               disabled={loading}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
             />
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
+            <div className="rounded-lg bg-red-500/10 p-2 text-xs text-red-400">{error}</div>
           )}
 
           {result && !result.success && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs dark:bg-red-900/20">
-              <p className="font-medium text-red-700 dark:text-red-400">{result.error}</p>
+            <div className="rounded-lg bg-red-500/10 p-3 text-xs">
+              <p className="font-medium text-red-400">{result.error}</p>
               {result.explanation && (
-                <p className="mt-1 text-red-600 dark:text-red-300">{result.explanation}</p>
+                <p className="mt-1 text-red-300">{result.explanation}</p>
               )}
               {result.viewCount !== undefined && (
                 <p className="mt-1 text-red-500">Views: {result.viewCount}</p>
@@ -185,9 +185,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           )}
 
           {result?.success && (
-            <div className="rounded-lg bg-green-50 p-3 text-xs dark:bg-green-900/20">
-              <p className="font-medium text-green-700 dark:text-green-400">Submission approved!</p>
-              <p className="mt-1 text-green-600 dark:text-green-300">
+            <div className="rounded-lg bg-green-500/10 p-3 text-xs">
+              <p className="font-medium text-green-400">Submission approved!</p>
+              <p className="mt-1 text-green-300">
                 Views: {result.viewCount?.toLocaleString()} | Pending payout: {result.payoutLamports ? (Number(result.payoutLamports) / LAMPORTS_PER_SOL).toFixed(4) : '0'} SOL
               </p>
             </div>
@@ -196,7 +196,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           <button
             type="submit"
             disabled={loading || !postUrl}
-            className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="w-full rounded-lg bg-accent py-2.5 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
           >
             {loading
               ? step === 'paying' ? `Paying ${feeSol} SOL fee...`

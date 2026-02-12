@@ -49,9 +49,9 @@ function shortenWallet(addr: string): string {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  PENDING: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  DENIED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  PENDING: 'bg-amber-500/20 text-amber-400',
+  ACCEPTED: 'bg-green-500/20 text-green-400',
+  DENIED: 'bg-red-500/20 text-red-400',
 }
 
 export default function AdminDisputesPage() {
@@ -86,7 +86,7 @@ export default function AdminDisputesPage() {
   if (!connected) {
     return (
       <div className="py-16 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-zinc-900 dark:text-zinc-50">Arbitration Dashboard</h1>
+        <h1 className="mb-4 text-2xl font-bold text-white">Arbitration Dashboard</h1>
         <p className="text-zinc-500">Connect your wallet to access the arbitration dashboard.</p>
       </div>
     )
@@ -95,7 +95,7 @@ export default function AdminDisputesPage() {
   if (!isAuthenticated) {
     return (
       <div className="py-16 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-zinc-900 dark:text-zinc-50">Arbitration Dashboard</h1>
+        <h1 className="mb-4 text-2xl font-bold text-white">Arbitration Dashboard</h1>
         <p className="text-zinc-500">Sign in with your wallet to access the arbitration dashboard.</p>
       </div>
     )
@@ -107,9 +107,9 @@ export default function AdminDisputesPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">Arbitration Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">Arbitration Dashboard</h1>
         {isArbiterWallet ? (
-          <p className="text-sm text-green-600 dark:text-green-400">
+          <p className="text-sm text-green-400">
             Connected as arbiter. You can resolve disputes.
           </p>
         ) : (
@@ -127,8 +127,8 @@ export default function AdminDisputesPage() {
             onClick={() => setStatusFilter(status)}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
               statusFilter === status
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                ? 'bg-accent text-black'
+                : 'bg-zinc-700/50 text-zinc-400 hover:bg-surface-hover'
             }`}
           >
             {status}
@@ -140,11 +140,11 @@ export default function AdminDisputesPage() {
       {loading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-surface" />
           ))}
         </div>
       ) : disputes.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-800">
+        <div className="rounded-xl border border-dashed border-k-border p-8 text-center">
           <p className="text-zinc-500">No {statusFilter.toLowerCase()} disputes found.</p>
         </div>
       ) : (
@@ -153,11 +153,11 @@ export default function AdminDisputesPage() {
             <Link
               key={dispute.id}
               href={`/admin/disputes/${dispute.id}`}
-              className="block rounded-xl border border-zinc-200 p-5 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700 transition-colors"
+              className="block rounded-xl border border-k-border p-5 hover:border-k-border-hover transition-colors"
             >
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                  <h3 className="font-semibold text-zinc-100 truncate">
                     {dispute.task.title}
                   </h3>
                   <p className="text-sm text-zinc-500 mt-0.5">
@@ -172,7 +172,7 @@ export default function AdminDisputesPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                 <div>
                   <p className="text-zinc-500">Raised by</p>
-                  <p className="text-zinc-900 dark:text-zinc-100 font-mono text-xs">
+                  <p className="text-zinc-100 font-mono text-xs">
                     {dispute.raisedBy} (
                     <span
                       onClick={(e) => {
@@ -180,7 +180,7 @@ export default function AdminDisputesPage() {
                         e.stopPropagation()
                         window.location.href = `/u/${dispute.raisedByWallet}`
                       }}
-                      className="hover:text-blue-600 cursor-pointer"
+                      className="hover:text-accent cursor-pointer"
                     >
                       {shortenWallet(dispute.raisedByWallet)}
                     </span>
@@ -189,18 +189,18 @@ export default function AdminDisputesPage() {
                 </div>
                 <div>
                   <p className="text-zinc-500">Proposal #</p>
-                  <p className="text-zinc-900 dark:text-zinc-100">{dispute.proposalIndex}</p>
+                  <p className="text-zinc-100">{dispute.proposalIndex}</p>
                 </div>
               </div>
 
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
+              <p className="text-sm text-zinc-400 line-clamp-2">
                 {dispute.reason}
               </p>
 
               <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
                 <span>Created {new Date(dispute.createdAt).toLocaleDateString()}</span>
                 {dispute.responseReason && (
-                  <span className="text-blue-600 dark:text-blue-400">Has response</span>
+                  <span className="text-accent">Has response</span>
                 )}
               </div>
             </Link>

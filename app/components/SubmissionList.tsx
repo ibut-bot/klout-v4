@@ -243,7 +243,7 @@ export default function SubmissionList({
 
     if (failed) {
       return (
-        <div className={`flex flex-col items-center justify-center gap-2 bg-zinc-100 dark:bg-zinc-900 p-4 ${className || ''}`} style={{ minHeight: '120px' }}>
+        <div className={`flex flex-col items-center justify-center gap-2 bg-surface p-4 ${className || ''}`} style={{ minHeight: '120px' }}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
             <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             <line x1="1" y1="5" x2="16" y2="19" />
@@ -294,11 +294,11 @@ export default function SubmissionList({
             key={sub.id}
             onClick={() => sub.bid && onSubmissionSelect?.(sub.bid.bidderId)}
             className={`rounded-xl border p-4 transition-colors ${
-              onSubmissionSelect ? 'cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-600' : ''
+              onSubmissionSelect ? 'cursor-pointer hover:border-k-border-hover hover:border-k-border-hover' : ''
             } ${
               isSelected
-                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800/50'
-                : 'border-zinc-200 dark:border-zinc-800'
+                ? 'border-accent bg-surface'
+                : 'border-k-border'
             }`}
           >
             {/* Bidder info */}
@@ -309,11 +309,11 @@ export default function SubmissionList({
                     {sub.bid.bidderProfilePic ? (
                       <img src={sub.bid.bidderProfilePic} alt="" className="h-5 w-5 rounded-full object-cover" />
                     ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-400 bg-zinc-700 text-zinc-300">
                         {sub.bid.bidderWallet.slice(0, 2)}
                       </div>
                     )}
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <span className="text-sm font-medium text-zinc-100">
                       {sub.bid.bidderUsername || `${sub.bid.bidderWallet.slice(0, 4)}...${sub.bid.bidderWallet.slice(-4)}`}
                     </span>
                   </Link>
@@ -328,7 +328,7 @@ export default function SubmissionList({
             )}
 
             {/* Description */}
-            <p className="mb-3 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mb-3 whitespace-pre-wrap text-sm text-zinc-400">
               {sub.description}
             </p>
 
@@ -339,10 +339,10 @@ export default function SubmissionList({
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {sub.attachments.map((att, i) =>
                     isVideo(att.contentType) ? (
-                      <div key={i} className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700" onClick={(e) => e.stopPropagation()}>
+                      <div key={i} className="overflow-hidden rounded-lg border border-k-border" onClick={(e) => e.stopPropagation()}>
                         <VideoPlayer url={att.url} filename={att.filename} />
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="block px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                          <p className="truncate text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200">
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="block px-2 py-1.5 hover:bg-surface-hover hover:bg-surface-hover">
+                          <p className="truncate text-xs text-zinc-400 hover:text-zinc-200">
                             {att.filename || 'Download'}
                           </p>
                         </a>
@@ -353,17 +353,17 @@ export default function SubmissionList({
                         href={att.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group block overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700"
+                        className="group block overflow-hidden rounded-lg border border-k-border"
                       >
                         {isImage(att.contentType) ? (
                           <img src={att.url} alt={att.filename || ''} className="h-32 w-full object-cover" />
                         ) : (
-                          <div className="flex h-32 items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+                          <div className="flex h-32 items-center justify-center bg-surface">
                             <span className="text-xs text-zinc-500">{att.filename || 'File'}</span>
                           </div>
                         )}
                         <div className="px-2 py-1.5">
-                          <p className="truncate text-xs text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200">
+                          <p className="truncate text-xs text-zinc-400 group-hover:text-zinc-200">
                             {att.filename || 'Download'}
                           </p>
                         </div>
@@ -376,13 +376,13 @@ export default function SubmissionList({
 
             {/* Payment success signature (competition) */}
             {sub.bid && paymentSig?.bidId === sub.bid.id && (
-              <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+              <div className="mb-3 rounded-lg bg-green-500/10 p-3 text-sm text-green-400">
                 Payment successful!{' '}
                 <a
                   href={`https://orb.helius.dev/tx/${paymentSig.signature}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-mono text-xs underline hover:text-green-900 dark:hover:text-green-200"
+                  className="inline-flex items-center gap-1 font-mono text-xs underline hover:text-green-200"
                 >
                   {paymentSig.signature.slice(0, 8)}...{paymentSig.signature.slice(-8)}
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
@@ -393,7 +393,7 @@ export default function SubmissionList({
             {/* Payment error + retry for competition */}
             {canRetry && sub.bid && (
               <div className="mb-3 space-y-2">
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
                   Payment failed: {paymentError}
                 </div>
                 <button

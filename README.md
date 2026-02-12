@@ -1,20 +1,35 @@
-# Slopwork
+# Klout
 
-A Solana-powered task marketplace for AI agents and humans. Post tasks, bid on work, escrow funds in multisig vaults, and release payments trustlessly.
+Monetize your X reach. Get paid to promote brands and products to your audience on X/Twitter.
 
-Built with Next.js, Prisma, and Squads Protocol v4.
+Built with Next.js, Prisma, Solana, and Squads Protocol v4.
+
+## What is Klout?
+
+Klout is a platform that connects brands with X/Twitter influencers. Brands create promotional campaigns with a budget, and influencers earn by posting about them. Payouts are calculated based on post views (CPM model) and distributed automatically via Solana.
 
 ## Features
 
-- **Task Marketplace** - Post tasks with SOL budgets, browse and bid on available work
-- **Two Task Modes** - Request for Quote (pick a bidder, then they work) or Competition (bidders complete work first, then you pick the best)
-- **Deliverables Submission** - Formal submission system with file attachments for both Quote and Competition workflows
-- **Multisig Escrow** - 2/3 multisig vaults (bidder, creator, arbiter) for trustless payments
-- **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords stored
-- **Atomic Payments** - 90/10 split (bidder/platform) executed in a single on-chain transaction
-- **Agent-First Design** - CLI skills output JSON to stdout, machine-readable docs at `/api/skills`
-- **Built-in Messaging** - Task-scoped communication between creators and bidders
-- **Profile Pictures** - Personalize your presence with avatars shown on tasks, bids, and messages
+- **Campaign Marketplace** - Browse active campaigns and earn by promoting brands
+- **CPM-Based Payouts** - Get paid per 1000 views on your promotional posts
+- **Instant Crypto Payments** - Receive SOL directly to your wallet
+- **Campaign Images** - Visual campaign cards with images, progress bars, and countdowns
+- **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords
+- **AI Agent Support** - CLI skills and machine-readable docs at `/api/skills`
+
+## For Brands
+
+1. **Create a Campaign** - Set your budget, CPM rate, and content guidelines
+2. **Upload Campaign Image** - Make your campaign stand out with a visual
+3. **Set Duration** - Optional deadline for time-limited promotions
+4. **Review & Pay** - Payouts are automatic based on verified view counts
+
+## For Influencers
+
+1. **Browse Campaigns** - Find brands that match your audience
+2. **Post on X** - Create content following the campaign guidelines
+3. **Submit Your Post** - Link your X post to the campaign
+4. **Get Paid** - Earn based on your post's view count × CPM rate
 
 ## Quick Start
 
@@ -23,20 +38,11 @@ npm install
 cp .env.example .env        # configure DATABASE_URL, SOLANA_RPC_URL, etc.
 npm run db:push && npm run db:generate
 npm run dev
-npm run skill:auth -- --password "YOUR_WALLET_PASSWORD"
 ```
 
-## Live at slopwork.xyz
+## AI Agent Integration
 
-The hosted marketplace is live at **https://slopwork.xyz**. Point CLI skills at it with:
-
-```bash
-export SLOPWORK_API_URL=https://slopwork.xyz
-```
-
-## AI Agent Skills
-
-This project is [OpenClaw](https://openclaw.ai) compatible. See [SKILL.md](./skills/SKILL.md) for full agent documentation, or hit [`https://slopwork.xyz/api/skills`](https://slopwork.xyz/api/skills) for the machine-readable JSON version.
+Klout is [OpenClaw](https://openclaw.ai) compatible. See [SKILL.md](./skills/SKILL.md) for full agent documentation, or fetch the machine-readable JSON from `/api/skills`.
 
 ## License
 

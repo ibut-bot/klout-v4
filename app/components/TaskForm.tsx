@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
@@ -20,7 +20,7 @@ export default function TaskForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
-  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION' | 'CAMPAIGN'>('COMPETITION')
+  const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION' | 'CAMPAIGN'>('CAMPAIGN')
   const [durationDays, setDurationDays] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -31,6 +31,52 @@ export default function TaskForm() {
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
 
+  // Image upload
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file')
+        return
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Image must be less than 10MB')
+        return
+      }
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return null
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', imageFile)
+      const res = await authFetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message || 'Upload failed')
+      return data.url
+    } catch (err: any) {
+      console.error('Image upload failed:', err)
+      return null
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!publicKey || !isAuthenticated) return
@@ -40,6 +86,12 @@ export default function TaskForm() {
     try {
       const budgetLamports = Math.round(parseFloat(budget) * LAMPORTS_PER_SOL)
       if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
+
+      // Upload image first if provided
+      let imageUrl: string | null = null
+      if (imageFile) {
+        imageUrl = await uploadImage()
+      }
 
       let signature: string
       let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
@@ -95,6 +147,7 @@ export default function TaskForm() {
           ...vaultDetails,
           ...campaignFields,
           ...((taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && durationDays ? { durationDays: parseInt(durationDays) } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
         }),
       })
       const data = await res.json()
@@ -113,83 +166,78 @@ export default function TaskForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
+        <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">{error}</div>
       )}
 
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Task Type</label>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setTaskType('QUOTE')}
-            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
-              taskType === 'QUOTE'
-                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
-                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
-            }`}
-          >
-            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Request for Quote</span>
-            <span className="mt-0.5 block text-xs text-zinc-500">
-              Bidders propose, you pick a winner, then they complete the work.
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTaskType('COMPETITION')}
-            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
-              taskType === 'COMPETITION'
-                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
-                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
-            }`}
-          >
-            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Competition</span>
-            <span className="mt-0.5 block text-xs text-zinc-500">
-              Bidders complete the work first, then you pick the best submission.
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTaskType('CAMPAIGN')}
-            className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
-              taskType === 'CAMPAIGN'
-                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800'
-                : 'border-zinc-300 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-600'
-            }`}
-          >
-            <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Campaign</span>
-            <span className="mt-0.5 block text-xs text-zinc-500">
-              Promote an X post. Pay participants per view based on CPM.
-            </span>
-          </button>
-        </div>
-      </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Title</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Title</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What do you need done?"
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Description</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the task in detail..."
           rows={5}
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
 
+      {taskType === 'CAMPAIGN' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Campaign Image</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          {imagePreview ? (
+            <div className="relative inline-block">
+              <img
+                src={imagePreview}
+                alt="Campaign preview"
+                className="h-32 w-32 rounded-lg object-cover border border-k-border"
+              />
+              <button
+                type="button"
+                onClick={removeImage}
+                className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-32 w-32 items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-600 hover:border-accent/40 hover:text-accent transition"
+            >
+              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+          <p className="mt-1 text-xs text-zinc-600">Optional. This image will be shown on the campaign card.</p>
+        </div>
+      )}
+
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Budget (SOL)</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Budget (SOL)</label>
         <input
           type="number"
           step="0.01"
@@ -198,9 +246,9 @@ export default function TaskForm() {
           onChange={(e) => setBudget(e.target.value)}
           placeholder="0.5"
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-zinc-600">
           {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
             ? 'This budget will be locked in an escrow vault when you post the task.'
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
@@ -210,7 +258,7 @@ export default function TaskForm() {
       {taskType === 'CAMPAIGN' && (
         <>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">CPM — Cost per 1,000 views (SOL)</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">CPM — Cost per 1,000 views (SOL)</label>
             <input
               type="number"
               step="0.001"
@@ -219,13 +267,13 @@ export default function TaskForm() {
               onChange={(e) => setCpm(e.target.value)}
               placeholder="0.01"
               required
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
-            <p className="mt-1 text-xs text-zinc-500">How much you pay per 1,000 views on a promoted post.</p>
+            <p className="mt-1 text-xs text-zinc-600">How much you pay per 1,000 views on a promoted post.</p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Guidelines — Do&apos;s</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Guidelines — Do&apos;s</label>
             {dos.map((d, i) => (
               <div key={i} className="mb-2 flex gap-2">
                 <input
@@ -233,20 +281,20 @@ export default function TaskForm() {
                   value={d}
                   onChange={(e) => { const n = [...dos]; n[i] = e.target.value; setDos(n) }}
                   placeholder={`Guideline ${i + 1}`}
-                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
                 />
                 {dos.length > 1 && (
                   <button type="button" onClick={() => setDos(dos.filter((_, j) => j !== i))}
-                    className="px-2 text-red-500 hover:text-red-600 text-sm">Remove</button>
+                    className="px-2 text-red-400 hover:text-red-300 text-sm">Remove</button>
                 )}
               </div>
             ))}
             <button type="button" onClick={() => setDos([...dos, ''])}
-              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add guideline</button>
+              className="text-xs text-accent hover:text-accent-hover">+ Add guideline</button>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Guidelines — Don&apos;ts</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Guidelines — Don&apos;ts</label>
             {donts.map((d, i) => (
               <div key={i} className="mb-2 flex gap-2">
                 <input
@@ -254,23 +302,23 @@ export default function TaskForm() {
                   value={d}
                   onChange={(e) => { const n = [...donts]; n[i] = e.target.value; setDonts(n) }}
                   placeholder={`Don't ${i + 1}`}
-                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
                 />
                 {donts.length > 1 && (
                   <button type="button" onClick={() => setDonts(donts.filter((_, j) => j !== i))}
-                    className="px-2 text-red-500 hover:text-red-600 text-sm">Remove</button>
+                    className="px-2 text-red-400 hover:text-red-300 text-sm">Remove</button>
                 )}
               </div>
             ))}
             <button type="button" onClick={() => setDonts([...donts, ''])}
-              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">+ Add guideline</button>
+              className="text-xs text-accent hover:text-accent-hover">+ Add guideline</button>
           </div>
         </>
       )}
 
       {(taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Duration (days) — optional</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Duration (days) — optional</label>
           <input
             type="number"
             step="1"
@@ -279,9 +327,9 @@ export default function TaskForm() {
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
             placeholder="e.g. 7"
-            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
           />
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-600">
             How many days the {taskType === 'CAMPAIGN' ? 'campaign' : 'competition'} runs. After this, no new submissions are accepted. Leave empty for no deadline.
           </p>
         </div>
@@ -290,7 +338,7 @@ export default function TaskForm() {
       <button
         type="submit"
         disabled={loading || !isAuthenticated}
-        className="w-full rounded-lg bg-zinc-900 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="w-full rounded-lg bg-accent py-3 text-sm font-semibold text-black transition hover:bg-accent-hover disabled:opacity-50"
       >
         {loading
           ? step === 'paying'

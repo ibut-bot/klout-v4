@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { useEffect, useState } from 'react'
 
 function formatSol(lamports: string | number): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
@@ -21,86 +22,182 @@ interface TaskCardProps {
   creatorUsername?: string | null
   creatorProfilePic?: string | null
   bidCount: number
+  submissionCount?: number
+  budgetRemainingLamports?: string | null
+  imageUrl?: string | null
   deadlineAt?: string | null
   createdAt: string
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  COMPLETED: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-  DISPUTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  CANCELLED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
+  OPEN: 'bg-green-500/20 text-green-400',
+  IN_PROGRESS: 'bg-blue-500/20 text-blue-400',
+  COMPLETED: 'bg-zinc-700/50 text-zinc-400',
+  DISPUTED: 'bg-red-500/20 text-red-400',
+  CANCELLED: 'bg-zinc-700/50 text-zinc-500',
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  QUOTE: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
-  COMPETITION: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  CAMPAIGN: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  QUOTE: 'bg-indigo-500/20 text-indigo-400',
+  COMPETITION: 'bg-amber-500/20 text-amber-400',
+  CAMPAIGN: 'bg-accent/20 text-accent',
 }
 
-function getDeadlineLabel(deadlineAt: string): string {
+function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   const diff = new Date(deadlineAt).getTime() - Date.now()
-  if (diff <= 0) return 'Ended'
-  if (diff < 3600000) return `${Math.ceil(diff / 60000)}m left`
-  if (diff < 86400000) return `${Math.ceil(diff / 3600000)}h left`
-  return `${Math.ceil(diff / 86400000)}d left`
+  if (diff <= 0) return { label: 'Ended', isEnded: true }
+  
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const minutes = Math.floor((diff % 3600000) / 60000)
+  const seconds = Math.floor((diff % 60000) / 1000)
+  
+  if (days > 0) return { label: `${days}d ${hours}h`, isEnded: false }
+  if (hours > 0) return { label: `${hours}h ${minutes}m`, isEnded: false }
+  if (minutes > 0) return { label: `${minutes}m ${seconds}s`, isEnded: false }
+  return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, deadlineAt, createdAt }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, imageUrl, deadlineAt, createdAt }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
+  const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
+  
+  const isCampaign = taskType === 'CAMPAIGN'
+  const budgetTotal = Number(budgetLamports)
+  const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
+  const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
+  const participantCount = submissionCount ?? bidCount
+
+  useEffect(() => {
+    if (!deadlineAt) return
+    
+    const update = () => setCountdown(getCountdown(deadlineAt))
+    update()
+    
+    const interval = setInterval(update, 1000)
+    return () => clearInterval(interval)
+  }, [deadlineAt])
 
   return (
-    <Link href={`/tasks/${id}`} className="block">
-      <div className="rounded-xl border border-zinc-200 p-5 transition-all hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:hover:border-zinc-700">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-          <div className="flex items-center gap-1.5">
-            {taskType && (
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
-                {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
-              </span>
-            )}
-            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
+    <Link href={`/tasks/${id}`} className="block group">
+      <div className="rounded-xl border border-k-border bg-surface overflow-hidden transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5">
+        {/* Campaign Image */}
+        {isCampaign && imageUrl && (
+          <div className="relative h-44 w-full bg-zinc-900">
+            <img
+              src={imageUrl}
+              alt={title}
+              className="h-full w-full object-cover"
+            />
+            {/* Status badge on image */}
+            <span className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
               {status.replace('_', ' ')}
             </span>
+            {/* Countdown overlay */}
+            {countdown && !countdown.isEnded && (
+              <div className="absolute top-2 right-2 rounded-lg bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                {countdown.label}
+              </div>
+            )}
+            {countdown?.isEnded && (
+              <div className="absolute top-2 right-2 rounded-lg bg-red-500/90 px-2 py-1 text-xs font-medium text-white">
+                Ended
+              </div>
+            )}
           </div>
-        </div>
-        <p className="mb-4 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatSol(budgetLamports)}</span>
-            <span className="text-zinc-500">{bidCount} bid{bidCount !== 1 ? 's' : ''}</span>
-            {deadlineAt && (
-              <span className={`text-xs font-medium ${
-                new Date(deadlineAt).getTime() <= Date.now()
-                  ? 'text-red-500 dark:text-red-400'
-                  : 'text-amber-600 dark:text-amber-400'
-              }`}>
-                {getDeadlineLabel(deadlineAt)}
+        )}
+        
+        <div className="p-4">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <h3 className="text-base font-semibold text-white group-hover:text-accent transition-colors line-clamp-1">{title}</h3>
+            {(!isCampaign || !imageUrl) && (
+              <div className="flex items-center gap-1.5">
+                {taskType && (
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
+                    {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
+                  </span>
+                )}
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
+                  {status.replace('_', ' ')}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          <p className="mb-3 line-clamp-2 text-sm text-zinc-500">{description}</p>
+
+          {/* Budget info */}
+          <div className="mb-3 flex items-center gap-2">
+            <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-semibold text-accent">
+              {formatSol(budgetLamports)}
+            </span>
+            {isCampaign && imageUrl && taskType && (
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
+                Campaign
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-zinc-400">
-            <Link
-              href={`/u/${creatorWallet}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-2 hover:text-zinc-600 dark:hover:text-zinc-300"
-            >
-              {creatorProfilePic ? (
-                <img
-                  src={creatorProfilePic}
-                  alt=""
-                  className="h-[25px] w-[25px] rounded-full object-cover"
+          
+          {/* Budget Progress Bar for Campaigns */}
+          {isCampaign && (
+            <div className="mb-3">
+              <div className="mb-1 flex items-center justify-between text-xs">
+                <span className="text-zinc-500">Budget Used</span>
+                <span className="font-medium text-zinc-400">
+                  {budgetUsedPercent}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div 
+                  className="h-full rounded-full bg-accent transition-all duration-300"
+                  style={{ width: `${budgetUsedPercent}%` }}
                 />
-              ) : (
-                <div className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                  {creatorWallet.slice(0, 2)}
-                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-zinc-500">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {participantCount}
+              </span>
+              {deadlineAt && !isCampaign && countdown && (
+                <span className={`text-xs font-medium ${
+                  countdown.isEnded ? 'text-red-400' : 'text-amber-400'
+                }`}>
+                  {countdown.label}
+                </span>
               )}
-              <span title={creatorWallet}>{creatorUsername || `${creatorWallet.slice(0, 4)}...${creatorWallet.slice(-4)}`}</span>
-            </Link>
-            <span>{timeAgo}</span>
+            </div>
+            <div className="flex items-center gap-2 text-zinc-500">
+              <Link
+                href={`/u/${creatorWallet}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-2 hover:text-zinc-300"
+              >
+                {creatorProfilePic ? (
+                  <img
+                    src={creatorProfilePic}
+                    alt=""
+                    className="h-[22px] w-[22px] rounded-full object-cover ring-1 ring-k-border"
+                  />
+                ) : (
+                  <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-zinc-800 text-[10px] font-medium text-zinc-400">
+                    {creatorWallet.slice(0, 2)}
+                  </div>
+                )}
+                <span className="text-xs" title={creatorWallet}>{creatorUsername || `${creatorWallet.slice(0, 4)}...${creatorWallet.slice(-4)}`}</span>
+              </Link>
+              <span className="text-xs">{timeAgo}</span>
+            </div>
+          </div>
+
+          {/* View Details Button */}
+          <div className="mt-3 flex items-center justify-center rounded-lg bg-accent py-2 text-sm font-semibold text-black transition group-hover:bg-accent-hover">
+            View Details →
           </div>
         </div>
       </div>

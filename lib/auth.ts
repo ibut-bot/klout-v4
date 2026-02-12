@@ -23,7 +23,7 @@ export function generateNonce(): string {
 
 /** Build the message string that wallets sign */
 export function buildSignMessage(nonce: string): string {
-  return `Sign this message to authenticate with Slopwork.\n\nNonce: ${nonce}`
+  return `Sign this message to authenticate with Klout.\n\nNonce: ${nonce}`
 }
 
 /** Verify an ed25519 signature from a Solana wallet */

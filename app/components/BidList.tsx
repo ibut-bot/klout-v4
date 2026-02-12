@@ -41,11 +41,11 @@ interface BidListProps {
 }
 
 const BID_STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  REJECTED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500',
-  FUNDED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  COMPLETED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  PENDING: 'bg-yellow-500/20 text-yellow-400',
+  ACCEPTED: 'bg-green-500/20 text-green-400',
+  REJECTED: 'bg-zinc-700/50 text-zinc-500',
+  FUNDED: 'bg-blue-500/20 text-blue-400',
+  COMPLETED: 'bg-green-500/20 text-green-400',
 }
 
 export default function BidList({ bids, taskId, isCreator, taskStatus, taskType = 'QUOTE', onBidAccepted, selectedBidId, onBidSelect }: BidListProps) {
@@ -142,23 +142,23 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, taskType 
             key={bid.id}
             onClick={() => onBidSelect?.(bid.id)}
             className={`rounded-xl border p-4 transition-colors ${
-              onBidSelect ? 'cursor-pointer hover:border-zinc-400 dark:hover:border-zinc-600' : ''
+              onBidSelect ? 'cursor-pointer hover:border-k-border-hover hover:border-k-border-hover' : ''
             } ${
               selectedBidId === bid.id
-                ? 'border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-800/50'
-                : 'border-zinc-200 dark:border-zinc-800'
+                ? 'border-accent bg-surface'
+                : 'border-k-border'
             }`}
           >
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-sm font-medium text-zinc-100">
                   {formatSol(bid.amountLamports)}
                 </span>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${BID_STATUS_COLORS[bid.status] || ''}`}>
                   {bid.status}
                 </span>
                 {isCompetition && bid.hasSubmission && (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                  <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400">
                     Submitted
                   </span>
                 )}
@@ -167,7 +167,7 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, taskType 
                 {bid.bidderProfilePic ? (
                   <img src={bid.bidderProfilePic} alt="" className="h-[25px] w-[25px] rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-zinc-200 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  <div className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-400 bg-zinc-700 text-zinc-300">
                     {bid.bidderWallet.slice(0, 2)}
                   </div>
                 )}
@@ -176,7 +176,7 @@ export default function BidList({ bids, taskId, isCreator, taskStatus, taskType 
                 </span>
               </Link>
             </div>
-            <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{bid.description}</p>
+            <p className="mb-3 text-sm text-zinc-400">{bid.description}</p>
             {bid.multisigAddress && (
               <p className="mb-2 text-xs text-zinc-400">
                 Escrow: {bid.multisigAddress.slice(0, 8)}...{bid.multisigAddress.slice(-8)}

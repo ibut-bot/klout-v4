@@ -117,38 +117,38 @@ export default function CompetitionEntryForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Submit Competition Entry</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-k-border p-5">
+      <h3 className="text-lg font-semibold text-white">Submit Competition Entry</h3>
       <p className="text-xs text-zinc-500">
         Complete the work and submit your entry. The winner receives the full competition budget.
         A small entry fee of {(COMPETITION_ENTRY_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(3)} SOL is required for spam prevention.
       </p>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
+        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Your Submission</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">Your Submission</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe your completed work, how to access or use it..."
           rows={5}
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="mb-1 block text-sm font-medium text-zinc-300">
           Attachments {files.length > 0 && `(${files.length})`}
         </label>
         <input
           type="file"
           multiple
           onChange={handleFileChange}
-          className="w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 dark:text-zinc-400 dark:file:bg-zinc-800 dark:file:text-zinc-300"
+          className="w-full text-sm text-zinc-500 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-300 hover:file:bg-zinc-700 text-zinc-400 file:bg-zinc-800 file:text-zinc-300"
         />
         {files.length > 0 && (
           <div className="mt-2 space-y-1">
@@ -156,7 +156,7 @@ export default function CompetitionEntryForm({
               <div key={i} className="flex items-center gap-2 text-xs text-zinc-500">
                 <span className="truncate">{f.name}</span>
                 <span className="text-zinc-400">({(f.size / 1024).toFixed(0)} KB)</span>
-                <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-600">
+                <button type="button" onClick={() => removeFile(i)} className="text-red-500 hover:text-red-400">
                   Remove
                 </button>
               </div>

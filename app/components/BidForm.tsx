@@ -93,8 +93,8 @@ export default function BidForm({ taskId, creatorWallet, taskType = 'QUOTE', onB
     : 'Submit Bid'
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Place a Bid</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-k-border p-5">
+      <h3 className="text-lg font-semibold text-white">Place a Bid</h3>
       <p className="text-xs text-zinc-500">
         {isCompetition
           ? 'Submit your bid. Complete the work and submit deliverables with escrow vault to be eligible for selection.'
@@ -102,11 +102,11 @@ export default function BidForm({ taskId, creatorWallet, taskType = 'QUOTE', onB
       </p>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{error}</div>
+        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Your Price (SOL)</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">Your Price (SOL)</label>
         <input
           type="number"
           step="0.01"
@@ -115,26 +115,26 @@ export default function BidForm({ taskId, creatorWallet, taskType = 'QUOTE', onB
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.3"
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Proposal</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">Proposal</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe your approach and qualifications..."
           rows={3}
           required
-          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading || !isAuthenticated}
-        className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className="w-full rounded-lg bg-accent py-2.5 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
       >
         {buttonText}
       </button>

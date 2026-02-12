@@ -193,13 +193,13 @@ export default function SelectWinnerButton({
   // Show success state
   if (paymentSig) {
     return (
-      <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+      <div className="rounded-lg bg-green-500/10 p-3 text-sm text-green-400">
         Payment successful!{' '}
         <a
           href={`https://orb.helius.dev/tx/${paymentSig}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-mono text-xs underline hover:text-green-900 dark:hover:text-green-200"
+          className="inline-flex items-center gap-1 font-mono text-xs underline hover:text-green-200"
         >
           {paymentSig.slice(0, 8)}...{paymentSig.slice(-8)}
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
@@ -212,7 +212,7 @@ export default function SelectWinnerButton({
   if (needsRetry && error) {
     return (
       <div className="space-y-2">
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
           Payment failed: {error}
         </div>
         <button
@@ -230,7 +230,7 @@ export default function SelectWinnerButton({
   return (
     <div>
       {error && (
-        <div className="mb-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+        <div className="mb-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
           {error}
         </div>
       )}

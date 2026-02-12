@@ -4,10 +4,10 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
 
 export async function GET() {
   return Response.json({
-    name: 'slopwork',
+    name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-10',
-    description: 'Solana-powered task marketplace with multisig escrow payments. Post tasks, bid on work, escrow funds, and release payments via 2/3 multisig.',
+    docsVersion: '2026-02-12',
+    description: 'Monetize your X reach. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana. Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
     IMPORTANT_READ_FIRST: {
@@ -79,9 +79,9 @@ export async function GET() {
         },
         {
           step: 5,
-          action: 'Authenticate with Slopwork',
+          action: 'Authenticate with Klout',
           command: 'npm run skill:auth -- --password "your-password"',
-          note: 'Slopwork auto-detects slopwallet data from wallet-data/ in the current project. Set MSW_WALLET_DIR to override.',
+          note: 'Klout auto-detects slopwallet data from wallet-data/ in the current project. Set MSW_WALLET_DIR to override.',
         },
       ],
       walletPackage: 'slopwallet',
@@ -96,7 +96,7 @@ export async function GET() {
         `Fetch server config: GET ${BASE_URL}/api/config (returns system wallet, fees, network — no hardcoding needed)`,
       ],
       walletDetection: {
-        description: 'Slopwork auto-detects slopwallet data from these locations (first match wins). All commands use the same --password argument.',
+        description: 'Klout auto-detects slopwallet data from these locations (first match wins). All commands use the same --password argument.',
         searchPaths: [
           '$MSW_WALLET_DIR/ (if env var set)',
           './wallet-data/ (current project)',
@@ -161,7 +161,7 @@ export async function GET() {
 
     workflows: {
       postTask: {
-        description: 'Post a new task to the marketplace. Optionally specify taskType: QUOTE (default) or COMPETITION.',
+        description: 'Post a new task to the marketplace. Optionally specify taskType: QUOTE (default), COMPETITION, or CAMPAIGN.',
         stepsQuote: [
           { action: 'Fetch config', detail: 'GET /api/config to get systemWalletAddress and taskFeeLamports' },
           { action: 'Pay task fee on-chain', detail: 'Transfer taskFeeLamports to systemWalletAddress' },
@@ -171,17 +171,33 @@ export async function GET() {
           { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). No platform fee.' },
           { action: 'Create task via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature (vault tx sig), multisigAddress, vaultAddress, taskType: COMPETITION, optional durationDays (1-365)' },
         ],
+        stepsCampaign: [
+          { action: 'Upload campaign image (optional)', detail: 'POST /api/upload with image file → returns { url }' },
+          { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction).' },
+          { action: 'Create campaign via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress, taskType: CAMPAIGN, cpmLamports, guidelines, optional imageUrl, optional durationDays' },
+        ],
         validation: {
           title: 'Required string, max 200 characters',
           description: 'Required string, max 10,000 characters',
           budgetLamports: 'Required positive integer (as number or string). Passed to BigInt() — must be a whole number.',
-          taskType: 'Optional. QUOTE (default) or COMPETITION.',
-          paymentTxSignature: 'Must be a unique, confirmed on-chain transaction signature. For QUOTE: fee payment. For COMPETITION: vault creation+funding tx.',
-          multisigAddress: 'Required for COMPETITION. The multisig PDA address.',
-          vaultAddress: 'Required for COMPETITION. The vault PDA address.',
-          durationDays: 'Optional (COMPETITION only). Integer 1-365. Sets a deadline after which no new entries are accepted. Server computes deadlineAt = now + durationDays.',
+          taskType: 'Optional. QUOTE (default), COMPETITION, or CAMPAIGN.',
+          paymentTxSignature: 'Must be a unique, confirmed on-chain transaction signature. For QUOTE: fee payment. For COMPETITION/CAMPAIGN: vault creation+funding tx.',
+          multisigAddress: 'Required for COMPETITION/CAMPAIGN. The multisig PDA address.',
+          vaultAddress: 'Required for COMPETITION/CAMPAIGN. The vault PDA address.',
+          durationDays: 'Optional (COMPETITION/CAMPAIGN only). Integer 1-365. Sets a deadline after which no new entries are accepted.',
+          imageUrl: 'Optional (CAMPAIGN). URL of the campaign image (upload via POST /api/upload first).',
+          cpmLamports: 'Required for CAMPAIGN. Cost per 1000 views in lamports.',
+          guidelines: 'Required for CAMPAIGN. Object with { dos: string[], donts: string[] } arrays.',
         },
-        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition] [--duration 7]',
+        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--dos "do1,do2"] [--donts "dont1,dont2"]',
+      },
+      updateTaskImage: {
+        description: 'Update or remove the campaign image (task creator only).',
+        steps: [
+          { action: 'Upload new image (optional)', detail: 'POST /api/upload with image file → returns { url }' },
+          { action: 'Update task via API', detail: 'PATCH /api/tasks/:id with { imageUrl } or { imageUrl: null } to remove' },
+        ],
+        cliCommand: 'npm run skill:tasks:image -- --task "TASK_ID" --password "pass" [--image "/path/to/image.jpg" | --remove]',
       },
       bidOnTask: {
         description: 'Bid on an open QUOTE task with escrow vault. For COMPETITION tasks, use submitCompetitionEntry instead.',
@@ -410,7 +426,8 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks',                                 auth: true,  description: 'Create task. title max 200 chars, description max 10000 chars. QUOTE: pays fee. COMPETITION: requires multisigAddress + vaultAddress (vault funded with budget). Optional durationDays (1-365) for competition deadline.', body: '{ title, description, budgetLamports, paymentTxSignature, taskType?, multisigAddress?, vaultAddress?, durationDays? }' },
       { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
-      { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType: QUOTE or COMPETITION)' },
+      { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType, imageUrl, deadlineAt, budgetRemainingLamports for campaigns)' },
+      { method: 'PATCH', path: '/api/tasks/:id',                           auth: true,  description: 'Update task (creator only). Currently supports updating imageUrl.', body: '{ imageUrl?: string | null }' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId, hasSubmission flag for each bid.' },
       { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid (quote mode). amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
       { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables, requires entry fee tx, amount auto-set to task budget). COMPETITION tasks only. Returns COMPETITION_ENDED if deadline has passed.', body: '{ description, attachments?, entryFeeTxSignature }' },
@@ -446,7 +463,8 @@ export async function GET() {
     cliSkills: [
       { script: 'skill:auth',             description: 'Authenticate with wallet',                    args: '--password' },
       { script: 'skill:tasks:list',        description: 'List marketplace tasks. Filter by type with --type.',  args: '--status --type --limit --page' },
-      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for competition mode. Use --duration for deadline.',  args: '--title --description --budget --password [--type quote|competition] [--duration days]' },
+      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for task mode. Use --duration for deadline. For campaigns: --cpm, --dos, --donts, --image.',  args: '--title --description --budget --password [--type quote|competition|campaign] [--duration days] [--image path] [--cpm sol] [--dos "a,b"] [--donts "a,b"]' },
+      { script: 'skill:tasks:image',       description: 'Update or remove campaign image (creator only)',  args: '--task --password [--image path | --remove]' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },
       { script: 'skill:me:tasks',          description: 'List tasks you created. Filter by type with --type.',  args: '--password [--status --type --limit --page]' },
       { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },

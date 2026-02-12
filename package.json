@@ -1,5 +1,5 @@
 {
-  "name": "slopwork",
+  "name": "klout",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "skill:auth": "tsx skills/auth.ts",
     "skill:tasks:list": "tsx skills/list-tasks.ts",
     "skill:tasks:create": "tsx skills/create-task.ts",
+    "skill:tasks:image": "tsx skills/update-task-image.ts",
     "skill:me:tasks": "tsx skills/my-tasks.ts",
     "skill:me:bids": "tsx skills/my-bids.ts",
     "skill:tasks:get": "tsx skills/get-task.ts",

@@ -92,10 +92,10 @@ function StatCard({
   subValue?: string
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{value}</p>
-      {subValue && <p className="text-sm text-zinc-500 dark:text-zinc-400">{subValue}</p>}
+    <div className="rounded-xl border border-k-border p-4">
+      <p className="text-sm text-zinc-400">{label}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
+      {subValue && <p className="text-sm text-zinc-400">{subValue}</p>}
     </div>
   )
 }
@@ -106,26 +106,26 @@ function DisputeStats({
   disputes: { total: number; pending: number; inFavor: number; against: number }
 }) {
   if (disputes.total === 0) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">No disputes</p>
+    return <p className="text-sm text-zinc-400">No disputes</p>
   }
 
   return (
     <div className="space-y-2 text-sm">
       <div className="flex justify-between">
-        <span className="text-zinc-500 dark:text-zinc-400">Total Disputes</span>
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">{disputes.total}</span>
+        <span className="text-zinc-400">Total Disputes</span>
+        <span className="font-medium text-zinc-100">{disputes.total}</span>
       </div>
       <div className="flex justify-between">
-        <span className="text-zinc-500 dark:text-zinc-400">Pending</span>
-        <span className="font-medium text-amber-600 dark:text-amber-400">{disputes.pending}</span>
+        <span className="text-zinc-400">Pending</span>
+        <span className="font-medium text-amber-400">{disputes.pending}</span>
       </div>
       <div className="flex justify-between">
-        <span className="text-zinc-500 dark:text-zinc-400">In Favor</span>
-        <span className="font-medium text-green-600 dark:text-green-400">{disputes.inFavor}</span>
+        <span className="text-zinc-400">In Favor</span>
+        <span className="font-medium text-green-400">{disputes.inFavor}</span>
       </div>
       <div className="flex justify-between">
-        <span className="text-zinc-500 dark:text-zinc-400">Against</span>
-        <span className="font-medium text-red-600 dark:text-red-400">{disputes.against}</span>
+        <span className="text-zinc-400">Against</span>
+        <span className="font-medium text-red-400">{disputes.against}</span>
       </div>
     </div>
   )
@@ -201,11 +201,11 @@ export default function PublicProfilePage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl">
-        <div className="h-20 w-20 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-900 mb-4" />
-        <div className="h-8 w-64 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900 mb-4" />
+        <div className="h-20 w-20 animate-pulse rounded-full bg-surface mb-4" />
+        <div className="h-8 w-64 animate-pulse rounded bg-surface mb-4" />
         <div className="grid gap-4 md:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-surface" />
           ))}
         </div>
       </div>
@@ -215,11 +215,11 @@ export default function PublicProfilePage() {
   if (error || !stats) {
     return (
       <div className="mx-auto max-w-4xl text-center py-16">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-2">Profile Not Found</h1>
+        <h1 className="text-2xl font-bold text-white mb-2">Profile Not Found</h1>
         <p className="text-zinc-500 mb-6">{error || 'This user has not joined the platform yet.'}</p>
         <Link
           href="/tasks"
-          className="inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900"
+          className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
         >
           Browse Tasks
         </Link>
@@ -240,41 +240,41 @@ export default function PublicProfilePage() {
             className="h-[100px] w-[100px] rounded-full object-cover"
           />
         ) : (
-          <div className="flex h-[100px] w-[100px] items-center justify-center rounded-full bg-zinc-200 text-2xl font-bold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+          <div className="flex h-[100px] w-[100px] items-center justify-center rounded-full bg-zinc-800 text-2xl font-bold text-zinc-300">
             {user.walletAddress.slice(0, 2)}
           </div>
         )}
         <div className="flex-1">
           {user.username && (
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-1">
+            <h1 className="text-xl font-bold text-white mb-1">
               {user.username}
             </h1>
           )}
           <div className="flex items-center gap-2 mb-1">
-            <p className={`${user.username ? 'text-sm text-zinc-500 dark:text-zinc-400' : 'text-xl font-bold text-zinc-900 dark:text-zinc-50'} font-mono`}>
+            <p className={`${user.username ? 'text-sm text-zinc-400' : 'text-xl font-bold text-white'} font-mono`}>
               {user.walletAddress.slice(0, 8)}...{user.walletAddress.slice(-6)}
             </p>
             <button
               onClick={copyWallet}
-              className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+              className="rounded-full border border-k-border px-2 py-0.5 text-xs font-medium text-zinc-400 transition hover:border-k-border-hover hover:bg-surface"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm text-zinc-400">
             Member since {new Date(user.memberSince).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </p>
         </div>
       </div>
 
       {/* Tab Switcher */}
-      <div className="mb-6 flex gap-2 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="mb-6 flex gap-2 border-b border-k-border">
         <button
           onClick={() => setActiveTab('stats')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === 'stats'
-              ? 'border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100'
-              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
           }`}
         >
           Stats
@@ -283,8 +283,8 @@ export default function PublicProfilePage() {
           onClick={() => setActiveTab('submissions')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === 'submissions'
-              ? 'border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100'
-              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
           }`}
         >
           Submissions {submissionsFetched && `(${submissions.length > 0 ? submissions.length + (submissionsTotalPages > 1 ? '+' : '') : 0})`}
@@ -297,11 +297,11 @@ export default function PublicProfilePage() {
           {submissionsLoading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-28 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+                <div key={i} className="h-28 animate-pulse rounded-xl bg-surface" />
               ))}
             </div>
           ) : submissions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-800">
+            <div className="rounded-xl border border-dashed border-k-border p-8 text-center border-k-border">
               <p className="text-zinc-500">No submissions yet.</p>
             </div>
           ) : (
@@ -311,19 +311,19 @@ export default function PublicProfilePage() {
                   <Link
                     key={sub.id}
                     href={`/tasks/${sub.task.id}`}
-                    className="block rounded-xl border border-zinc-200 p-4 transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                    className="block rounded-xl border border-k-border p-4 transition-colors hover:border-k-border-hover"
                   >
                     {/* Top row: task title + outcome badge */}
                     <div className="mb-2 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                        <h3 className="font-semibold text-zinc-100 truncate">
                           {sub.task.title}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             sub.task.taskType === 'COMPETITION'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                              : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-indigo-500/20 text-indigo-400'
                           }`}>
                             {sub.task.taskType === 'COMPETITION' ? 'Competition' : 'Quote'}
                           </span>
@@ -334,19 +334,19 @@ export default function PublicProfilePage() {
                       </div>
                       <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         sub.outcome === 'won'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          ? 'bg-green-500/20 text-green-400'
                           : sub.outcome === 'lost'
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            ? 'bg-red-500/20 text-red-400'
                             : sub.outcome === 'in_progress'
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-zinc-700/50 text-zinc-400'
                       }`}>
                         {sub.outcome === 'won' ? 'Won' : sub.outcome === 'lost' ? 'Not Selected' : sub.outcome === 'in_progress' ? 'In Progress' : 'Pending'}
                       </span>
                     </div>
 
                     {/* Submission description preview */}
-                    <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                    <p className="mb-2 text-sm text-zinc-400 line-clamp-2">
                       {sub.description}
                     </p>
 
@@ -364,19 +364,19 @@ export default function PublicProfilePage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="group block overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700"
+                              className="group block overflow-hidden rounded-lg border border-k-border"
                             >
                               {att.contentType?.startsWith('image/') ? (
                                 <img src={att.url} alt={att.filename || ''} className="h-32 w-full object-cover" />
                               ) : att.contentType?.startsWith('video/') ? (
                                 <video src={att.url} className="h-32 w-full object-cover" />
                               ) : (
-                                <div className="flex h-32 items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+                                <div className="flex h-32 items-center justify-center bg-surface">
                                   <span className="text-xs text-zinc-500">{att.filename || 'File'}</span>
                                 </div>
                               )}
                               <div className="px-2 py-1.5">
-                                <p className="truncate text-xs text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200">
+                                <p className="truncate text-xs text-zinc-400 group-hover:text-zinc-200">
                                   {att.filename || 'Download'}
                                 </p>
                               </div>
@@ -389,11 +389,11 @@ export default function PublicProfilePage() {
                     {/* Bottom row: bid amount, payout, date */}
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-4">
-                        <span className="text-zinc-600 dark:text-zinc-400">
-                          Bid: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatSol(sub.bid.amountLamports)}</span>
+                        <span className="text-zinc-400">
+                          Bid: <span className="font-semibold text-zinc-100">{formatSol(sub.bid.amountLamports)}</span>
                         </span>
                         {sub.payout.paid && (
-                          <span className="text-green-600 dark:text-green-400">
+                          <span className="text-green-400">
                             Paid: <span className="font-semibold">{formatSol(sub.payout.payoutLamports)}</span>
                           </span>
                         )}
@@ -409,7 +409,7 @@ export default function PublicProfilePage() {
                       {sub.task.creatorProfilePic ? (
                         <img src={sub.task.creatorProfilePic} alt="" className="h-4 w-4 rounded-full object-cover" />
                       ) : (
-                        <div className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                        <div className="flex h-4 w-4 items-center justify-center rounded-full bg-zinc-800 text-[8px] font-medium text-zinc-300">
                           {sub.task.creatorWallet.slice(0, 2)}
                         </div>
                       )}
@@ -425,7 +425,7 @@ export default function PublicProfilePage() {
                   <button
                     onClick={() => setSubmissionsPage((p) => Math.max(1, p - 1))}
                     disabled={submissionsPage === 1}
-                    className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50 dark:border-zinc-700"
+                    className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50 border-k-border"
                   >
                     Previous
                   </button>
@@ -435,7 +435,7 @@ export default function PublicProfilePage() {
                   <button
                     onClick={() => setSubmissionsPage((p) => Math.min(submissionsTotalPages, p + 1))}
                     disabled={submissionsPage === submissionsTotalPages}
-                    className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50 dark:border-zinc-700"
+                    className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-50 border-k-border"
                   >
                     Next
                   </button>
@@ -448,7 +448,7 @@ export default function PublicProfilePage() {
 
       {/* Stats Tab - As Client Section */}
       {activeTab === 'stats' && <section className="mb-10">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
+        <h2 className="text-lg font-semibold text-white mb-4">
           As Task Poster
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
@@ -468,42 +468,42 @@ export default function PublicProfilePage() {
         </div>
 
         {/* Task Status Breakdown */}
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 mb-4">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-3">Task Status Breakdown</h3>
+        <div className="rounded-xl border border-k-border p-4 mb-4">
+          <h3 className="text-sm font-medium text-white mb-3">Task Status Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Open</p>
-              <p className="font-semibold text-green-600 dark:text-green-400">{asClient.tasksOpen}</p>
+              <p className="text-zinc-400">Open</p>
+              <p className="font-semibold text-green-400">{asClient.tasksOpen}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">In Progress</p>
-              <p className="font-semibold text-blue-600 dark:text-blue-400">{asClient.tasksInProgress}</p>
+              <p className="text-zinc-400">In Progress</p>
+              <p className="font-semibold text-blue-400">{asClient.tasksInProgress}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Completed</p>
-              <p className="font-semibold text-zinc-600 dark:text-zinc-400">{asClient.tasksCompleted}</p>
+              <p className="text-zinc-400">Completed</p>
+              <p className="font-semibold text-zinc-400">{asClient.tasksCompleted}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Disputed</p>
-              <p className="font-semibold text-red-600 dark:text-red-400">{asClient.tasksDisputed}</p>
+              <p className="text-zinc-400">Disputed</p>
+              <p className="font-semibold text-red-400">{asClient.tasksDisputed}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Cancelled</p>
+              <p className="text-zinc-400">Cancelled</p>
               <p className="font-semibold text-zinc-500">{asClient.tasksCancelled}</p>
             </div>
           </div>
         </div>
 
         {/* Disputes as Client */}
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-3">Disputes (as Task Poster)</h3>
+        <div className="rounded-xl border border-k-border p-4">
+          <h3 className="text-sm font-medium text-white mb-3">Disputes (as Task Poster)</h3>
           <DisputeStats disputes={asClient.disputes} />
         </div>
       </section>}
 
       {/* As Worker Section */}
       {activeTab === 'stats' && <section>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
+        <h2 className="text-lg font-semibold text-white mb-4">
           As Worker
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
@@ -523,31 +523,31 @@ export default function PublicProfilePage() {
         </div>
 
         {/* Bid Status Breakdown */}
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 mb-4">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-3">Work Status Breakdown</h3>
+        <div className="rounded-xl border border-k-border p-4 mb-4">
+          <h3 className="text-sm font-medium text-white mb-3">Work Status Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Tasks Won</p>
-              <p className="font-semibold text-green-600 dark:text-green-400">{asWorker.tasksWon}</p>
+              <p className="text-zinc-400">Tasks Won</p>
+              <p className="font-semibold text-green-400">{asWorker.tasksWon}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">In Progress</p>
-              <p className="font-semibold text-blue-600 dark:text-blue-400">{asWorker.tasksInProgress}</p>
+              <p className="text-zinc-400">In Progress</p>
+              <p className="font-semibold text-blue-400">{asWorker.tasksInProgress}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Completed</p>
-              <p className="font-semibold text-zinc-600 dark:text-zinc-400">{asWorker.tasksCompleted}</p>
+              <p className="text-zinc-400">Completed</p>
+              <p className="font-semibold text-zinc-400">{asWorker.tasksCompleted}</p>
             </div>
             <div>
-              <p className="text-zinc-500 dark:text-zinc-400">Disputed</p>
-              <p className="font-semibold text-red-600 dark:text-red-400">{asWorker.tasksDisputed}</p>
+              <p className="text-zinc-400">Disputed</p>
+              <p className="font-semibold text-red-400">{asWorker.tasksDisputed}</p>
             </div>
           </div>
         </div>
 
         {/* Disputes as Worker */}
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-3">Disputes (as Worker)</h3>
+        <div className="rounded-xl border border-k-border p-4">
+          <h3 className="text-sm font-medium text-white mb-3">Disputes (as Worker)</h3>
           <DisputeStats disputes={asWorker.disputes} />
         </div>
       </section>}

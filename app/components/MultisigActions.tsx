@@ -225,8 +225,8 @@ export default function MultisigActions({
   const platformFee = (Math.floor(totalLamports * 0.1) / LAMPORTS_PER_SOL).toFixed(4)
 
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Escrow Actions</h3>
+    <div className="space-y-3 rounded-xl border border-k-border p-4">
+      <h3 className="text-sm font-semibold text-white">Escrow Actions</h3>
 
       {multisigAddress && (
         <div className="text-xs text-zinc-500 space-y-1">
@@ -235,11 +235,11 @@ export default function MultisigActions({
           <p>Escrow: {solAmount} SOL (bidder: {bidderPayout} / platform: {platformFee})</p>
           <p className="flex items-center gap-1.5">
             Bidder:{' '}
-            <Link href={`/u/${bidderWallet}`} className="inline-flex items-center gap-1.5 hover:text-zinc-700 dark:hover:text-zinc-300">
+            <Link href={`/u/${bidderWallet}`} className="inline-flex items-center gap-1.5 hover:text-zinc-300">
               {bidderProfilePic ? (
                 <img src={bidderProfilePic} alt="" className="inline h-5 w-5 rounded-full object-cover" />
               ) : (
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[8px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-zinc-700 text-[8px] font-medium text-zinc-400 bg-zinc-700 text-zinc-300">
                   {bidderWallet.slice(0, 2)}
                 </span>
               )}
@@ -250,30 +250,30 @@ export default function MultisigActions({
       )}
 
       {/* Status indicator */}
-      <div className="rounded-lg bg-zinc-50 px-3 py-2 text-xs dark:bg-zinc-900">
+      <div className="rounded-lg bg-surface px-3 py-2 text-xs">
         {bidStatus === 'ACCEPTED' && taskType === 'QUOTE' && (
-          <p className="text-blue-600 dark:text-blue-400">
+          <p className="text-blue-400">
             Bid accepted. {isCreator ? 'Fund the escrow vault to proceed.' : 'Waiting for task creator to fund the escrow vault.'}
           </p>
         )}
         {bidStatus === 'ACCEPTED' && taskType === 'COMPETITION' && (
-          <p className="text-blue-600 dark:text-blue-400">
+          <p className="text-blue-400">
             Submission selected. {isCreator ? 'Fund the vault and approve payment to complete.' : 'Waiting for task creator to fund and release payment.'}
           </p>
         )}
         {bidStatus === 'FUNDED' && (
-          <p className="text-blue-600 dark:text-blue-400">
+          <p className="text-blue-400">
             Vault funded. {isBidder ? 'Submit deliverables and request payment.' : 'Waiting for bidder to complete the task.'}
           </p>
         )}
         {bidStatus === 'PAYMENT_REQUESTED' && (
-          <p className="text-amber-600 dark:text-amber-400">
+          <p className="text-amber-400">
             Payment requested (proposal #{proposalIndex}).{' '}
             {isCreator ? 'Review and approve to release funds.' : 'Waiting for task creator approval.'}
           </p>
         )}
         {bidStatus === 'COMPLETED' && (
-          <p className="text-green-600 dark:text-green-400">
+          <p className="text-green-400">
             Payment released! Task completed.
             {paymentTxSig && (
               <> Tx: {paymentTxSig.slice(0, 8)}...{paymentTxSig.slice(-8)}</>
@@ -281,7 +281,7 @@ export default function MultisigActions({
           </p>
         )}
         {bidStatus === 'DISPUTED' && (
-          <p className="text-red-600 dark:text-red-400">
+          <p className="text-red-400">
             This task is under dispute. An arbiter will intervene.
           </p>
         )}
@@ -324,17 +324,17 @@ export default function MultisigActions({
       )}
 
       {status && (
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 break-all">{status}</p>
+        <p className="text-xs text-zinc-400 break-all">{status}</p>
       )}
 
       {/* Dispute Modal */}
       {showDisputeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 dark:bg-zinc-900">
-            <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-surface p-6">
+            <h3 className="mb-4 text-lg font-semibold text-white">
               Request Arbitration
             </h3>
-            <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mb-4 text-sm text-zinc-400">
               By raising a dispute, you are requesting the platform arbiter to review this task
               and decide how funds should be released. Please explain your issue clearly.
             </p>
@@ -342,7 +342,7 @@ export default function MultisigActions({
               value={disputeReason}
               onChange={(e) => setDisputeReason(e.target.value)}
               placeholder="Explain why you are raising this dispute (min 10 characters)..."
-              className="mb-4 h-32 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mb-4 h-32 w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-400 focus:border-accent/50 focus:outline-none"
             />
             <div className="flex gap-3">
               <button
@@ -352,7 +352,7 @@ export default function MultisigActions({
                   setStatus('')
                 }}
                 disabled={disputeLoading}
-                className="flex-1 rounded-lg border border-zinc-300 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="flex-1 rounded-lg border border-k-border py-2 text-sm font-medium text-zinc-300 hover:bg-surface-hover disabled:opacity-50"
               >
                 Cancel
               </button>
