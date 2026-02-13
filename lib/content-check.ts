@@ -30,34 +30,52 @@ export async function checkContentGuidelines(
     throw new Error('ANTHROPIC_API_KEY is not configured')
   }
 
-  const dosFormatted = guidelines.dos.map((d, i) => `  ${i + 1}. ${d}`).join('\n')
-  const dontsFormatted = guidelines.donts.map((d, i) => `  ${i + 1}. ${d}`).join('\n')
+  const hasDos = guidelines.dos.length > 0
+  const hasDonts = guidelines.donts.length > 0
+
+  // If no guidelines are set, auto-pass
+  if (!hasDos && !hasDonts) {
+    return { passed: true, explanation: 'No campaign guidelines configured — post accepted.' }
+  }
+
+  const dosFormatted = hasDos
+    ? guidelines.dos.map((d, i) => `  ${i + 1}. ${d}`).join('\n')
+    : '  (none specified)'
+  const dontsFormatted = hasDonts
+    ? guidelines.donts.map((d, i) => `  ${i + 1}. ${d}`).join('\n')
+    : '  (none specified)'
 
   const hasMedia = media.length > 0
   const mediaNote = hasMedia
-    ? `\n\nThe post also contains media attachments (images/videos). You MUST evaluate the media content against the guidelines as well. If any media violates the guidelines, the post should fail.`
+    ? `\n\nThe post also contains media attachments (images/videos). Evaluate the media content against the explicit guidelines as well. Only reject media if it clearly violates a stated guideline.`
     : ''
 
-  const systemPrompt = `You are a content compliance checker for a promotion campaign on a task marketplace. Your job is to evaluate whether a social media post meets the campaign guidelines set by the campaign creator.
+  const systemPrompt = `You are a content compliance checker for a promotion campaign. Your job is to evaluate whether a social media post violates any EXPLICIT campaign guidelines set by the campaign creator.
+
+IMPORTANT: Be PERMISSIVE. You should APPROVE the post UNLESS it clearly and directly violates one of the stated guidelines. Do NOT reject posts based on your own subjective standards, taste, or assumptions about what the campaign should want. Only the explicitly listed DO's and DON'Ts matter.
+
+- If a DO guideline is listed, the post should make a reasonable effort to follow it.
+- If a DON'T guideline is listed, the post must not violate it.
+- If no DO's are listed, there are no required elements.
+- If no DON'Ts are listed, nothing is prohibited.
+- When in doubt, APPROVE the post.
 
 You must respond with ONLY valid JSON in this exact format:
 {"passed": true, "explanation": "Brief reason"}
 or
-{"passed": false, "explanation": "Brief reason for failure"}
-
-Be strict but fair. The post must genuinely follow the guidelines, not just superficially.${mediaNote}`
+{"passed": false, "explanation": "Brief reason for failure — cite the specific guideline violated"}${mediaNote}`
 
   // Build message content blocks
   const contentBlocks: any[] = []
 
   // Add text prompt first
   const mediaDescription = hasMedia
-    ? `\n\nThe post includes ${media.length} media attachment(s). The images are provided below for your review. Evaluate both the text AND all media against the guidelines.`
+    ? `\n\nThe post includes ${media.length} media attachment(s). The images are provided below for your review. Only reject if media clearly violates a stated guideline.`
     : ''
 
   contentBlocks.push({
     type: 'text',
-    text: `Evaluate this post against the campaign guidelines.
+    text: `Evaluate this post against the campaign guidelines. ONLY reject if the post clearly violates an explicitly stated guideline.
 
 CAMPAIGN GUIDELINES:
 DO:
@@ -71,7 +89,7 @@ POST CONTENT (text):
 ${postText}
 """${mediaDescription}
 
-Does this post comply with ALL guidelines? Respond with JSON only.`,
+Does this post violate any of the explicitly stated guidelines? Respond with JSON only.`,
   })
 
   // Add image blocks for each media item
