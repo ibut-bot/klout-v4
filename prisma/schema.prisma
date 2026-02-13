@@ -310,3 +310,16 @@ model CampaignSubmission {
   @@index([status])
   @@schema("slopwork")
 }
+
+model KloutScore {
+  id        String  @id
+  name      String?
+  username  String?
+  image     String?
+  twitterId String?
+  score     Float   @default(0)
+  rank      Int
+
+  @@index([score])
+  @@schema("slopwork")
+}
