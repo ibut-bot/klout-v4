@@ -82,7 +82,10 @@ function ScoreRow({ user }: { user: KloutUser }) {
       </div>
 
       {/* Score */}
-      <span className="shrink-0 text-lg font-semibold text-accent">
+      <span className="flex shrink-0 items-center gap-0.5 text-lg font-semibold text-accent">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
         {formatNumber(user.score)}
       </span>
     </div>
