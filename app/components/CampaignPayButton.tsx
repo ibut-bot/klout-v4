@@ -6,6 +6,8 @@ import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { createProposalApproveExecuteWA } from '@/lib/solana/multisig'
 
+const PLATFORM_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
+
 interface Props {
   taskId: string
   submissionId: string
@@ -23,19 +25,19 @@ export default function CampaignPayButton({ taskId, submissionId, multisigAddres
   const [error, setError] = useState('')
 
   const handlePay = async () => {
-    if (!wallet.publicKey || !wallet.signTransaction) return
+    if (!wallet.publicKey || !wallet.signTransaction || !PLATFORM_WALLET) return
     setError('')
     setLoading(true)
 
     try {
-      // 1. Create proposal + approve + execute in one tx (no platform fee)
+      // 1. Create proposal + approve + execute in one tx (90% to recipient, 10% platform fee)
       const result = await createProposalApproveExecuteWA(
         connection,
         { publicKey: wallet.publicKey, signTransaction: wallet.signTransaction },
         new PublicKey(multisigAddress),
         new PublicKey(recipientWallet),
         Number(payoutLamports),
-        undefined, // no platform fee
+        new PublicKey(PLATFORM_WALLET),
       )
 
       // 2. Notify the backend
@@ -58,14 +60,20 @@ export default function CampaignPayButton({ taskId, submissionId, multisigAddres
     }
   }
 
-  const solAmount = (Number(payoutLamports) / LAMPORTS_PER_SOL).toFixed(4)
+  const totalLamports = Number(payoutLamports)
+  const platformFee = Math.floor(totalLamports * 0.1)
+  const recipientAmount = totalLamports - platformFee
+  const solAmount = (totalLamports / LAMPORTS_PER_SOL).toFixed(4)
+  const recipientSol = (recipientAmount / LAMPORTS_PER_SOL).toFixed(4)
+  const feeSol = (platformFee / LAMPORTS_PER_SOL).toFixed(4)
 
   return (
     <div>
       <button
         onClick={handlePay}
-        disabled={loading}
+        disabled={loading || !PLATFORM_WALLET}
         className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+        title={`${recipientSol} SOL to creator + ${feeSol} SOL platform fee`}
       >
         {loading ? 'Paying...' : `Pay ${solAmount} SOL`}
       </button>
