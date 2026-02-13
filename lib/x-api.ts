@@ -7,7 +7,7 @@ const X_CLIENT_ID = process.env.AUTH_TWITTER_ID || ''
 const X_CLIENT_SECRET = process.env.AUTH_TWITTER_SECRET || ''
 const X_REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/x/callback`
 
-const X_AUTH_URL = 'https://twitter.com/i/oauth2/authorize'
+const X_AUTH_URL = 'https://x.com/i/oauth2/authorize'
 const X_TOKEN_URL = 'https://api.twitter.com/2/oauth2/token'
 const X_USERINFO_URL = 'https://api.twitter.com/2/users/me'
 const X_TWEET_URL = 'https://api.twitter.com/2/tweets'
@@ -25,7 +25,7 @@ export function buildAuthUrl(state: string, codeChallenge: string): string {
     response_type: 'code',
     client_id: X_CLIENT_ID,
     redirect_uri: X_REDIRECT_URI,
-    scope: 'tweet.read users.read offline.access',
+    scope: 'users.read tweet.read offline.access users.email',
     state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
@@ -98,6 +98,27 @@ export async function refreshXToken(refreshToken: string): Promise<{
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresIn: data.expires_in,
+  }
+}
+
+/** Revoke an X access token so the next OAuth flow shows the account picker */
+export async function revokeXToken(token: string): Promise<void> {
+  const basicAuth = Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64')
+
+  try {
+    await fetch('https://api.twitter.com/2/oauth2/revoke', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${basicAuth}`,
+      },
+      body: new URLSearchParams({
+        token,
+        token_type_hint: 'access_token',
+      }),
+    })
+  } catch (err) {
+    console.error('X token revocation failed (non-fatal):', err)
   }
 }
 

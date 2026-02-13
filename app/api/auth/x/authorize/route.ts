@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/api-helpers'
-import { generatePKCE, buildAuthUrl } from '@/lib/x-api'
+import { generatePKCE, buildAuthUrl, revokeXToken } from '@/lib/x-api'
+import { prisma } from '@/lib/db'
 import crypto from 'crypto'
 
 /**
@@ -12,6 +13,15 @@ import crypto from 'crypto'
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
+
+  // Revoke any existing X token so X shows the account picker
+  const user = await prisma.user.findUnique({
+    where: { id: auth.userId },
+    select: { xAccessToken: true },
+  })
+  if (user?.xAccessToken) {
+    await revokeXToken(user.xAccessToken)
+  }
 
   const state = crypto.randomBytes(16).toString('hex')
   const { verifier, challenge } = generatePKCE()
