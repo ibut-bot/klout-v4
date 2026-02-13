@@ -133,6 +133,7 @@ export default function TaskDetailPage() {
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; minViews: number; minPayoutLamports: string
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
+  const [dashboardRefresh, setDashboardRefresh] = useState(0)
 
   const fetchTask = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}`)
@@ -337,7 +338,7 @@ export default function TaskDetailPage() {
 
       {/* Description */}
       <div className="mb-6">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-600 text-zinc-400">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
           {task.description}
         </p>
       </div>
@@ -557,6 +558,7 @@ export default function TaskDetailPage() {
               taskId={task.id}
               multisigAddress={task.multisigAddress}
               isCreator={true}
+              refreshTrigger={dashboardRefresh}
             />
           )}
 
@@ -569,7 +571,7 @@ export default function TaskDetailPage() {
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
               minPayoutLamports={campaignConfig.minPayoutLamports}
               xLinked={xLinked}
-              onSubmitted={fetchTask}
+              onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
             />
           )}
 
@@ -579,6 +581,7 @@ export default function TaskDetailPage() {
               taskId={task.id}
               multisigAddress={task.multisigAddress}
               isCreator={false}
+              refreshTrigger={dashboardRefresh}
             />
           )}
 
