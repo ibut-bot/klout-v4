@@ -4,16 +4,19 @@
  * Usage:
  *   V3_DATABASE_URL="postgres://..." npx tsx scripts/import-klout-scores.ts
  *
- * If V3_DATABASE_URL is not set, it falls back to the hardcoded v3 connection string.
+ * V3_DATABASE_URL must be set as an environment variable (or in .env).
  */
 
 import "dotenv/config";
 import { Pool } from "pg";
 import { PrismaClient } from "../app/generated/prisma/client";
 
-const V3_DATABASE_URL =
-  process.env.V3_DATABASE_URL ||
-  "***REDACTED***";
+const V3_DATABASE_URL = process.env.V3_DATABASE_URL;
+
+if (!V3_DATABASE_URL) {
+  console.error("Error: V3_DATABASE_URL environment variable is required.");
+  process.exit(1);
+}
 
 async function main() {
   console.log("Connecting to v3 database...");
