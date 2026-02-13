@@ -166,42 +166,40 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     <div className="space-y-6">
       {/* Stats Cards — creator only */}
       {isCreator && (
-        <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
-              <p className="text-xs text-zinc-500">Total Budget</p>
-              <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.totalBudgetLamports)} SOL</p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
-              <p className="text-xs text-zinc-500">Remaining</p>
-              <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.budgetRemainingLamports)} SOL</p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
-              <p className="text-xs text-zinc-500">Total Views</p>
-              <p className="text-lg font-semibold text-zinc-100">{stats.totalViews.toLocaleString()}</p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
-              <p className="text-xs text-zinc-500">Submissions</p>
-              <p className="text-lg font-semibold text-zinc-100">{stats.totalSubmissions}</p>
-              <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paymentRequested} pending pay, {stats.paid} paid, {stats.rejected} rejected</p>
-            </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Total Budget</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.totalBudgetLamports)} SOL</p>
           </div>
-
-          {/* Budget Progress Bar */}
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
-              <span>Budget used: {budgetPct.toFixed(1)}%</span>
-              <span>CPM: {formatSol(stats.cpmLamports)} SOL</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700 bg-surface">
-              <div
-                className="h-full rounded-full bg-green-500 transition-all"
-                style={{ width: `${Math.min(budgetPct, 100)}%` }}
-              />
-            </div>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Remaining</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.budgetRemainingLamports)} SOL</p>
           </div>
-        </>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Total Views</p>
+            <p className="text-lg font-semibold text-zinc-100">{stats.totalViews.toLocaleString()}</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Submissions</p>
+            <p className="text-lg font-semibold text-zinc-100">{stats.totalSubmissions}</p>
+            <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paymentRequested} pending pay, {stats.paid} paid, {stats.rejected} rejected</p>
+          </div>
+        </div>
       )}
+
+      {/* Budget Progress Bar */}
+      <div>
+        <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
+          <span>Budget used: {budgetPct.toFixed(1)}%</span>
+          <span>CPM: {formatSol(stats.cpmLamports)} SOL</span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700 bg-surface">
+          <div
+            className="h-full rounded-full bg-green-500 transition-all"
+            style={{ width: `${Math.min(budgetPct, 100)}%` }}
+          />
+        </div>
+      </div>
 
       {/* Request Payment section (for non-creators) */}
       {!isCreator && (
