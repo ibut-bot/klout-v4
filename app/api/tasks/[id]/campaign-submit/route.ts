@@ -130,20 +130,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 4. Check for duplicate
-  const existing = await prisma.campaignSubmission.findUnique({
-    where: { taskId_xPostId: { taskId, xPostId } },
+  // 4. Check for duplicate — globally across all campaigns
+  const existing = await prisma.campaignSubmission.findFirst({
+    where: { xPostId },
   })
 
   if (existing) {
-    // If a previous attempt got stuck in a processing state (e.g. timeout),
+    // If a previous attempt got stuck in a processing state (e.g. timeout) on THIS task,
     // delete it so the user can retry
     const processingStates = ['READING_VIEWS', 'CHECKING_CONTENT']
-    if (processingStates.includes(existing.status)) {
+    if (existing.taskId === taskId && processingStates.includes(existing.status)) {
       await prisma.campaignSubmission.delete({ where: { id: existing.id } })
     } else {
       return Response.json(
-        { success: false, error: 'DUPLICATE', message: 'This post has already been submitted to this campaign' },
+        { success: false, error: 'DUPLICATE', message: 'This post has already been submitted to a campaign' },
         { status: 409 }
       )
     }
@@ -306,19 +306,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  // 11. Calculate payout
+  // 11. Calculate payout (budget is NOT deducted here — only at payment request time)
   const payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * Number(config.cpmLamports)))
-  // Cap payout at remaining budget
-  const actualPayout = payoutLamports > config.budgetRemainingLamports
-    ? config.budgetRemainingLamports
-    : payoutLamports
 
-  if (actualPayout <= BigInt(0)) {
+  if (payoutLamports <= BigInt(0)) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
       data: {
         status: 'REJECTED',
-        rejectionReason: 'Campaign budget has been exhausted.',
+        rejectionReason: 'Calculated payout is zero.',
         contentCheckPassed: true,
         contentCheckExplanation: contentCheck.explanation,
         viewCount: postMetrics.viewCount,
@@ -326,73 +322,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     })
     return Response.json(
-      { success: false, error: 'BUDGET_EXHAUSTED', message: 'Campaign budget has been exhausted' },
+      { success: false, error: 'ZERO_PAYOUT', message: 'Calculated payout is zero' },
       { status: 400 }
     )
   }
 
-  // 12. Update submission and reduce budget atomically
-  // Use interactive transaction to prevent race condition where concurrent requests overspend
-  const updatedSubmission = await prisma.$transaction(async (tx) => {
-    // Re-read budget inside the transaction to get a consistent snapshot
-    const freshConfig = await tx.campaignConfig.findUnique({ where: { taskId } })
-    if (!freshConfig || freshConfig.budgetRemainingLamports <= BigInt(0)) {
-      // Budget exhausted between our earlier check and now
-      await tx.campaignSubmission.update({
-        where: { id: submission.id },
-        data: { status: 'REJECTED', rejectionReason: 'Campaign budget has been exhausted.' },
-      })
-      return null
-    }
-
-    // Recalculate payout against fresh budget
-    const safePayout = actualPayout > freshConfig.budgetRemainingLamports
-      ? freshConfig.budgetRemainingLamports
-      : actualPayout
-
-    if (safePayout <= BigInt(0)) {
-      await tx.campaignSubmission.update({
-        where: { id: submission.id },
-        data: { status: 'REJECTED', rejectionReason: 'Campaign budget has been exhausted.' },
-      })
-      return null
-    }
-
-    const updated = await tx.campaignSubmission.update({
-      where: { id: submission.id },
-      data: {
-        status: 'APPROVED',
-        viewCount: postMetrics.viewCount,
-        viewsReadAt: now,
-        contentCheckPassed: true,
-        contentCheckExplanation: contentCheck.explanation,
-        payoutLamports: safePayout,
-      },
-    })
-
-    await tx.campaignConfig.update({
-      where: { taskId },
-      data: {
-        budgetRemainingLamports: { decrement: safePayout },
-      },
-    })
-
-    return updated
+  // 12. Approve the submission (no budget deduction — that happens when user requests payment)
+  const updatedSubmission = await prisma.campaignSubmission.update({
+    where: { id: submission.id },
+    data: {
+      status: 'APPROVED',
+      viewCount: postMetrics.viewCount,
+      viewsReadAt: now,
+      contentCheckPassed: true,
+      contentCheckExplanation: contentCheck.explanation,
+      payoutLamports,
+    },
   })
-
-  if (!updatedSubmission) {
-    return Response.json(
-      { success: false, error: 'BUDGET_EXHAUSTED', message: 'Campaign budget has been exhausted' },
-      { status: 400 }
-    )
-  }
 
   // 13. Notify campaign creator
   await createNotification({
     userId: task.creatorId,
-    type: 'CAMPAIGN_PAYMENT_REQUEST',
-    title: 'New campaign payout request',
-    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Payout: ${Number(actualPayout) / 1e9} SOL`,
+    type: 'CAMPAIGN_SUBMISSION_APPROVED',
+    title: 'New campaign post approved',
+    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${Number(payoutLamports) / 1e9} SOL`,
     linkUrl: `/tasks/${taskId}`,
   })
 
@@ -401,7 +354,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     userId,
     type: 'CAMPAIGN_SUBMISSION_APPROVED',
     title: 'Campaign submission approved!',
-    body: `Your post was approved with ${postMetrics.viewCount} views. Pending payout: ${Number(actualPayout) / 1e9} SOL`,
+    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${Number(payoutLamports) / 1e9} SOL. Request payment once you meet the minimum payout threshold.`,
     linkUrl: `/tasks/${taskId}`,
   })
 

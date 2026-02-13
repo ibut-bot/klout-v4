@@ -77,9 +77,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  if (submission.status !== 'APPROVED') {
+  if (submission.status !== 'PAYMENT_REQUESTED') {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, expected APPROVED` },
+      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, expected PAYMENT_REQUESTED` },
       { status: 400 }
     )
   }

@@ -15,6 +15,7 @@
  *   --duration     (Competition/Campaign) Duration in days (1-365). After this, no new entries accepted.
  *   --image        (Campaign) Path to campaign image file
  *   --cpm          (Campaign) Cost per 1000 views in SOL
+ *   --min-payout   (Campaign) Minimum cumulative payout in SOL before user can request payment (default: 0)
  *   --dos          (Campaign) Comma-separated list of dos guidelines
  *   --donts        (Campaign) Comma-separated list of donts guidelines
  *   --password     Wallet password to sign transactions
@@ -134,6 +135,7 @@ async function main() {
       campaignFields = {
         cpmLamports: Math.round(cpmSol * LAMPORTS_PER_SOL),
         guidelines: { dos, donts },
+        ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * LAMPORTS_PER_SOL) } : {}),
       }
 
       // Upload image if provided

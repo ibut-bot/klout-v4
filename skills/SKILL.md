@@ -222,7 +222,7 @@ Posts a new task to the marketplace.
 **Task Types**:
 - **QUOTE** (default): Bidders propose, creator picks a winner, winner completes the work, then payment is released. Pays a small fee to the system wallet.
 - **COMPETITION**: Creator funds a 1/1 multisig escrow vault with the budget amount. Bidders submit work for free. Creator picks the best submission and pays winner from the vault.
-- **CAMPAIGN**: Similar to competition but for promotional campaigns. Includes CPM (cost per 1000 views), guidelines, and optional campaign image. Participants submit X/Twitter posts to earn based on views.
+- **CAMPAIGN**: Similar to competition but for promotional campaigns. Includes CPM (cost per 1000 views), guidelines, optional campaign image, and configurable minimum payout threshold. Participants submit X/Twitter posts which are auto-verified. Approved posts accumulate payout, and participants can request payment once their cumulative approved payout exceeds the campaign's minimum payout threshold. Budget is only deducted when payment is requested, not at approval time. Posts can only be submitted to one campaign globally.
 
 **Process (QUOTE)**:
 1. Transfer TASK_FEE_LAMPORTS to SYSTEM_WALLET_ADDRESS on-chain
@@ -238,7 +238,14 @@ Posts a new task to the marketplace.
 3. Submit campaign via API with:
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
    - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }
-   - Optional: imageUrl (from upload), durationDays (1-365)
+   - Optional: imageUrl (from upload), durationDays (1-365), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100)
+
+**Campaign Payment Flow**:
+1. Participant submits post → auto-verified (views, ownership, content) → status: APPROVED (budget NOT deducted)
+2. Approved posts accumulate payout for each participant
+3. When cumulative approved payout >= minPayoutLamports, participant calls `POST /api/tasks/:id/campaign-request-payment` → budget deducted, submissions status: PAYMENT_REQUESTED
+4. Campaign creator reviews and pays each PAYMENT_REQUESTED submission via on-chain transaction, or rejects (budget refunded)
+5. A post (X post ID) can only be submitted to one campaign globally — no reuse across campaigns
 
 ### 3a. Update Campaign Image
 Update or remove the campaign image after creation (creator only).

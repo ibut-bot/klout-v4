@@ -34,14 +34,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const submissions = await prisma.campaignSubmission.findMany({
     where: { taskId },
-    select: { status: true, viewCount: true, payoutLamports: true },
+    select: { status: true, viewCount: true, payoutLamports: true, submitterId: true },
   })
 
   const totalSubmissions = submissions.length
   const approved = submissions.filter((s) => s.status === 'APPROVED').length
+  const paymentRequested = submissions.filter((s) => s.status === 'PAYMENT_REQUESTED').length
   const paid = submissions.filter((s) => s.status === 'PAID').length
   const rejected = submissions.filter((s) => s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED').length
-  const pending = submissions.filter((s) => !['APPROVED', 'PAID', 'REJECTED', 'CREATOR_REJECTED'].includes(s.status)).length
+  const pending = submissions.filter((s) => !['APPROVED', 'PAYMENT_REQUESTED', 'PAID', 'REJECTED', 'CREATOR_REJECTED'].includes(s.status)).length
 
   const totalViews = submissions
     .filter((s) => s.viewCount !== null)
@@ -51,8 +52,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .filter((s) => s.status === 'PAID' && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
 
+  // Budget allocated = PAYMENT_REQUESTED + PAID (only these have budget deducted)
   const totalAllocated = submissions
-    .filter((s) => (s.status === 'APPROVED' || s.status === 'PAID') && s.payoutLamports)
+    .filter((s) => (s.status === 'PAYMENT_REQUESTED' || s.status === 'PAID') && s.payoutLamports)
+    .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
+
+  // Calculate per-user unpaid approved totals for the requesting user
+  const { userId } = auth
+  const myApprovedPayout = submissions
+    .filter((s) => s.submitterId === userId && s.status === 'APPROVED' && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
 
   return Response.json({
@@ -64,12 +72,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       budgetSpentLamports: totalSpent.toString(),
       cpmLamports: task.campaignConfig.cpmLamports.toString(),
       minViews: task.campaignConfig.minViews,
+      minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
       totalSubmissions,
       approved,
+      paymentRequested,
       paid,
       rejected,
       pending,
       totalViews,
+      myApprovedPayoutLamports: myApprovedPayout.toString(),
     },
   })
 }

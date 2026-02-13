@@ -130,7 +130,7 @@ export default function TaskDetailPage() {
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
-    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; minViews: number
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; minViews: number; minPayoutLamports: string
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
 
@@ -567,6 +567,7 @@ export default function TaskDetailPage() {
               guidelines={campaignConfig.guidelines}
               cpmLamports={campaignConfig.cpmLamports}
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
+              minPayoutLamports={campaignConfig.minPayoutLamports}
               xLinked={xLinked}
               onSubmitted={fetchTask}
             />
@@ -588,6 +589,9 @@ export default function TaskDetailPage() {
               <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
                 <p>CPM: {(Number(campaignConfig.cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL per 1,000 views</p>
                 <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                {Number(campaignConfig.minPayoutLamports) > 0 && (
+                  <p>Min payout threshold: {(Number(campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                )}
                 <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
               </div>
             </div>

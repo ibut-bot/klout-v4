@@ -188,8 +188,10 @@ export async function GET() {
           imageUrl: 'Optional (CAMPAIGN). URL of the campaign image (upload via POST /api/upload first).',
           cpmLamports: 'Required for CAMPAIGN. Cost per 1000 views in lamports.',
           guidelines: 'Required for CAMPAIGN. Object with { dos: string[], donts: string[] } arrays.',
+          minViews: 'Optional for CAMPAIGN. Minimum views per post to qualify (default: 100). Set to 0 to accept all posts.',
+          minPayoutLamports: 'Optional for CAMPAIGN. Minimum cumulative payout in lamports before a user can request payment (default: 0). Posts accumulate payout and user can request once threshold is met.',
         },
-        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--dos "do1,do2"] [--donts "dont1,dont2"]',
+        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--dos "do1,do2"] [--donts "dont1,dont2"] [--min-payout 0.05]',
       },
       updateTaskImage: {
         description: 'Update or remove the campaign image (task creator only).',

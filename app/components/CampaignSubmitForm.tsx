@@ -13,11 +13,12 @@ interface Props {
   guidelines: { dos: string[]; donts: string[] }
   cpmLamports: string
   budgetRemainingLamports: string
+  minPayoutLamports?: string
   xLinked: boolean
   onSubmitted: () => void
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, xLinked, onSubmitted }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, xLinked, onSubmitted }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -102,6 +103,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   const feeSol = (X_API_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)
   const cpmSol = (Number(cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)
   const remainingSol = (Number(budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(4)
+  const minPayoutSol = minPayoutLamports && Number(minPayoutLamports) > 0
+    ? (Number(minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)
+    : null
 
   if (!xLinked) {
     return (
@@ -131,6 +135,12 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           <span>Verification fee:</span>
           <span className="font-medium text-zinc-100">{feeSol} SOL</span>
         </div>
+        {minPayoutSol && (
+          <div className="flex justify-between">
+            <span>Min payout threshold:</span>
+            <span className="font-medium text-zinc-100">{minPayoutSol} SOL</span>
+          </div>
+        )}
       </div>
 
       {/* Guidelines */}

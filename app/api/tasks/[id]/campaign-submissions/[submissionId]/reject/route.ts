@@ -10,8 +10,9 @@ interface RouteContext {
 /**
  * POST /api/tasks/[id]/campaign-submissions/[submissionId]/reject
  *
- * Allows the campaign creator to reject an APPROVED submission with a reason.
- * The allocated budget is refunded back to the campaign.
+ * Allows the campaign creator to reject an APPROVED or PAYMENT_REQUESTED submission.
+ * - If APPROVED: no budget refund needed (budget not yet deducted).
+ * - If PAYMENT_REQUESTED: budget is refunded back to the campaign.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireAuth(request)
@@ -83,16 +84,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  if (submission.status !== 'APPROVED') {
+  const rejectableStatuses = ['APPROVED', 'PAYMENT_REQUESTED']
+  if (!rejectableStatuses.includes(submission.status)) {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, expected APPROVED` },
+      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, expected APPROVED or PAYMENT_REQUESTED` },
       { status: 400 }
     )
   }
 
-  const payoutToRefund = submission.payoutLamports || BigInt(0)
+  const needsBudgetRefund = submission.status === 'PAYMENT_REQUESTED'
+  const payoutToRefund = needsBudgetRefund ? (submission.payoutLamports || BigInt(0)) : BigInt(0)
 
-  // Reject submission and refund budget atomically
+  // Reject submission and refund budget atomically (only if PAYMENT_REQUESTED)
   await prisma.$transaction([
     prisma.campaignSubmission.update({
       where: { id: submissionId },
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         rejectionReason: reason.trim(),
       },
     }),
-    // Refund the allocated budget back to the campaign
+    // Refund the allocated budget back to the campaign (only for PAYMENT_REQUESTED)
     ...(payoutToRefund > BigInt(0)
       ? [
           prisma.campaignConfig.update({

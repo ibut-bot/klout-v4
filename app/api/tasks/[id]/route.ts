@@ -75,6 +75,7 @@ export async function GET(
             budgetRemainingLamports: task.campaignConfig.budgetRemainingLamports.toString(),
             guidelines: task.campaignConfig.guidelines,
             minViews: task.campaignConfig.minViews,
+            minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
           }
         : null,
       bidCount: task._count.bids,

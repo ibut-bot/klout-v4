@@ -12,12 +12,15 @@ interface CampaignStats {
   budgetSpentLamports: string
   cpmLamports: string
   minViews: number
+  minPayoutLamports: string
   totalSubmissions: number
   approved: number
+  paymentRequested: number
   paid: number
   rejected: number
   pending: number
   totalViews: number
+  myApprovedPayoutLamports: string
 }
 
 interface CampaignSubmission {
@@ -59,6 +62,7 @@ const STATUS_BADGE: Record<string, string> = {
   READING_VIEWS: 'bg-blue-500/20 text-blue-400',
   CHECKING_CONTENT: 'bg-blue-500/20 text-blue-400',
   APPROVED: 'bg-green-500/20 text-green-400',
+  PAYMENT_REQUESTED: 'bg-purple-500/20 text-purple-400',
   REJECTED: 'bg-red-500/20 text-red-400',
   CREATOR_REJECTED: 'bg-orange-500/20 text-orange-400',
   PAID: 'bg-emerald-500/20 text-emerald-400',
@@ -74,6 +78,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
   const [rejectReason, setRejectReason] = useState('')
   const [rejectLoading, setRejectLoading] = useState(false)
   const [rejectError, setRejectError] = useState('')
+  const [requestingPayment, setRequestingPayment] = useState(false)
+  const [requestPaymentError, setRequestPaymentError] = useState('')
+  const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
 
   const fetchData = useCallback(async () => {
     try {
@@ -115,6 +122,27 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
     setRejectLoading(false)
   }
 
+  const handleRequestPayment = async () => {
+    setRequestingPayment(true)
+    setRequestPaymentError('')
+    setRequestPaymentSuccess('')
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-request-payment`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setRequestPaymentError(data.message || 'Payment request failed')
+      } else {
+        setRequestPaymentSuccess(`Payment requested for ${data.submissionCount} post(s) — ${formatSol(data.totalPayoutLamports)} SOL`)
+        fetchData()
+      }
+    } catch {
+      setRequestPaymentError('Network error')
+    }
+    setRequestingPayment(false)
+  }
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -128,6 +156,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
   const budgetPct = Number(stats.totalBudgetLamports) > 0
     ? ((Number(stats.totalBudgetLamports) - Number(stats.budgetRemainingLamports)) / Number(stats.totalBudgetLamports)) * 100
     : 0
+
+  const myApprovedPayout = Number(stats.myApprovedPayoutLamports || '0')
+  const minPayoutThreshold = Number(stats.minPayoutLamports || '0')
+  const canRequestPayment = !isCreator && myApprovedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
 
   return (
     <div className="space-y-6">
@@ -148,7 +180,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
         <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
           <p className="text-xs text-zinc-500">Submissions</p>
           <p className="text-lg font-semibold text-zinc-100">{stats.totalSubmissions}</p>
-          <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paid} paid, {stats.rejected} rejected</p>
+          <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paymentRequested} pending pay, {stats.paid} paid, {stats.rejected} rejected</p>
         </div>
       </div>
 
@@ -165,6 +197,55 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
           />
         </div>
       </div>
+
+      {/* Request Payment section (for non-creators) */}
+      {!isCreator && (
+        <div className="rounded-xl border border-k-border p-4">
+          <h3 className="mb-2 text-sm font-semibold text-white">Your Payout</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-zinc-400">
+              <span>Approved (unpaid):</span>
+              <span className="font-medium text-zinc-100">{formatSol(myApprovedPayout)} SOL</span>
+            </div>
+            {minPayoutThreshold > 0 && (
+              <div className="flex justify-between text-zinc-400">
+                <span>Min payout threshold:</span>
+                <span className="font-medium text-zinc-100">{formatSol(minPayoutThreshold)} SOL</span>
+              </div>
+            )}
+            {minPayoutThreshold > 0 && myApprovedPayout > 0 && myApprovedPayout < minPayoutThreshold && (
+              <div className="mt-1">
+                <div className="mb-1 text-xs text-zinc-500">Progress to threshold: {((myApprovedPayout / minPayoutThreshold) * 100).toFixed(1)}%</div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-700">
+                  <div
+                    className="h-full rounded-full bg-purple-500 transition-all"
+                    style={{ width: `${Math.min((myApprovedPayout / minPayoutThreshold) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {requestPaymentError && (
+              <p className="text-xs text-red-400">{requestPaymentError}</p>
+            )}
+            {requestPaymentSuccess && (
+              <p className="text-xs text-green-400">{requestPaymentSuccess}</p>
+            )}
+            <button
+              onClick={handleRequestPayment}
+              disabled={!canRequestPayment || requestingPayment}
+              className="w-full rounded-lg bg-accent py-2 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
+            >
+              {requestingPayment
+                ? 'Requesting...'
+                : canRequestPayment
+                  ? `Request Payment (${formatSol(myApprovedPayout)} SOL)`
+                  : myApprovedPayout > 0
+                    ? `Below threshold (${formatSol(myApprovedPayout)} / ${formatSol(minPayoutThreshold)} SOL)`
+                    : 'No approved payouts yet'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Submissions Table */}
       <div>
@@ -215,7 +296,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
-                        {s.status.replace('_', ' ')}
+                        {s.status.replace(/_/g, ' ')}
                       </span>
                       {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
                         <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`} title={s.rejectionReason}>
@@ -229,7 +310,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
                     </td>
                     {isCreator && (
                       <td className="py-3">
-                        {s.status === 'APPROVED' && s.payoutLamports && (
+                        {s.status === 'PAYMENT_REQUESTED' && s.payoutLamports && (
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                               <CampaignPayButton
@@ -247,6 +328,45 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator }
                                 Reject
                               </button>
                             </div>
+                            {rejectingId === s.id && (
+                              <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
+                                <textarea
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  placeholder="Reason for rejection..."
+                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
+                                  rows={2}
+                                  maxLength={500}
+                                />
+                                {rejectError && <p className="text-xs text-red-500">{rejectError}</p>}
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleReject(s.id)}
+                                    disabled={rejectLoading}
+                                    className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                  >
+                                    {rejectLoading ? 'Rejecting...' : 'Confirm Reject'}
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingId(null)}
+                                    className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {(s.status === 'APPROVED') && s.payoutLamports && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-zinc-500">Awaiting payment request</span>
+                            <button
+                              onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError('') }}
+                              className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              Reject
+                            </button>
                             {rejectingId === s.id && (
                               <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
                                 <textarea

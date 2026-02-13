@@ -82,6 +82,7 @@ enum CampaignSubmissionStatus {
   READING_VIEWS
   CHECKING_CONTENT
   APPROVED
+  PAYMENT_REQUESTED
   REJECTED
   CREATOR_REJECTED
   PAID
@@ -274,6 +275,7 @@ model CampaignConfig {
   budgetRemainingLamports BigInt   // Tracks remaining budget
   guidelines              Json     // { dos: string[], donts: string[] }
   minViews                Int    @default(100)
+  minPayoutLamports       BigInt @default(0)  // Minimum cumulative payout before user can request payment
 
   task                    Task   @relation(fields: [taskId], references: [id])
 
