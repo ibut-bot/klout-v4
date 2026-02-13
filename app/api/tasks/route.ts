@@ -26,11 +26,19 @@ export async function GET(request: NextRequest) {
   const skip = (page - 1) * limit
 
   const where: any = {}
-  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
-    where.status = status
-  }
   if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
+  }
+  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
+    // For CAMPAIGN tasks with COMPLETED filter, also include budget-exhausted campaigns
+    if (status === 'COMPLETED' && taskType === 'CAMPAIGN') {
+      where.OR = [
+        { status: 'COMPLETED' },
+        { campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
+      ]
+    } else {
+      where.status = status
+    }
   }
 
   const [tasks, total] = await Promise.all([

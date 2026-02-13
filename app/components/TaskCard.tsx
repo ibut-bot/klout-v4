@@ -184,16 +184,9 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
         <div className="p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
             <h3 className="text-base font-semibold text-white group-hover:text-accent transition-colors line-clamp-1">{title}</h3>
-            <div className="flex items-center gap-1.5">
-              {taskType && (
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[taskType] || ''}`}>
-                  {taskType === 'COMPETITION' ? 'Competition' : taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
-                </span>
-              )}
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
-                {status.replace('_', ' ')}
-              </span>
-            </div>
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
+              {status.replace('_', ' ')}
+            </span>
           </div>
           
           <p className="mb-3 line-clamp-2 text-sm text-zinc-500">{description}</p>

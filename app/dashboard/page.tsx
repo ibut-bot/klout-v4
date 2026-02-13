@@ -310,7 +310,7 @@ export default function DashboardPage() {
     const fetchBids = async () => {
       setLoadingBids(true)
       try {
-        const res = await authFetch('/api/me/bids?limit=50')
+        const res = await authFetch('/api/me/bids?limit=50&taskType=CAMPAIGN')
         const data = await res.json()
         if (data.success) {
           setMyBids(data.bids)

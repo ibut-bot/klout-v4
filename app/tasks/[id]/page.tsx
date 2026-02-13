@@ -56,6 +56,7 @@ interface Task {
   status: string
   multisigAddress?: string | null
   vaultAddress?: string | null
+  imageUrl?: string | null
   creatorWallet: string
   creatorUsername?: string | null
   creatorProfilePic?: string | null
@@ -270,9 +271,6 @@ export default function TaskDetailPage() {
             >
               {copied ? 'Copied!' : 'Copy Link'}
             </button>
-            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${TYPE_COLORS[task.taskType] || ''}`}>
-              {task.taskType === 'COMPETITION' ? 'Competition' : task.taskType === 'CAMPAIGN' ? 'Campaign' : 'Quote'}
-            </span>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[task.status] || ''}`}>
               {task.status.replace('_', ' ')}
             </span>
@@ -324,11 +322,15 @@ export default function TaskDetailPage() {
             <span>by {task.creatorUsername || `${task.creatorWallet.slice(0, 6)}...${task.creatorWallet.slice(-4)}`}</span>
           </Link>
           <span>{new Date(task.createdAt).toLocaleDateString()}</span>
-          <span className="text-zinc-400">•</span>
-          <span>{task.bidCount} bids</span>
-          <span className="text-zinc-400">•</span>
-          <span>{task.messageCount} messages</span>
-          {submissions.length > 0 && (
+          {isCreator && (
+            <>
+              <span className="text-zinc-400">•</span>
+              <span>{task.bidCount} bids</span>
+              <span className="text-zinc-400">•</span>
+              <span>{task.messageCount} messages</span>
+            </>
+          )}
+          {isCreator && submissions.length > 0 && (
             <>
               <span className="text-zinc-400">•</span>
               <span>{submissions.length} submissions</span>
@@ -336,6 +338,17 @@ export default function TaskDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Campaign Image */}
+      {task.imageUrl && (
+        <div className="mb-6 overflow-hidden rounded-xl">
+          <img
+            src={task.imageUrl}
+            alt={task.title}
+            className="w-full max-h-[400px] object-cover"
+          />
+        </div>
+      )}
 
       {/* Description */}
       <div className="mb-6">

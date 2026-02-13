@@ -23,7 +23,7 @@ interface Task {
   createdAt: string
 }
 
-const STATUSES = ['all', 'open', 'in_progress', 'completed', 'disputed']
+const STATUSES = ['all', 'open', 'in_progress', 'completed']
 
 type ViewMode = 'all' | 'my_tasks' | 'my_bids'
 

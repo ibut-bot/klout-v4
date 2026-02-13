@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl
   const status = searchParams.get('status')?.toUpperCase()
+  const taskType = searchParams.get('taskType')?.toUpperCase()
   const page = Math.max(1, Number(searchParams.get('page') || 1))
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 20)))
   const skip = (page - 1) * limit
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
   const where: any = { bidderId: userId }
   if (status && ['PENDING', 'ACCEPTED', 'REJECTED', 'FUNDED', 'PAYMENT_REQUESTED', 'COMPLETED', 'DISPUTED'].includes(status)) {
     where.status = status
+  }
+  if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
+    where.task = { taskType }
   }
 
   const [bids, total] = await Promise.all([
