@@ -159,8 +159,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     : 0
 
   const myApprovedPayout = Number(stats.myApprovedPayoutLamports || '0')
+  const budgetRemaining = Number(stats.budgetRemainingLamports || '0')
+  const cappedPayout = Math.min(myApprovedPayout, budgetRemaining)
   const minPayoutThreshold = Number(stats.minPayoutLamports || '0')
-  const canRequestPayment = !isCreator && myApprovedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
+  const canRequestPayment = !isCreator && cappedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
 
   return (
     <div className="space-y-6">
@@ -208,7 +210,12 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-zinc-400">
               <span>Approved (unpaid):</span>
-              <span className="font-medium text-zinc-100">{formatSol(myApprovedPayout)} SOL</span>
+              <span className="font-medium text-zinc-100">
+                {formatSol(myApprovedPayout)} SOL
+                {myApprovedPayout > 0 && cappedPayout < myApprovedPayout && (
+                  <span className="text-amber-400"> (capped to {formatSol(cappedPayout)} SOL)</span>
+                )}
+              </span>
             </div>
             {minPayoutThreshold > 0 && (
               <div className="flex justify-between text-zinc-400">
@@ -241,7 +248,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               {requestingPayment
                 ? 'Requesting...'
                 : canRequestPayment
-                  ? `Request Payment (${formatSol(myApprovedPayout)} SOL)`
+                  ? `Request Payment (${formatSol(cappedPayout)} SOL)`
                   : myApprovedPayout > 0
                     ? `Below threshold (${formatSol(myApprovedPayout)} / ${formatSol(minPayoutThreshold)} SOL)`
                     : 'No approved payouts yet'}

@@ -119,27 +119,54 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return { error: 'BELOW_THRESHOLD' }
     }
 
-    // Check if budget is sufficient
-    if (freshTotal > freshConfig.budgetRemainingLamports) {
-      return {
-        error: 'INSUFFICIENT_BUDGET',
-        budgetRemainingLamports: freshConfig.budgetRemainingLamports.toString(),
-        totalPayoutLamports: freshTotal.toString(),
+    const budgetRemaining = freshConfig.budgetRemainingLamports
+    if (budgetRemaining <= BigInt(0)) {
+      return { error: 'BUDGET_EXHAUSTED' }
+    }
+
+    // Cap payouts to fit within remaining budget
+    // Walk through submissions, include full payouts until budget runs out, cap the last one
+    let totalCapped = BigInt(0)
+    const includedIds: string[] = []
+    const cappedPayouts: { id: string; payout: bigint }[] = []
+
+    for (const s of freshSubmissions) {
+      const payout = s.payoutLamports || BigInt(0)
+      if (payout <= BigInt(0)) continue
+
+      const remaining = budgetRemaining - totalCapped
+      if (remaining <= BigInt(0)) break
+
+      const capped = payout > remaining ? remaining : payout
+      includedIds.push(s.id)
+      cappedPayouts.push({ id: s.id, payout: capped })
+      totalCapped += capped
+
+      // If we had to cap this one, update its payout amount
+      if (capped < payout) {
+        await tx.campaignSubmission.update({
+          where: { id: s.id },
+          data: { payoutLamports: capped },
+        })
       }
+    }
+
+    if (includedIds.length === 0 || totalCapped <= BigInt(0)) {
+      return { error: 'BUDGET_EXHAUSTED' }
     }
 
     // Deduct budget
     await tx.campaignConfig.update({
       where: { taskId },
       data: {
-        budgetRemainingLamports: { decrement: freshTotal },
+        budgetRemainingLamports: { decrement: totalCapped },
       },
     })
 
-    // Mark all approved submissions as PAYMENT_REQUESTED
+    // Mark included submissions as PAYMENT_REQUESTED
     await tx.campaignSubmission.updateMany({
       where: {
-        id: { in: freshSubmissions.map(s => s.id) },
+        id: { in: includedIds },
       },
       data: {
         status: 'PAYMENT_REQUESTED',
@@ -148,9 +175,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return {
       success: true,
-      submissionIds: freshSubmissions.map(s => s.id),
-      totalPayoutLamports: freshTotal.toString(),
-      submissionCount: freshSubmissions.length,
+      submissionIds: includedIds,
+      totalPayoutLamports: totalCapped.toString(),
+      submissionCount: includedIds.length,
     }
   })
 
