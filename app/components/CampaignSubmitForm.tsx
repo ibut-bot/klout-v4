@@ -14,11 +14,12 @@ interface Props {
   cpmLamports: string
   budgetRemainingLamports: string
   minPayoutLamports?: string
+  minViews?: number
   xLinked: boolean
   onSubmitted: () => void
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, xLinked, onSubmitted }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, xLinked, onSubmitted }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -135,6 +136,12 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           <span>Verification fee:</span>
           <span className="font-medium text-zinc-100">{feeSol} SOL</span>
         </div>
+        {minViews !== undefined && minViews > 0 && (
+          <div className="flex justify-between">
+            <span>Min views per post:</span>
+            <span className="font-medium text-zinc-100">{minViews.toLocaleString()}</span>
+          </div>
+        )}
         {minPayoutSol && (
           <div className="flex justify-between">
             <span>Min payout threshold:</span>
@@ -179,7 +186,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
               placeholder="https://x.com/yourhandle/status/..."
               required
               disabled={loading}
-              className="w-full rounded-lg border border-k-border bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+              className="w-full rounded-lg border border-zinc-600 bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
             />
           </div>
 

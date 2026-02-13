@@ -233,6 +233,7 @@ export default function TaskDetailPage() {
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
   const isCompetition = task.taskType === 'COMPETITION'
   const isCampaign = task.taskType === 'CAMPAIGN'
+  const campaignBudgetExhausted = isCampaign && campaignConfig && Number(campaignConfig.budgetRemainingLamports) <= 0
   const isExpired = countdown?.expired === true
 
   // Find current user's bid
@@ -277,8 +278,8 @@ export default function TaskDetailPage() {
             </span>
           </div>
         </div>
-        {/* Countdown timer for competitions/campaigns with a deadline */}
-        {(isCompetition || isCampaign) && countdown && (
+        {/* Countdown timer for competitions/campaigns with a deadline (hidden when campaign budget exhausted) */}
+        {(isCompetition || isCampaign) && countdown && !campaignBudgetExhausted && (
           <div className={`mb-3 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm ${
             countdown.expired
               ? 'border-red-500/20 bg-red-500/10 text-red-400'
@@ -570,6 +571,7 @@ export default function TaskDetailPage() {
               cpmLamports={campaignConfig.cpmLamports}
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
               minPayoutLamports={campaignConfig.minPayoutLamports}
+              minViews={campaignConfig.minViews}
               xLinked={xLinked}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
             />

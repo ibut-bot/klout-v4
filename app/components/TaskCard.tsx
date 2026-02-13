@@ -66,17 +66,18 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   const budgetTotal = Number(budgetLamports)
   const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
+  const budgetExhausted = isCampaign && budgetRemaining <= 0
   const participantCount = submissionCount ?? bidCount
 
   useEffect(() => {
-    if (!deadlineAt) return
+    if (!deadlineAt || budgetExhausted) return
     
     const update = () => setCountdown(getCountdown(deadlineAt))
     update()
     
     const interval = setInterval(update, 1000)
     return () => clearInterval(interval)
-  }, [deadlineAt])
+  }, [deadlineAt, budgetExhausted])
 
   const hasCampaignImage = isCampaign && imageUrl
 
@@ -107,14 +108,19 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
               <span className="text-accent">
                 {formatSol(budgetLamports)}
               </span>
-              {countdown && !countdown.isEnded && (
+              {!budgetExhausted && countdown && !countdown.isEnded && (
                 <span className="text-zinc-300">
                   {countdown.label}
                 </span>
               )}
-              {countdown?.isEnded && (
+              {!budgetExhausted && countdown?.isEnded && (
                 <span className="text-red-400">
                   Ended
+                </span>
+              )}
+              {budgetExhausted && (
+                <span className="text-red-400">
+                  Budget Used
                 </span>
               )}
             </div>
