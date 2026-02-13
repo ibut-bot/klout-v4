@@ -182,17 +182,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if ('error' in result) {
-    if (result.error === 'INSUFFICIENT_BUDGET') {
-      return Response.json({
-        success: false,
-        error: 'INSUFFICIENT_BUDGET',
-        message: `Insufficient campaign budget. Your total payout (${Number(BigInt(result.totalPayoutLamports!)) / 1e9} SOL) exceeds remaining budget (${Number(BigInt(result.budgetRemainingLamports!)) / 1e9} SOL).`,
-        budgetRemainingLamports: result.budgetRemainingLamports,
-        totalPayoutLamports: result.totalPayoutLamports,
-      }, { status: 400 })
+    const messages: Record<string, string> = {
+      BUDGET_EXHAUSTED: 'Campaign budget has been exhausted.',
+      BELOW_THRESHOLD: 'Your cumulative payout is below the minimum payout threshold.',
+      NO_APPROVED: 'No approved submissions found.',
+      CONFIG_MISSING: 'Campaign configuration not found.',
     }
     return Response.json(
-      { success: false, error: result.error, message: 'Payment request failed. Please try again.' },
+      { success: false, error: result.error, message: messages[result.error as string] || 'Payment request failed. Please try again.' },
       { status: 400 }
     )
   }
