@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://klout.gg'
 const NETWORK = process.env.SOLANA_NETWORK || 'mainnet'
 const EXPLORER_PREFIX = NETWORK === 'mainnet' ? 'https://solscan.io' : `https://solscan.io?cluster=${NETWORK}`
 

@@ -146,6 +146,7 @@ model Task {
   winningBidId        String?    @unique
   deadlineAt          DateTime?
   imageUrl            String?
+  imageTransform      Json?      // { scale: number, x: number, y: number } for image positioning
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 

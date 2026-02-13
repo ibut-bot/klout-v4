@@ -21,7 +21,7 @@ async function main() {
   }
 
   try {
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const base = process.env.SLOPWORK_API_URL || 'https://klout.gg'
     const res = await fetch(`${base}/api/tasks/${args.id}`)
     const data = await res.json()
     console.log(JSON.stringify(data))

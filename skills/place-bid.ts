@@ -58,7 +58,7 @@ async function main() {
     const amountLamports = Math.round(amountSol * LAMPORTS_PER_SOL)
 
     // Check task type to decide if vault creation is applicable
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const base = process.env.SLOPWORK_API_URL || 'https://klout.gg'
     let taskType = 'QUOTE'
     try {
       const taskRes = await fetch(`${base}/api/tasks/${args.task}`)

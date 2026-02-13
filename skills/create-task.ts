@@ -207,7 +207,7 @@ async function main() {
       ...campaignFields,
     })
 
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const base = process.env.SLOPWORK_API_URL || 'https://klout.gg'
     const explorerPrefix = serverConfig.explorerPrefix || 'https://solscan.io'
     console.log(JSON.stringify({
       ...result,

@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from './ImagePositionEditor'
 
 function formatSol(lamports: string | number): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
@@ -25,8 +26,11 @@ interface TaskCardProps {
   submissionCount?: number
   budgetRemainingLamports?: string | null
   imageUrl?: string | null
+  imageTransform?: ImageTransform | null
   deadlineAt?: string | null
   createdAt: string
+  isCreator?: boolean
+  onImageTransformSave?: (taskId: string, transform: ImageTransform) => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -58,9 +62,11 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, imageUrl, deadlineAt, createdAt }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
+  const [editingPosition, setEditingPosition] = useState(false)
+  const [pendingTransform, setPendingTransform] = useState<ImageTransform>(imageTransform || { scale: 1, x: 0, y: 0 })
   
   const isCampaign = taskType === 'CAMPAIGN'
   const budgetTotal = Number(budgetLamports)
@@ -81,8 +87,33 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
 
   const hasCampaignImage = isCampaign && imageUrl
 
+  const handleSavePosition = useCallback(() => {
+    if (onImageTransformSave) {
+      onImageTransformSave(id, pendingTransform)
+    }
+    setEditingPosition(false)
+  }, [id, pendingTransform, onImageTransformSave])
+
   // Campaign card with full-bleed image
   if (hasCampaignImage) {
+    // Show position editor mode
+    if (editingPosition && imageUrl) {
+      return (
+        <div className="rounded-2xl overflow-hidden h-[460px] border border-accent/30">
+          <ImagePositionEditor
+            imageUrl={imageUrl}
+            initialTransform={pendingTransform}
+            onTransformChange={setPendingTransform}
+            onSave={handleSavePosition}
+            onCancel={() => { setPendingTransform(imageTransform || { scale: 1, x: 0, y: 0 }); setEditingPosition(false) }}
+            height="h-[410px]"
+          />
+        </div>
+      )
+    }
+
+    const imgStyle = getImageTransformStyle(imageTransform)
+
     return (
       <Link href={`/tasks/${id}`} className="block group">
         <div className="relative rounded-2xl overflow-hidden h-[460px] transition-all hover:shadow-xl hover:shadow-accent/10 hover:ring-1 hover:ring-accent/30">
@@ -91,10 +122,21 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             src={imageUrl}
             alt={title}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            style={imgStyle}
           />
 
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" style={{ top: '35%' }} />
+
+          {/* Reposition button for creators */}
+          {isCreator && onImageTransformSave && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingPosition(true) }}
+              className="absolute top-2 right-2 z-20 rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm transition"
+            >
+              Reposition
+            </button>
+          )}
 
           {/* Content on overlay */}
           <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col p-4 pt-0">

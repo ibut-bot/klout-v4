@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createMultisigVaultAndFundWA } from '@/lib/solana/multisig'
+import ImagePositionEditor, { type ImageTransform } from './ImagePositionEditor'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const TASK_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_TASK_FEE_LAMPORTS || 10000000)
@@ -37,6 +38,7 @@ export default function TaskForm() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageTransform, setImageTransform] = useState<ImageTransform>({ scale: 1, x: 0, y: 0 })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,8 +60,13 @@ export default function TaskForm() {
   const removeImage = () => {
     setImageFile(null)
     setImagePreview(null)
+    setImageTransform({ scale: 1, x: 0, y: 0 })
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  const handleTransformChange = useCallback((t: ImageTransform) => {
+    setImageTransform(t)
+  }, [])
 
   const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return null
@@ -152,6 +159,7 @@ export default function TaskForm() {
           ...campaignFields,
           ...((taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && durationDays ? { durationDays: parseInt(durationDays) } : {}),
           ...(imageUrl ? { imageUrl } : {}),
+          ...(imageUrl && (imageTransform.scale !== 1 || imageTransform.x !== 0 || imageTransform.y !== 0) ? { imageTransform } : {}),
         }),
       })
       const data = await res.json()
@@ -209,34 +217,49 @@ export default function TaskForm() {
             className="hidden"
           />
           {imagePreview ? (
-            <div className="relative inline-block">
-              <img
-                src={imagePreview}
-                alt="Campaign preview"
-                className="h-32 w-32 rounded-lg object-cover border border-k-border"
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs text-zinc-500">Position and zoom your image for the campaign card</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="rounded-lg bg-red-500/20 px-2 py-1 text-xs text-red-400 hover:bg-red-500/30"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <ImagePositionEditor
+                imageUrl={imagePreview}
+                initialTransform={imageTransform}
+                onTransformChange={handleTransformChange}
+                height="h-[280px]"
+                showControls={true}
               />
-              <button
-                type="button"
-                onClick={removeImage}
-                className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-32 w-32 items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-600 hover:border-accent/40 hover:text-accent transition"
+              className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-600 hover:border-accent/40 hover:text-accent transition"
             >
-              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <div className="text-center">
+                <svg className="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="mt-1 block text-xs">Upload campaign image</span>
+              </div>
             </button>
           )}
-          <p className="mt-1 text-xs text-zinc-600">Optional. This image will be shown on the campaign card.</p>
+          <p className="mt-1 text-xs text-zinc-600">Optional. This image will be shown on the campaign card. You can position and zoom it.</p>
         </div>
       )}
 

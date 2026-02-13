@@ -9,7 +9,7 @@ if (!SYSTEM_WALLET) {
   console.error('WARNING: SYSTEM_WALLET_ADDRESS is not set. Task creation will be rejected.')
 }
 const TASK_FEE_LAMPORTS = Number(process.env.TASK_FEE_LAMPORTS || 10000000) // 0.01 SOL default
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://klout.gg'
 const NETWORK = process.env.SOLANA_NETWORK || 'mainnet'
 const EXPLORER_PREFIX = NETWORK === 'mainnet' ? 'https://solscan.io' : `https://solscan.io?cluster=${NETWORK}`
 
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       submissionCount: t._count.campaignSubmissions,
       budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
       imageUrl: t.imageUrl,
+      imageTransform: t.imageTransform,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, minViews, minPayoutLamports } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minPayoutLamports } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -282,6 +283,7 @@ export async function POST(request: NextRequest) {
           vaultAddress,
           ...(deadlineAt ? { deadlineAt } : {}),
           ...(imageUrl ? { imageUrl } : {}),
+          ...(imageTransform ? { imageTransform } : {}),
         },
       })
 
@@ -329,6 +331,7 @@ export async function POST(request: NextRequest) {
       ...(isCompetition ? { multisigAddress, vaultAddress } : {}),
       ...(deadlineAt ? { deadlineAt } : {}),
       ...(imageUrl ? { imageUrl } : {}),
+      ...(imageTransform ? { imageTransform } : {}),
     },
   })
 

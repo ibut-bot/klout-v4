@@ -57,6 +57,7 @@ interface Task {
   multisigAddress?: string | null
   vaultAddress?: string | null
   imageUrl?: string | null
+  imageTransform?: any
   creatorWallet: string
   creatorUsername?: string | null
   creatorProfilePic?: string | null
@@ -346,6 +347,10 @@ export default function TaskDetailPage() {
             src={task.imageUrl}
             alt={task.title}
             className="w-full max-h-[400px] object-cover"
+            style={task.imageTransform ? {
+              transform: `scale(${(task.imageTransform as any).scale}) translate(${(task.imageTransform as any).x}%, ${(task.imageTransform as any).y}%)`,
+              transformOrigin: 'center center',
+            } : undefined}
           />
         </div>
       )}

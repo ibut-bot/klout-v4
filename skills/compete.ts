@@ -37,7 +37,7 @@ async function main() {
 
   try {
     const keypair = getKeypair(args.password)
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const base = process.env.SLOPWORK_API_URL || 'https://klout.gg'
 
     // Fetch task details to verify it's a competition
     const taskRes = await fetch(`${base}/api/tasks/${args.task}`)

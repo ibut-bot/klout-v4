@@ -39,7 +39,7 @@ async function main() {
   try {
     const keypair = getKeypair(args.password)
     const connection = getConnection()
-    const base = process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+    const base = process.env.SLOPWORK_API_URL || 'https://klout.gg'
 
     // Fetch task details to determine task type
     const taskRes = await fetch(`${base}/api/tasks/${args.task}`)

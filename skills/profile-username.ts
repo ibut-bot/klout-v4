@@ -17,7 +17,7 @@ import { getKeypair } from './lib/wallet'
 import { getToken, parseArgs } from './lib/api-client'
 
 function getBaseUrl(): string {
-  return process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+  return process.env.SLOPWORK_API_URL || 'https://klout.gg'
 }
 
 async function getUsername(token: string): Promise<any> {

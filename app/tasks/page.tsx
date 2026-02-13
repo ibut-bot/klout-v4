@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import TaskCard from '../components/TaskCard'
+import { type ImageTransform } from '../components/ImagePositionEditor'
 import Link from 'next/link'
 
 interface Task {
@@ -19,6 +20,7 @@ interface Task {
   submissionCount?: number
   budgetRemainingLamports?: string | null
   imageUrl?: string | null
+  imageTransform?: ImageTransform | null
   deadlineAt?: string | null
   createdAt: string
 }
@@ -28,7 +30,7 @@ const STATUSES = ['all', 'open', 'completed']
 type ViewMode = 'all' | 'my_tasks' | 'my_bids'
 
 export default function TasksPage() {
-  const { isAuthenticated, authFetch } = useAuth()
+  const { isAuthenticated, authFetch, wallet } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
@@ -114,6 +116,20 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks()
   }, [status, page, viewMode, isAuthenticated])
+
+  const handleImageTransformSave = useCallback(async (taskId: string, transform: ImageTransform) => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ imageTransform: transform }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, imageTransform: transform } : t))
+      }
+    } catch { /* silent */ }
+  }, [isAuthenticated, authFetch])
 
   // Reset to 'all' if user logs out while in personal view
   useEffect(() => {
@@ -219,7 +235,12 @@ export default function TasksPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tasks.map((task) => (
-            <TaskCard key={task.id} {...task} />
+            <TaskCard
+              key={task.id}
+              {...task}
+              isCreator={wallet === task.creatorWallet}
+              onImageTransformSave={wallet === task.creatorWallet ? handleImageTransformSave : undefined}
+            />
           ))}
         </div>
       )}

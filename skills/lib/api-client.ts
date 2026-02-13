@@ -18,7 +18,7 @@ interface Session {
 }
 
 function getBaseUrl(): string {
-  return process.env.SLOPWORK_API_URL || 'https://slopwork.xyz'
+  return process.env.SLOPWORK_API_URL || 'https://klout.gg'
 }
 
 function loadSession(): Session | null {

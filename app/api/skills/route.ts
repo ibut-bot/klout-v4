@@ -1,12 +1,12 @@
 /** GET /api/skills -- Machine-readable skill documentation for AI agents */
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://klout.gg'
 
 export async function GET() {
   return Response.json({
     name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-13',
+    docsVersion: '2026-02-14',
     description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana. Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 

@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import TaskCard from './components/TaskCard'
+import { type ImageTransform } from './components/ImagePositionEditor'
 import Link from 'next/link'
+import { useAuth } from './hooks/useAuth'
 
 interface Task {
   id: string
@@ -18,6 +20,7 @@ interface Task {
   submissionCount?: number
   budgetRemainingLamports?: string | null
   imageUrl?: string | null
+  imageTransform?: ImageTransform | null
   deadlineAt?: string | null
   createdAt: string
 }
@@ -25,6 +28,7 @@ interface Task {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const { wallet, authFetch, isAuthenticated } = useAuth()
 
   useEffect(() => {
     setLoading(true)
@@ -36,6 +40,22 @@ export default function Home() {
       })
       .finally(() => setLoading(false))
   }, [])
+
+  const handleImageTransformSave = useCallback(async (taskId: string, transform: ImageTransform) => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ imageTransform: transform }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, imageTransform: transform } : t))
+      }
+    } catch {
+      // silent
+    }
+  }, [isAuthenticated, authFetch])
 
   return (
     <div>
@@ -85,7 +105,12 @@ export default function Home() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tasks.map((task) => (
-              <TaskCard key={task.id} {...task} />
+              <TaskCard
+                key={task.id}
+                {...task}
+                isCreator={wallet === task.creatorWallet}
+                onImageTransformSave={wallet === task.creatorWallet ? handleImageTransformSave : undefined}
+              />
             ))}
           </div>
         )}

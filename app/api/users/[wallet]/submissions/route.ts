@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://slopwork.xyz'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://klout.gg'
 
 /**
  * GET /api/users/:wallet/submissions
