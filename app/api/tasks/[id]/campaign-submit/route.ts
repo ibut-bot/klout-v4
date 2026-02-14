@@ -198,7 +198,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  let postMetrics: { viewCount: number; text: string; authorId: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
+  let postMetrics: { viewCount: number; likeCount: number; retweetCount: number; commentCount: number; text: string; authorId: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
   try {
     postMetrics = await getPostMetrics(xPostId, accessToken)
   } catch (err: any) {
@@ -220,6 +220,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       where: { id: submission.id },
       data: {
         viewCount: postMetrics.viewCount,
+        likeCount: postMetrics.likeCount,
+        retweetCount: postMetrics.retweetCount,
+        commentCount: postMetrics.commentCount,
         viewsReadAt: now,
         status: 'REJECTED',
         rejectionReason: 'The submitted post does not belong to your linked X account.',
@@ -231,30 +234,64 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 9. Check minimum views
+  // 9. Check minimum engagement thresholds
+  const metricsData = {
+    viewCount: postMetrics.viewCount,
+    likeCount: postMetrics.likeCount,
+    retweetCount: postMetrics.retweetCount,
+    commentCount: postMetrics.commentCount,
+    viewsReadAt: now,
+  }
+
   if (postMetrics.viewCount < config.minViews) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
-      data: {
-        viewCount: postMetrics.viewCount,
-        viewsReadAt: now,
-        status: 'REJECTED',
-        rejectionReason: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}.`,
-      },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}.` },
     })
     return Response.json({
-      success: false,
-      error: 'INSUFFICIENT_VIEWS',
+      success: false, error: 'INSUFFICIENT_VIEWS',
       message: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}`,
-      viewCount: postMetrics.viewCount,
-      minViews: config.minViews,
+      viewCount: postMetrics.viewCount, minViews: config.minViews,
+    }, { status: 400 })
+  }
+
+  if (postMetrics.likeCount < config.minLikes) {
+    await prisma.campaignSubmission.update({
+      where: { id: submission.id },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.likeCount} likes, minimum required is ${config.minLikes}.` },
+    })
+    return Response.json({
+      success: false, error: 'INSUFFICIENT_LIKES',
+      message: `Post has ${postMetrics.likeCount} likes, minimum required is ${config.minLikes}`,
+    }, { status: 400 })
+  }
+
+  if (postMetrics.retweetCount < config.minRetweets) {
+    await prisma.campaignSubmission.update({
+      where: { id: submission.id },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.retweetCount} retweets, minimum required is ${config.minRetweets}.` },
+    })
+    return Response.json({
+      success: false, error: 'INSUFFICIENT_RETWEETS',
+      message: `Post has ${postMetrics.retweetCount} retweets, minimum required is ${config.minRetweets}`,
+    }, { status: 400 })
+  }
+
+  if (postMetrics.commentCount < config.minComments) {
+    await prisma.campaignSubmission.update({
+      where: { id: submission.id },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.commentCount} comments, minimum required is ${config.minComments}.` },
+    })
+    return Response.json({
+      success: false, error: 'INSUFFICIENT_COMMENTS',
+      message: `Post has ${postMetrics.commentCount} comments, minimum required is ${config.minComments}`,
     }, { status: 400 })
   }
 
   // 10. AI content check
   await prisma.campaignSubmission.update({
     where: { id: submission.id },
-    data: { status: 'CHECKING_CONTENT', viewCount: postMetrics.viewCount, viewsReadAt: now },
+    data: { status: 'CHECKING_CONTENT', ...metricsData },
   })
 
   const guidelines = config.guidelines as { dos: string[]; donts: string[] }
@@ -317,8 +354,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         rejectionReason: 'Calculated payout is zero.',
         contentCheckPassed: true,
         contentCheckExplanation: contentCheck.explanation,
-        viewCount: postMetrics.viewCount,
-        viewsReadAt: now,
+        ...metricsData,
       },
     })
     return Response.json(
@@ -332,8 +368,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     where: { id: submission.id },
     data: {
       status: 'APPROVED',
-      viewCount: postMetrics.viewCount,
-      viewsReadAt: now,
+      ...metricsData,
       contentCheckPassed: true,
       contentCheckExplanation: contentCheck.explanation,
       payoutLamports,

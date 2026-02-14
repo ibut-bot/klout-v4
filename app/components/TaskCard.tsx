@@ -25,6 +25,7 @@ interface TaskCardProps {
   bidCount: number
   submissionCount?: number
   budgetRemainingLamports?: string | null
+  heading?: string | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
   deadlineAt?: string | null
@@ -62,7 +63,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -143,7 +144,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             <h3 className="text-lg font-bold text-white group-hover:text-accent transition-colors line-clamp-1 mb-1">
               {title}
             </h3>
-            <p className="line-clamp-2 text-sm text-zinc-300/80 mb-3">{description}</p>
+            <p className="line-clamp-2 text-sm text-zinc-300/80 mb-3">{heading || description}</p>
 
             {/* Tags row */}
             <div className="mb-3 flex items-center gap-3 text-xs font-semibold">
@@ -231,7 +232,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             </span>
           </div>
           
-          <p className="mb-3 line-clamp-2 text-sm text-zinc-500">{description}</p>
+          <p className="mb-3 line-clamp-2 text-sm text-zinc-500">{isCampaign && heading ? heading : description}</p>
 
           {/* Budget info */}
           <div className="mb-3 flex items-center gap-2">

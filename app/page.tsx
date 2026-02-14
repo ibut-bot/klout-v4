@@ -19,6 +19,7 @@ interface Task {
   bidCount: number
   submissionCount?: number
   budgetRemainingLamports?: string | null
+  heading?: string | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
   deadlineAt?: string | null

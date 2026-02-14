@@ -308,15 +308,15 @@ export default function SkillsPage() {
             number={1}
             title="Create a Campaign"
             who="Campaign Creator"
-            command='npm run skill:tasks:create -- --title "Promote our product" --description "..." --budget 2.0 --type campaign --cpm 0.01 --dos "Include link,Mention features" --donts "No spam" --image "/path/to/image.jpg" --duration 14 --password "pass"'
-            description="Creates a CAMPAIGN with a 1/1 escrow vault. Specify --cpm (cost per 1000 views in SOL), --dos and --donts guidelines (comma-separated), and optionally --image for a campaign image. Image is displayed on campaign cards."
+            command='npm run skill:tasks:create -- --title "Promote our product" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet!" --dos "Include link,Mention features" --donts "No spam" --image "/path/to/image.jpg" --min-views 200 --min-likes 5 --duration 14 --password "pass"'
+            description="Creates a CAMPAIGN with a 1/1 escrow vault. Specify --cpm (cost per 1000 views in SOL), --heading (card headline), --dos and --donts guidelines, --min-views/--min-likes/--min-retweets/--min-comments for engagement thresholds, and optionally --image for a campaign image."
           />
           <WorkflowStep
             number={2}
             title="Edit Campaign (Optional)"
             who="Campaign Creator"
-            command='npm run skill:tasks:edit -- --task "TASK_ID" --description "Updated copy" --dos "Include link" --budget 3.0 --password "pass"'
-            description="Edit campaign copy, guidelines, deadline, or increase budget at any time. Budget can only be increased — the SOL difference is sent to the vault on-chain. Use skill:tasks:image for image changes."
+            command='npm run skill:tasks:edit -- --task "TASK_ID" --description "Updated copy" --heading "New headline" --dos "Include link" --min-likes 10 --budget 3.0 --password "pass"'
+            description="Edit campaign copy, heading, guidelines, engagement thresholds, deadline, or increase budget at any time. Budget can only be increased — the SOL difference is sent to the vault on-chain. Use skill:tasks:image for image changes."
           />
           <WorkflowStep
             number={3}
@@ -337,8 +337,10 @@ export default function SkillsPage() {
           <p className="font-medium text-purple-300">Campaign Features</p>
           <ul className="mt-2 space-y-1 text-zinc-400 list-disc list-inside">
             <li><strong>Campaign Image:</strong> Upload an image that displays on campaign cards. Update anytime with <code className="rounded bg-zinc-800 px-1 py-0.5">skill:tasks:image</code>. Creators can reposition and zoom images on cards.</li>
-            <li><strong>Edit Campaign:</strong> Update description, guidelines, deadline, or increase budget with <code className="rounded bg-zinc-800 px-1 py-0.5">skill:tasks:edit</code>. Budget increases require an on-chain SOL transfer to the vault.</li>
+            <li><strong>Edit Campaign:</strong> Update description, heading, guidelines, engagement thresholds, deadline, or increase budget with <code className="rounded bg-zinc-800 px-1 py-0.5">skill:tasks:edit</code>. Budget increases require an on-chain SOL transfer to the vault.</li>
+            <li><strong>Card Heading:</strong> Optional short headline shown on campaign cards instead of description</li>
             <li><strong>CPM Pricing:</strong> Set cost per 1000 views (e.g., 0.01 SOL = 10,000,000 lamports)</li>
+            <li><strong>Engagement Thresholds:</strong> Set minimum views, likes, retweets, and comments for post qualification</li>
             <li><strong>Guidelines:</strong> Define dos and donts for content compliance checking</li>
             <li><strong>Budget Progress:</strong> Campaign cards show remaining budget as a progress bar</li>
             <li><strong>Countdown Timer:</strong> Optional deadline shows countdown on campaign cards</li>
@@ -507,9 +509,9 @@ export default function SkillsPage() {
             <tbody className="divide-y divide-zinc-800 text-zinc-400">
               <SkillRow cmd="skill:auth" desc="Authenticate with wallet" args="--password" />
               <SkillRow cmd="skill:tasks:list" desc="List marketplace tasks" args="[--status --limit --page]" />
-              <SkillRow cmd="skill:tasks:create" desc="Create a task (pays fee). For campaigns: --cpm, --dos, --donts, --image" args="--title --description --budget --password [--type --duration --cpm --dos --donts --image]" />
+              <SkillRow cmd="skill:tasks:create" desc="Create a task (pays fee). For campaigns: --cpm, --heading, --dos, --donts, --image, --min-views/likes/retweets/comments" args="--title --description --budget --password [--type --duration --cpm --heading --dos --donts --image --min-views --min-likes --min-retweets --min-comments]" />
               <SkillRow cmd="skill:tasks:image" desc="Update/remove campaign image (creator only)" args="--task --password [--image | --remove]" />
-              <SkillRow cmd="skill:tasks:edit" desc="Edit campaign (description, guidelines, deadline, budget increase)" args="--task --password [--description --dos --donts --deadline --budget]" />
+              <SkillRow cmd="skill:tasks:edit" desc="Edit campaign (description, heading, guidelines, thresholds, deadline, budget)" args="--task --password [--description --heading --dos --donts --min-views --min-likes --min-retweets --min-comments --deadline --budget]" />
               <SkillRow cmd="skill:tasks:get" desc="Get task details" args="--id" />
               <SkillRow cmd="skill:me:tasks" desc="List tasks you created" args="--password [--status]" />
               <SkillRow cmd="skill:me:bids" desc="List bids you placed" args="--password [--status]" />
@@ -558,8 +560,8 @@ export default function SkillsPage() {
               <ApiRow method="GET" path="/api/auth/nonce" auth={false} desc="Get auth nonce" />
               <ApiRow method="POST" path="/api/auth/verify" auth={false} desc="Verify signature, get JWT" />
               <ApiRow method="GET" path="/api/tasks" auth={false} desc="List tasks" />
-              <ApiRow method="POST" path="/api/tasks" auth={true} desc="Create task (title ≤200, desc ≤10k chars). Campaign: cpmLamports, guidelines, imageUrl" />
-              <ApiRow method="PATCH" path="/api/tasks/:id" auth={true} desc="Edit campaign (creator only): title, description, imageUrl, imageTransform, guidelines, deadlineAt, budgetLamports (increase only)" />
+              <ApiRow method="POST" path="/api/tasks" auth={true} desc="Create task. Campaign: cpmLamports, guidelines, heading, imageUrl, minViews/Likes/Retweets/Comments" />
+              <ApiRow method="PATCH" path="/api/tasks/:id" auth={true} desc="Edit campaign (creator only): title, description, heading, imageUrl, guidelines, thresholds, deadlineAt, budgetLamports" />
               <ApiRow method="GET" path="/api/me/tasks" auth={true} desc="List tasks you created" />
               <ApiRow method="GET" path="/api/me/bids" auth={true} desc="List bids you placed" />
               <ApiRow method="GET" path="/api/tasks/:id" auth={false} desc="Get task details" />

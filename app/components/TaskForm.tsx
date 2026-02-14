@@ -29,7 +29,11 @@ export default function TaskForm() {
 
   // Campaign-specific fields
   const [cpm, setCpm] = useState('')
+  const [heading, setHeading] = useState('')
   const [minViews, setMinViews] = useState('100')
+  const [minLikes, setMinLikes] = useState('0')
+  const [minRetweets, setMinRetweets] = useState('0')
+  const [minComments, setMinComments] = useState('0')
   const [minPayout, setMinPayout] = useState('')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
@@ -142,7 +146,11 @@ export default function TaskForm() {
       setStep('creating')
       const campaignFields = taskType === 'CAMPAIGN' ? {
         cpmLamports: Math.round(parseFloat(cpm) * LAMPORTS_PER_SOL),
+        ...(heading.trim() ? { heading: heading.trim() } : {}),
         minViews: parseInt(minViews) || 100,
+        minLikes: parseInt(minLikes) || 0,
+        minRetweets: parseInt(minRetweets) || 0,
+        minComments: parseInt(minComments) || 0,
         ...(minPayout ? { minPayoutLamports: Math.round(parseFloat(minPayout) * LAMPORTS_PER_SOL) } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
@@ -205,6 +213,21 @@ export default function TaskForm() {
           className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
+
+      {taskType === 'CAMPAIGN' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Card Heading</label>
+          <input
+            type="text"
+            value={heading}
+            onChange={(e) => setHeading(e.target.value)}
+            placeholder="Short punchy headline for the campaign card"
+            maxLength={120}
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+          />
+          <p className="mt-1 text-xs text-zinc-600">Optional. Shown on the campaign card instead of the description. Max 120 characters.</p>
+        </div>
+      )}
 
       {taskType === 'CAMPAIGN' && (
         <div>
@@ -300,17 +323,58 @@ export default function TaskForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Minimum Views Threshold</label>
-            <input
-              type="number"
-              step="1"
-              min="0"
-              value={minViews}
-              onChange={(e) => setMinViews(e.target.value)}
-              placeholder="100"
-              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-            <p className="mt-1 text-xs text-zinc-600">Posts must have at least this many views to qualify for payout. Set to 0 to accept all posts.</p>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Minimum Engagement Thresholds</label>
+            <p className="mb-3 text-xs text-zinc-600">Posts must meet all these minimums to qualify. Set to 0 to skip a check.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Views</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={minViews}
+                  onChange={(e) => setMinViews(e.target.value)}
+                  placeholder="100"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Likes</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={minLikes}
+                  onChange={(e) => setMinLikes(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Retweets</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={minRetweets}
+                  onChange={(e) => setMinRetweets(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-500">Comments</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={minComments}
+                  onChange={(e) => setMinComments(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                />
+              </div>
+            </div>
           </div>
 
           <div>

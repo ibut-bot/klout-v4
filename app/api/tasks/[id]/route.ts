@@ -74,7 +74,11 @@ export async function GET(
             cpmLamports: task.campaignConfig.cpmLamports.toString(),
             budgetRemainingLamports: task.campaignConfig.budgetRemainingLamports.toString(),
             guidelines: task.campaignConfig.guidelines,
+            heading: task.campaignConfig.heading,
             minViews: task.campaignConfig.minViews,
+            minLikes: task.campaignConfig.minLikes,
+            minRetweets: task.campaignConfig.minRetweets,
+            minComments: task.campaignConfig.minComments,
             minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
           }
         : null,
@@ -142,7 +146,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -309,8 +313,11 @@ export async function PATCH(
     taskUpdateData.budgetLamports = BigInt(budgetLamports)
   }
 
+  // Check if there are campaign config updates
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || budgetIncrease !== null
+
   // Use transaction for campaign config updates
-  if (isCampaign && (guidelines !== undefined || budgetIncrease !== null)) {
+  if (isCampaign && hasCampaignConfigUpdates) {
     const result = await prisma.$transaction(async (tx) => {
       const updatedTask = await tx.task.update({
         where: { id },
@@ -324,6 +331,11 @@ export async function PATCH(
           donts: guidelines.donts.map((d: string) => String(d).trim()).filter(Boolean),
         }
       }
+      if (heading !== undefined) configUpdate.heading = heading || null
+      if (minViews !== undefined) configUpdate.minViews = Math.max(0, parseInt(minViews) || 0)
+      if (minLikes !== undefined) configUpdate.minLikes = Math.max(0, parseInt(minLikes) || 0)
+      if (minRetweets !== undefined) configUpdate.minRetweets = Math.max(0, parseInt(minRetweets) || 0)
+      if (minComments !== undefined) configUpdate.minComments = Math.max(0, parseInt(minComments) || 0)
       if (budgetIncrease !== null && task.campaignConfig) {
         configUpdate.budgetRemainingLamports = task.campaignConfig.budgetRemainingLamports + budgetIncrease
       }

@@ -5,7 +5,7 @@
  * Usage:
  *   npm run skill:tasks:create -- --title "Build a landing page" --description "..." --budget 0.5 --password "mypass"
  *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "mypass"
- *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --dos "Include link,Mention product" --donts "No spam" --image "/path/to/image.jpg" --password "mypass"
+ *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet!" --dos "Include link,Mention product" --donts "No spam" --image "/path/to/image.jpg" --min-views 200 --min-likes 5 --password "mypass"
  *
  * Options:
  *   --title        Task title
@@ -15,6 +15,11 @@
  *   --duration     (Competition/Campaign) Duration in days (1-365). After this, no new entries accepted.
  *   --image        (Campaign) Path to campaign image file
  *   --cpm          (Campaign) Cost per 1000 views in SOL
+ *   --heading      (Campaign) Short heading shown on campaign card instead of description
+ *   --min-views    (Campaign) Minimum views per post (default: 100). Set to 0 to accept all.
+ *   --min-likes    (Campaign) Minimum likes per post (default: 0)
+ *   --min-retweets (Campaign) Minimum retweets per post (default: 0)
+ *   --min-comments (Campaign) Minimum comments per post (default: 0)
  *   --min-payout   (Campaign) Minimum cumulative payout in SOL before user can request payment (default: 0)
  *   --dos          (Campaign) Comma-separated list of dos guidelines
  *   --donts        (Campaign) Comma-separated list of donts guidelines
@@ -135,6 +140,11 @@ async function main() {
       campaignFields = {
         cpmLamports: Math.round(cpmSol * LAMPORTS_PER_SOL),
         guidelines: { dos, donts },
+        ...(args.heading ? { heading: args.heading } : {}),
+        ...(args['min-views'] !== undefined ? { minViews: parseInt(args['min-views']) } : {}),
+        ...(args['min-likes'] !== undefined ? { minLikes: parseInt(args['min-likes']) } : {}),
+        ...(args['min-retweets'] !== undefined ? { minRetweets: parseInt(args['min-retweets']) } : {}),
+        ...(args['min-comments'] !== undefined ? { minComments: parseInt(args['min-comments']) } : {}),
         ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * LAMPORTS_PER_SOL) } : {}),
       }
 

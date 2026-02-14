@@ -159,6 +159,9 @@ export interface PostMedia {
 /** Fetch post metrics, content, and media from X API */
 export async function getPostMetrics(postId: string, accessToken: string): Promise<{
   viewCount: number
+  likeCount: number
+  retweetCount: number
+  commentCount: number
   text: string
   authorId: string
   media: PostMedia[]
@@ -226,6 +229,9 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
 
   return {
     viewCount: data.public_metrics?.impression_count ?? 0,
+    likeCount: data.public_metrics?.like_count ?? 0,
+    retweetCount: data.public_metrics?.retweet_count ?? 0,
+    commentCount: data.public_metrics?.reply_count ?? 0,
     text: data.text,
     authorId: data.author_id,
     media,

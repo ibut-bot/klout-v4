@@ -270,15 +270,19 @@ model Submission {
 }
 
 model CampaignConfig {
-  id                      String @id @default(cuid())
-  taskId                  String @unique
-  cpmLamports             BigInt   // Cost per 1000 views in lamports
-  budgetRemainingLamports BigInt   // Tracks remaining budget
-  guidelines              Json     // { dos: string[], donts: string[] }
-  minViews                Int    @default(100)
-  minPayoutLamports       BigInt @default(0)  // Minimum cumulative payout before user can request payment
+  id                      String  @id @default(cuid())
+  taskId                  String  @unique
+  cpmLamports             BigInt    // Cost per 1000 views in lamports
+  budgetRemainingLamports BigInt    // Tracks remaining budget
+  guidelines              Json      // { dos: string[], donts: string[] }
+  heading                 String?   // Short heading shown on campaign card instead of description
+  minViews                Int     @default(100)
+  minLikes                Int     @default(0)
+  minRetweets             Int     @default(0)
+  minComments             Int     @default(0)
+  minPayoutLamports       BigInt  @default(0)  // Minimum cumulative payout before user can request payment
 
-  task                    Task   @relation(fields: [taskId], references: [id])
+  task                    Task    @relation(fields: [taskId], references: [id])
 
   @@schema("slopwork")
 }
@@ -290,6 +294,9 @@ model CampaignSubmission {
   postUrl                 String
   xPostId                 String
   viewCount               Int?
+  likeCount               Int?
+  retweetCount            Int?
+  commentCount            Int?
   viewsReadAt             DateTime?
   apiFeeTxSig             String?
   contentCheckPassed      Boolean?

@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       include: {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         _count: { select: { bids: true, campaignSubmissions: true } },
-        campaignConfig: { select: { budgetRemainingLamports: true } },
+        campaignConfig: { select: { budgetRemainingLamports: true, heading: true } },
       },
     }),
     prisma.task.count({ where }),
@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       bidCount: t._count.bids,
       submissionCount: t._count.campaignSubmissions,
       budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
+      heading: t.campaignConfig?.heading || null,
       imageUrl: t.imageUrl,
       imageTransform: t.imageTransform,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minPayoutLamports } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -296,7 +297,11 @@ export async function POST(request: NextRequest) {
             dos: guidelines.dos.map((d: string) => String(d).trim()).filter(Boolean),
             donts: guidelines.donts.map((d: string) => String(d).trim()).filter(Boolean),
           },
+          ...(heading ? { heading: String(heading).trim() } : {}),
           ...(minViews !== undefined ? { minViews: Math.max(0, parseInt(minViews) || 100) } : {}),
+          ...(minLikes !== undefined ? { minLikes: Math.max(0, parseInt(minLikes) || 0) } : {}),
+          ...(minRetweets !== undefined ? { minRetweets: Math.max(0, parseInt(minRetweets) || 0) } : {}),
+          ...(minComments !== undefined ? { minComments: Math.max(0, parseInt(minComments) || 0) } : {}),
           ...(minPayoutLamports !== undefined ? { minPayoutLamports: BigInt(Math.max(0, Number(minPayoutLamports) || 0)) } : {}),
         },
       })

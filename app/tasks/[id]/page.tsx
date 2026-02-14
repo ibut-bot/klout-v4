@@ -133,7 +133,7 @@ export default function TaskDetailPage() {
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
-    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; minViews: number; minPayoutLamports: string
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
