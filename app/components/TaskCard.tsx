@@ -1,16 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useEffect, useState, useCallback } from 'react'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from './ImagePositionEditor'
-
-function formatSol(lamports: string | number): string {
-  const sol = Number(lamports) / LAMPORTS_PER_SOL
-  if (sol === 0) return '0 SOL'
-  if (sol < 0.01) return `${sol.toPrecision(2)} SOL`
-  return `${sol.toFixed(2)} SOL`
-}
+import { type PaymentTokenType, formatTokenAmount, tokenSymbol } from '@/lib/token-utils'
 
 interface TaskCardProps {
   id: string
@@ -18,6 +11,7 @@ interface TaskCardProps {
   description: string
   budgetLamports: string
   taskType?: string
+  paymentToken?: string
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -63,13 +57,15 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
   const [pendingTransform, setPendingTransform] = useState<ImageTransform>(imageTransform || { scale: 1, x: 50, y: 50 })
   
   const isCampaign = taskType === 'CAMPAIGN'
+  const pt: PaymentTokenType = (paymentToken as PaymentTokenType) || 'SOL'
+  const budgetDisplay = `${formatTokenAmount(budgetLamports, pt, 2)} ${tokenSymbol(pt)}`
   const budgetTotal = Number(budgetLamports)
   const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
@@ -149,7 +145,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             {/* Tags row */}
             <div className="mb-3 flex items-center gap-3 text-xs font-semibold">
               <span className="text-accent">
-                {formatSol(budgetLamports)}
+                {budgetDisplay}
               </span>
               {budgetExhausted && (
                 <span className="text-red-400">
@@ -231,7 +227,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           {/* Budget info */}
           <div className="mb-3 flex items-center gap-2">
             <span className="rounded-full bg-accent/15 px-2.5 py-0.5 text-xs font-semibold text-accent">
-              {formatSol(budgetLamports)}
+              {budgetDisplay}
             </span>
           </div>
           

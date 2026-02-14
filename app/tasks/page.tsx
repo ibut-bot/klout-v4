@@ -12,6 +12,7 @@ interface Task {
   description: string
   budgetLamports: string
   taskType?: string
+  paymentToken?: string
   status: string
   creatorWallet: string
   creatorUsername?: string | null
