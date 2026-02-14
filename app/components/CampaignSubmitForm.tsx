@@ -49,6 +49,20 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     setLoading(true)
 
     try {
+      // Pre-flight: re-check budget from server before charging the SOL fee
+      setStep('verifying')
+      const preCheck = await fetch(`/api/tasks/${taskId}`)
+      const preData = await preCheck.json()
+      if (preData.success && preData.task?.campaignConfig) {
+        const freshRemaining = BigInt(preData.task.campaignConfig.budgetRemainingLamports || '0')
+        if (freshRemaining <= BigInt(0)) {
+          setError('Campaign budget has been fully allocated. Please refresh the page.')
+          setStep('form')
+          setLoading(false)
+          return
+        }
+      }
+
       // Step 1: Pay API fee
       setStep('paying')
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
