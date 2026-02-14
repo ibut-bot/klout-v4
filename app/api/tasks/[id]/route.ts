@@ -175,6 +175,12 @@ export async function PATCH(
         { status: 400 }
       )
     }
+    if (imageTransform.x < 0 || imageTransform.x > 100 || imageTransform.y < 0 || imageTransform.y > 100) {
+      return Response.json(
+        { success: false, error: 'INVALID_IMAGE_TRANSFORM', message: 'imageTransform.x and y must be between 0 and 100' },
+        { status: 400 }
+      )
+    }
   }
 
   // Validate title if provided

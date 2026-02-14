@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { getImageTransformStyle } from '../../components/ImagePositionEditor'
 
 function useCountdown(deadlineAt: string | null | undefined) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; expired: boolean } | null>(null)
@@ -347,10 +348,7 @@ export default function TaskDetailPage() {
             src={task.imageUrl}
             alt={task.title}
             className="w-full max-h-[400px] object-cover"
-            style={task.imageTransform ? {
-              transform: `scale(${(task.imageTransform as any).scale}) translate(${(task.imageTransform as any).x}%, ${(task.imageTransform as any).y}%)`,
-              transformOrigin: 'center center',
-            } : undefined}
+            style={getImageTransformStyle(task.imageTransform as any)}
           />
         </div>
       )}

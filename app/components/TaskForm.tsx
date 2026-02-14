@@ -38,7 +38,7 @@ export default function TaskForm() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [imageTransform, setImageTransform] = useState<ImageTransform>({ scale: 1, x: 0, y: 0 })
+  const [imageTransform, setImageTransform] = useState<ImageTransform>({ scale: 1, x: 50, y: 50 })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,7 +60,7 @@ export default function TaskForm() {
   const removeImage = () => {
     setImageFile(null)
     setImagePreview(null)
-    setImageTransform({ scale: 1, x: 0, y: 0 })
+    setImageTransform({ scale: 1, x: 50, y: 50 })
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 

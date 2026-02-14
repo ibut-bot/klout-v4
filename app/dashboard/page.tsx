@@ -118,7 +118,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
-  const [imageTransform, setImageTransform] = useState<ImageTransform>(task.imageTransform as ImageTransform || { scale: 1, x: 0, y: 0 })
+  const [imageTransform, setImageTransform] = useState<ImageTransform>(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 })
   const [editingImagePosition, setEditingImagePosition] = useState(false)
 
   const budgetTotal = Number(task.budgetLamports)
@@ -157,7 +157,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       if (!updateData.success) throw new Error(updateData.message || 'Update failed')
 
       onTaskUpdate(task.id, { imageUrl: uploadData.url, imageTransform: null })
-      setImageTransform({ scale: 1, x: 0, y: 0 })
+      setImageTransform({ scale: 1, x: 50, y: 50 })
       setEditMode('none')
     } catch (err: any) {
       alert(err.message || 'Failed to update image')
@@ -324,15 +324,15 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   return (
     <div className="rounded-xl border border-k-border bg-surface overflow-hidden">
       {/* Image Section */}
-      <div className="relative h-40 bg-zinc-900">
+      <div className="relative h-[552px] bg-zinc-900">
         {editingImagePosition && task.imageUrl ? (
           <ImagePositionEditor
             imageUrl={task.imageUrl}
             initialTransform={imageTransform}
             onTransformChange={setImageTransform}
             onSave={handleSaveImagePosition}
-            onCancel={() => { setImageTransform(task.imageTransform as ImageTransform || { scale: 1, x: 0, y: 0 }); setEditingImagePosition(false) }}
-            height="h-40"
+            onCancel={() => { setImageTransform(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }); setEditingImagePosition(false) }}
+            height="h-[552px]"
           />
         ) : task.imageUrl ? (
           <>
@@ -671,7 +671,7 @@ export default function DashboardPage() {
       {activeTab === 'tasks' && (
         <section>
           {loadingTasks ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(2)].map((_, i) => (
                 <div key={i} className="h-36 animate-pulse rounded-xl bg-surface" />
               ))}
@@ -687,7 +687,7 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {myTasks.map((task) => (
                 <CampaignCard
                   key={task.id}
