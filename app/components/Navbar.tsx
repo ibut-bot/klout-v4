@@ -248,7 +248,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-k-border bg-background/80 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
       <div className="flex h-14 items-center justify-between px-6 lg:px-12">
         {/* Left — Logo */}
         <Link href="/" className="flex items-center gap-2">
