@@ -191,47 +191,47 @@ export default function TaskForm() {
 
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Title</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Title</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="What do you need done?"
           required
-          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Description</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe the task in detail..."
           rows={5}
           required
-          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
 
       {taskType === 'CAMPAIGN' && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Card Heading</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Card Heading</label>
           <input
             type="text"
             value={heading}
             onChange={(e) => setHeading(e.target.value)}
             placeholder="Short punchy headline for the campaign card"
             maxLength={120}
-            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
           />
-          <p className="mt-1 text-xs text-zinc-600">Optional. Shown on the campaign card instead of the description. Max 120 characters.</p>
+          <p className="mt-1 text-xs text-zinc-500">Optional. Shown on the campaign card instead of the description. Max 120 characters.</p>
         </div>
       )}
 
       {taskType === 'CAMPAIGN' && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Campaign Image</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Campaign Image</label>
           <input
             ref={fileInputRef}
             type="file"
@@ -242,7 +242,7 @@ export default function TaskForm() {
           {imagePreview ? (
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs text-zinc-500">Position and zoom your image for the campaign card</span>
+                <span className="text-xs text-zinc-400">Position and zoom your image for the campaign card</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -272,7 +272,7 @@ export default function TaskForm() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-600 hover:border-accent/40 hover:text-accent transition"
+              className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-500 hover:border-accent/40 hover:text-accent transition"
             >
               <div className="text-center">
                 <svg className="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,12 +282,12 @@ export default function TaskForm() {
               </div>
             </button>
           )}
-          <p className="mt-1 text-xs text-zinc-600">Optional. This image will be shown on the campaign card. You can position and zoom it.</p>
+          <p className="mt-1 text-xs text-zinc-500">Optional. This image will be shown on the campaign card. You can position and zoom it.</p>
         </div>
       )}
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-300">Budget (SOL)</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Budget (SOL)</label>
         <input
           type="number"
           step="0.01"
@@ -296,9 +296,9 @@ export default function TaskForm() {
           onChange={(e) => setBudget(e.target.value)}
           placeholder="0.5"
           required
-          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
-        <p className="mt-1 text-xs text-zinc-600">
+        <p className="mt-1 text-xs text-zinc-500">
           {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
             ? 'This budget will be locked in an escrow vault when you post the task.'
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
@@ -308,7 +308,7 @@ export default function TaskForm() {
       {taskType === 'CAMPAIGN' && (
         <>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">CPM — Cost per 1,000 views (SOL)</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">CPM — Cost per 1,000 views (SOL)</label>
             <input
               type="number"
               step="0.001"
@@ -317,17 +317,17 @@ export default function TaskForm() {
               onChange={(e) => setCpm(e.target.value)}
               placeholder="0.01"
               required
-              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
-            <p className="mt-1 text-xs text-zinc-600">How much you pay per 1,000 views on a promoted post.</p>
+            <p className="mt-1 text-xs text-zinc-500">How much you pay per 1,000 views on a promoted post.</p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Minimum Engagement Thresholds</label>
-            <p className="mb-3 text-xs text-zinc-600">Posts must meet all these minimums to qualify. Set to 0 to skip a check.</p>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Engagement Thresholds</label>
+            <p className="mb-3 text-xs text-zinc-500">Posts must meet all these minimums to qualify. Set to 0 to skip a check.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Views</label>
+                <label className="mb-1 block text-xs text-zinc-400">Views</label>
                 <input
                   type="number"
                   step="1"
@@ -335,11 +335,11 @@ export default function TaskForm() {
                   value={minViews}
                   onChange={(e) => setMinViews(e.target.value)}
                   placeholder="100"
-                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Likes</label>
+                <label className="mb-1 block text-xs text-zinc-400">Likes</label>
                 <input
                   type="number"
                   step="1"
@@ -347,11 +347,11 @@ export default function TaskForm() {
                   value={minLikes}
                   onChange={(e) => setMinLikes(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Retweets</label>
+                <label className="mb-1 block text-xs text-zinc-400">Retweets</label>
                 <input
                   type="number"
                   step="1"
@@ -359,11 +359,11 @@ export default function TaskForm() {
                   value={minRetweets}
                   onChange={(e) => setMinRetweets(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">Comments</label>
+                <label className="mb-1 block text-xs text-zinc-400">Comments</label>
                 <input
                   type="number"
                   step="1"
@@ -371,14 +371,14 @@ export default function TaskForm() {
                   value={minComments}
                   onChange={(e) => setMinComments(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Minimum Payout Threshold (SOL) — optional</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Payout Threshold (SOL) — optional</label>
             <input
               type="number"
               step="0.001"
@@ -386,13 +386,13 @@ export default function TaskForm() {
               value={minPayout}
               onChange={(e) => setMinPayout(e.target.value)}
               placeholder="0 (no minimum)"
-              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
-            <p className="mt-1 text-xs text-zinc-600">Participants must accumulate at least this much in approved payouts before they can request payment. Leave empty or 0 for no minimum.</p>
+            <p className="mt-1 text-xs text-zinc-500">Participants must accumulate at least this much in approved payouts before they can request payment. Leave empty or 0 for no minimum.</p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Guidelines — Do&apos;s</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Guidelines — Do&apos;s</label>
             {dos.map((d, i) => (
               <div key={i} className="mb-2 flex gap-2">
                 <input
@@ -400,7 +400,7 @@ export default function TaskForm() {
                   value={d}
                   onChange={(e) => { const n = [...dos]; n[i] = e.target.value; setDos(n) }}
                   placeholder={`Guideline ${i + 1}`}
-                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
                 {dos.length > 1 && (
                   <button type="button" onClick={() => setDos(dos.filter((_, j) => j !== i))}
@@ -413,7 +413,7 @@ export default function TaskForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">Guidelines — Don&apos;ts</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Guidelines — Don&apos;ts</label>
             {donts.map((d, i) => (
               <div key={i} className="mb-2 flex gap-2">
                 <input
@@ -421,7 +421,7 @@ export default function TaskForm() {
                   value={d}
                   onChange={(e) => { const n = [...donts]; n[i] = e.target.value; setDonts(n) }}
                   placeholder={`Don't ${i + 1}`}
-                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+                  className="flex-1 rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none"
                 />
                 {donts.length > 1 && (
                   <button type="button" onClick={() => setDonts(donts.filter((_, j) => j !== i))}
@@ -437,7 +437,7 @@ export default function TaskForm() {
 
       {(taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-300">Duration (days) — optional</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Duration (days) — optional</label>
           <input
             type="number"
             step="1"
@@ -446,9 +446,9 @@ export default function TaskForm() {
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
             placeholder="e.g. 7"
-            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
           />
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="mt-1 text-xs text-zinc-500">
             How many days the {taskType === 'CAMPAIGN' ? 'campaign' : 'competition'} runs. After this, no new submissions are accepted. Leave empty for no deadline.
           </p>
         </div>
