@@ -145,6 +145,60 @@ export async function createMultisigVaultAndFundUsdcWA(
 }
 
 // ──────────────────────────────────────────────
+// Vault Creation + USDC Funding (Keypair -- CLI)
+// ──────────────────────────────────────────────
+
+/**
+ * Keypair-based variant of createMultisigVaultAndFundUsdcWA for CLI scripts.
+ */
+export async function createMultisigVaultAndFundUsdc(
+  connection: Connection,
+  creator: Keypair,
+  budgetBaseUnits: number,
+): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
+  const createKey = Keypair.generate()
+  const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
+  const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
+
+  const programConfigPda = getProgramConfigPda()
+  const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
+
+  const createMultisigIx = multisig.instructions.multisigCreateV2({
+    createKey: createKey.publicKey,
+    creator: creator.publicKey,
+    multisigPda,
+    configAuthority: null,
+    timeLock: 0,
+    members: [{ key: creator.publicKey, permissions: Permissions.all() }],
+    threshold: 1,
+    treasury: programConfig.treasury,
+    rentCollector: null,
+  })
+
+  const vaultAta = getAta(vaultPda)
+  const createVaultAtaIx = createAssociatedTokenAccountInstruction(
+    creator.publicKey, vaultAta, vaultPda, USDC_MINT,
+  )
+
+  const creatorAta = getAta(creator.publicKey)
+  const transferIx = createTransferInstruction(
+    creatorAta, vaultAta, creator.publicKey, budgetBaseUnits,
+  )
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  const tx = new Transaction()
+  tx.recentBlockhash = blockhash
+  tx.feePayer = creator.publicKey
+  tx.add(createMultisigIx, createVaultAtaIx, transferIx)
+  tx.sign(creator, createKey)
+
+  const signature = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { multisigPda, vaultPda, signature }
+}
+
+// ──────────────────────────────────────────────
 // USDC Payout: Proposal + Approve + Execute (WA)
 // ──────────────────────────────────────────────
 

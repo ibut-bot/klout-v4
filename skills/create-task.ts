@@ -7,24 +7,26 @@
  *   npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "mypass"
  *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet!" --dos "Include link,Mention product" --donts "No spam" --image "/path/to/image.jpg" --min-views 200 --min-likes 5 --password "mypass"
  *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --collateral-link "https://drive.google.com/..." --password "mypass"
+ *   npm run skill:tasks:create -- --title "USDC Promo" --description "..." --budget 50.0 --type campaign --cpm 1.0 --payment-token usdc --dos "Include link" --password "mypass"
  *
  * Options:
  *   --title           Task title
  *   --description     Task description
- *   --budget          Budget in SOL (will be converted to lamports)
+ *   --budget          Budget in SOL or USDC (converted to base units)
  *   --type            Task type: "quote" (default), "competition", or "campaign"
  *   --duration        (Competition/Campaign) Duration in days (1-365). After this, no new entries accepted.
  *   --image           (Campaign) Path to campaign image file
- *   --cpm             (Campaign) Cost per 1000 views in SOL
+ *   --cpm             (Campaign) Cost per 1000 views in SOL or USDC (matches --payment-token)
  *   --heading         (Campaign) Short heading shown on campaign card instead of description
  *   --collateral-link (Campaign) Link to Google Drive/Dropbox with images, logos, assets for creators (optional, not AI-checked)
  *   --min-views       (Campaign) Minimum views per post (default: 100). Set to 0 to accept all.
  *   --min-likes       (Campaign) Minimum likes per post (default: 0)
  *   --min-retweets    (Campaign) Minimum retweets per post (default: 0)
  *   --min-comments    (Campaign) Minimum comments per post (default: 0)
- *   --min-payout      (Campaign) Minimum cumulative payout in SOL before user can request payment (default: 0)
+ *   --min-payout      (Campaign) Minimum cumulative payout in SOL/USDC before user can request payment (default: 0)
  *   --dos             (Campaign) Comma-separated list of dos guidelines
  *   --donts           (Campaign) Comma-separated list of donts guidelines
+ *   --payment-token   (Campaign) Payment token: "sol" (default) or "usdc"
  *   --password        Wallet password to sign transactions
  *   --dry-run         Validate without creating
  */
@@ -35,6 +37,8 @@ import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
 import { apiRequest, parseArgs, getPublicConfig, uploadFile } from './lib/api-client'
 import { createMultisigVaultAndFund } from '../lib/solana/multisig'
+import { createMultisigVaultAndFundUsdc } from '../lib/solana/spl-token'
+import { type PaymentTokenType, tokenMultiplier } from '../lib/token-utils'
 
 async function main() {
   const args = parseArgs()
@@ -49,20 +53,25 @@ async function main() {
     process.exit(1)
   }
 
-  const budgetSol = parseFloat(args.budget)
-  if (isNaN(budgetSol) || budgetSol <= 0) {
+  const budgetNum = parseFloat(args.budget)
+  if (isNaN(budgetNum) || budgetNum <= 0) {
     console.log(JSON.stringify({
       success: false,
       error: 'INVALID_BUDGET',
-      message: 'Budget must be a positive number in SOL',
+      message: 'Budget must be a positive number',
     }))
     process.exit(1)
   }
 
+  // Resolve payment token (only for campaigns)
+  const taskType = (args.type || 'quote').toUpperCase()
+  const paymentToken: PaymentTokenType = (taskType === 'CAMPAIGN' && args['payment-token']?.toUpperCase() === 'USDC') ? 'USDC' : 'SOL'
+  const multiplier = (taskType === 'CAMPAIGN') ? tokenMultiplier(paymentToken) : LAMPORTS_PER_SOL
+
   try {
     const keypair = getKeypair(args.password)
     const connection = getConnection()
-    const budgetLamports = Math.round(budgetSol * LAMPORTS_PER_SOL)
+    const budgetLamports = Math.round(budgetNum * multiplier)
 
     // Fetch server config (system wallet, fees) — no need to hardcode
     const serverConfig = await getPublicConfig()
@@ -102,8 +111,7 @@ async function main() {
       return
     }
 
-    // Resolve task type
-    const taskType = (args.type || 'quote').toUpperCase()
+    // Resolve task type (already computed above for paymentToken)
     if (!['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
       console.log(JSON.stringify({
         success: false,
@@ -120,17 +128,17 @@ async function main() {
         console.log(JSON.stringify({
           success: false,
           error: 'MISSING_ARGS',
-          message: 'Campaign tasks require --cpm (cost per 1000 views in SOL)',
+          message: `Campaign tasks require --cpm (cost per 1000 views in ${paymentToken})`,
         }))
         process.exit(1)
       }
       
-      const cpmSol = parseFloat(args.cpm)
-      if (isNaN(cpmSol) || cpmSol <= 0) {
+      const cpmNum = parseFloat(args.cpm)
+      if (isNaN(cpmNum) || cpmNum <= 0) {
         console.log(JSON.stringify({
           success: false,
           error: 'INVALID_CPM',
-          message: 'CPM must be a positive number in SOL',
+          message: `CPM must be a positive number in ${paymentToken}`,
         }))
         process.exit(1)
       }
@@ -140,14 +148,15 @@ async function main() {
       const donts = args.donts ? args.donts.split(',').map((s: string) => s.trim()).filter(Boolean) : []
 
       campaignFields = {
-        cpmLamports: Math.round(cpmSol * LAMPORTS_PER_SOL),
+        paymentToken,
+        cpmLamports: Math.round(cpmNum * multiplier),
         guidelines: { dos, donts },
         ...(args.heading ? { heading: args.heading } : {}),
         ...(args['min-views'] !== undefined ? { minViews: parseInt(args['min-views']) } : {}),
         ...(args['min-likes'] !== undefined ? { minLikes: parseInt(args['min-likes']) } : {}),
         ...(args['min-retweets'] !== undefined ? { minRetweets: parseInt(args['min-retweets']) } : {}),
         ...(args['min-comments'] !== undefined ? { minComments: parseInt(args['min-comments']) } : {}),
-        ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * LAMPORTS_PER_SOL) } : {}),
+        ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * multiplier) } : {}),
         ...(args['collateral-link'] ? { collateralLink: args['collateral-link'] } : {}),
       }
 
@@ -173,8 +182,13 @@ async function main() {
 
     if (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') {
       // Competition/Campaign: create 1/1 multisig vault and fund it with budget
-      console.error('Creating escrow vault and funding with budget...')
-      const result = await createMultisigVaultAndFund(connection, keypair, budgetLamports)
+      console.error(`Creating escrow vault and funding with budget (${paymentToken})...`)
+      let result: { multisigPda: PublicKey; vaultPda: PublicKey; signature: string }
+      if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
+        result = await createMultisigVaultAndFundUsdc(connection, keypair, budgetLamports)
+      } else {
+        result = await createMultisigVaultAndFund(connection, keypair, budgetLamports)
+      }
       signature = result.signature
       vaultDetails = {
         multisigAddress: result.multisigPda.toBase58(),

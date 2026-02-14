@@ -6,7 +6,7 @@
  *   npm run skill:tasks:edit -- --task "TASK_ID" --description "New description" --password "pass"
  *   npm run skill:tasks:edit -- --task "TASK_ID" --dos "Include link,Mention product" --donts "No spam" --password "pass"
  *   npm run skill:tasks:edit -- --task "TASK_ID" --deadline "2026-03-01T00:00:00Z" --password "pass"
- *   npm run skill:tasks:edit -- --task "TASK_ID" --budget 3.0 --password "pass"  # Increase budget (sends SOL diff to vault)
+ *   npm run skill:tasks:edit -- --task "TASK_ID" --budget 3.0 --password "pass"  # Increase budget (sends SOL/USDC diff to vault)
  *   npm run skill:tasks:edit -- --task "TASK_ID" --heading "New card headline" --min-likes 10 --password "pass"
  *   npm run skill:tasks:edit -- --task "TASK_ID" --collateral-link "https://drive.google.com/..." --password "pass"
  *
@@ -22,14 +22,17 @@
  *   --min-retweets     Minimum retweets threshold (campaign only)
  *   --min-comments     Minimum comments threshold (campaign only)
  *   --deadline         New deadline (ISO date string, must be in the future; use "null" to remove)
- *   --budget           New budget in SOL (must be greater than current — increase only)
+ *   --budget           New budget in SOL or USDC (must be greater than current — increase only, token auto-detected from task)
  *   --password         Wallet password for authentication
  */
 
 import { LAMPORTS_PER_SOL, SystemProgram, Transaction, PublicKey } from '@solana/web3.js'
+import { createTransferInstruction } from '@solana/spl-token'
 import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
 import { apiRequest, parseArgs } from './lib/api-client'
+import { getAta, USDC_MINT } from '../lib/solana/spl-token'
+import { type PaymentTokenType, tokenMultiplier, tokenSymbol } from '../lib/token-utils'
 
 async function main() {
   const args = parseArgs()
@@ -102,29 +105,32 @@ async function main() {
 
     // Budget increase
     if (args.budget) {
-      const newBudgetSol = parseFloat(args.budget)
-      if (isNaN(newBudgetSol) || newBudgetSol <= 0) {
+      const newBudgetNum = parseFloat(args.budget)
+      if (isNaN(newBudgetNum) || newBudgetNum <= 0) {
         console.log(JSON.stringify({
           success: false,
           error: 'INVALID_BUDGET',
-          message: 'Budget must be a positive number in SOL',
+          message: 'Budget must be a positive number',
         }))
         process.exit(1)
       }
 
-      const newBudgetLamports = Math.round(newBudgetSol * LAMPORTS_PER_SOL)
-
-      // Fetch current task to get current budget and vault address
+      // Fetch current task to get current budget, vault address, and payment token
       console.error('Fetching current task details for budget increase...')
       const taskData = await apiRequest(keypair, 'GET', `/api/tasks/${args.task}`)
       if (!taskData.success) throw new Error(taskData.message || 'Failed to fetch task')
 
+      const pt: PaymentTokenType = (taskData.task.paymentToken as PaymentTokenType) || 'SOL'
+      const sym = tokenSymbol(pt)
+      const mult = tokenMultiplier(pt)
+      const newBudgetBaseUnits = Math.round(newBudgetNum * mult)
+
       const currentBudget = Number(taskData.task.budgetLamports)
-      if (newBudgetLamports <= currentBudget) {
+      if (newBudgetBaseUnits <= currentBudget) {
         console.log(JSON.stringify({
           success: false,
           error: 'BUDGET_DECREASE_NOT_ALLOWED',
-          message: `New budget (${newBudgetSol} SOL) must be greater than current budget (${currentBudget / LAMPORTS_PER_SOL} SOL)`,
+          message: `New budget (${newBudgetNum} ${sym}) must be greater than current budget (${currentBudget / mult} ${sym})`,
         }))
         process.exit(1)
       }
@@ -132,27 +138,37 @@ async function main() {
       const vaultAddress = taskData.task.vaultAddress
       if (!vaultAddress) throw new Error('Task has no vault address')
 
-      const difference = newBudgetLamports - currentBudget
-      console.error(`Sending ${difference / LAMPORTS_PER_SOL} SOL budget increase to vault ${vaultAddress}...`)
+      const difference = newBudgetBaseUnits - currentBudget
+      console.error(`Sending ${difference / mult} ${sym} budget increase to vault ${vaultAddress}...`)
 
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
       tx.feePayer = keypair.publicKey
-      tx.add(
-        SystemProgram.transfer({
-          fromPubkey: keypair.publicKey,
-          toPubkey: new PublicKey(vaultAddress),
-          lamports: difference,
-        })
-      )
+
+      if (pt === 'USDC') {
+        // USDC: SPL token transfer to vault's ATA
+        const vaultPda = new PublicKey(vaultAddress)
+        const creatorAta = getAta(keypair.publicKey)
+        const vaultAta = getAta(vaultPda)
+        tx.add(createTransferInstruction(creatorAta, vaultAta, keypair.publicKey, difference))
+      } else {
+        // SOL: native transfer
+        tx.add(
+          SystemProgram.transfer({
+            fromPubkey: keypair.publicKey,
+            toPubkey: new PublicKey(vaultAddress),
+            lamports: difference,
+          })
+        )
+      }
       tx.sign(keypair)
 
       const sig = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 5 })
       await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
       console.error(`Budget increase tx confirmed: ${sig}`)
 
-      updates.budgetLamports = newBudgetLamports
+      updates.budgetLamports = newBudgetBaseUnits
       updates.budgetIncreaseTxSignature = sig
     }
 
