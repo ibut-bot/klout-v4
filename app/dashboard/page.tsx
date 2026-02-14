@@ -30,7 +30,11 @@ interface Task {
     cpmLamports: string
     budgetRemainingLamports: string
     guidelines: { dos: string[]; donts: string[] }
+    heading?: string | null
     minViews: number
+    minLikes: number
+    minRetweets: number
+    minComments: number
     minPayoutLamports: string
   } | null
   winningBid?: {
@@ -113,8 +117,15 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
 
   // Edit form state
   const [editDescription, setEditDescription] = useState(task.description)
+  const [editHeading, setEditHeading] = useState(task.campaignConfig?.heading || '')
   const [editDos, setEditDos] = useState<string[]>((task.campaignConfig?.guidelines?.dos || []).length > 0 ? task.campaignConfig!.guidelines.dos : [''])
   const [editDonts, setEditDonts] = useState<string[]>((task.campaignConfig?.guidelines?.donts || []).length > 0 ? task.campaignConfig!.guidelines.donts : [''])
+  const [editMinViews, setEditMinViews] = useState(String(task.campaignConfig?.minViews ?? 100))
+  const [editMinLikes, setEditMinLikes] = useState(String(task.campaignConfig?.minLikes ?? 0))
+  const [editMinRetweets, setEditMinRetweets] = useState(String(task.campaignConfig?.minRetweets ?? 0))
+  const [editMinComments, setEditMinComments] = useState(String(task.campaignConfig?.minComments ?? 0))
+  const [editCpm, setEditCpm] = useState(task.campaignConfig ? String(Number(task.campaignConfig.cpmLamports) / LAMPORTS_PER_SOL) : '')
+  const [editMinPayout, setEditMinPayout] = useState(task.campaignConfig && Number(task.campaignConfig.minPayoutLamports) > 0 ? String(Number(task.campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL) : '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
@@ -223,6 +234,22 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         updates.guidelines = { dos: newDos, donts: newDonts }
       }
 
+      // Heading
+      const currentHeading = task.campaignConfig?.heading || ''
+      if (editHeading.trim() !== currentHeading) {
+        updates.heading = editHeading.trim() || null
+      }
+
+      // Engagement thresholds
+      const newMinViews = parseInt(editMinViews) || 0
+      const newMinLikes = parseInt(editMinLikes) || 0
+      const newMinRetweets = parseInt(editMinRetweets) || 0
+      const newMinComments = parseInt(editMinComments) || 0
+      if (newMinViews !== (task.campaignConfig?.minViews ?? 100)) updates.minViews = newMinViews
+      if (newMinLikes !== (task.campaignConfig?.minLikes ?? 0)) updates.minLikes = newMinLikes
+      if (newMinRetweets !== (task.campaignConfig?.minRetweets ?? 0)) updates.minRetweets = newMinRetweets
+      if (newMinComments !== (task.campaignConfig?.minComments ?? 0)) updates.minComments = newMinComments
+
       // Deadline
       if (editDeadline) {
         const newDeadline = new Date(editDeadline).toISOString()
@@ -304,10 +331,18 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         const newRemaining = BigInt(task.budgetRemainingLamports || task.budgetLamports) + increase
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
-      if (updates.guidelines) {
+      // Merge campaign config updates
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined
+      if (hasConfigUpdate) {
+        const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
-          ...(task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minPayoutLamports: '0' }),
-          guidelines: updates.guidelines,
+          ...base,
+          ...(updates.guidelines ? { guidelines: updates.guidelines } : {}),
+          ...(updates.heading !== undefined ? { heading: updates.heading } : {}),
+          ...(updates.minViews !== undefined ? { minViews: updates.minViews } : {}),
+          ...(updates.minLikes !== undefined ? { minLikes: updates.minLikes } : {}),
+          ...(updates.minRetweets !== undefined ? { minRetweets: updates.minRetweets } : {}),
+          ...(updates.minComments !== undefined ? { minComments: updates.minComments } : {}),
         }
       }
 
@@ -425,6 +460,19 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             </div>
 
             <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Card Heading</label>
+              <input
+                type="text"
+                value={editHeading}
+                onChange={(e) => setEditHeading(e.target.value)}
+                placeholder="Short headline for campaign card"
+                maxLength={120}
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+              />
+              <p className="mt-0.5 text-[10px] text-zinc-600">Shown on the campaign card instead of description. Leave empty to use description.</p>
+            </div>
+
+            <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Guidelines — Do&apos;s</label>
               {editDos.map((d, i) => (
                 <div key={i} className="mb-1 flex gap-1">
@@ -458,6 +506,33 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                 </div>
               ))}
               <button type="button" onClick={() => setEditDonts([...editDonts, ''])} className="text-[10px] text-accent hover:text-accent-hover">+ Add</button>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Engagement Thresholds</label>
+              <p className="mb-2 text-[10px] text-zinc-600">Posts must meet all minimums. Set to 0 to skip.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Views</label>
+                  <input type="number" min="0" step="1" value={editMinViews} onChange={(e) => setEditMinViews(e.target.value)} placeholder="100"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Likes</label>
+                  <input type="number" min="0" step="1" value={editMinLikes} onChange={(e) => setEditMinLikes(e.target.value)} placeholder="0"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Retweets</label>
+                  <input type="number" min="0" step="1" value={editMinRetweets} onChange={(e) => setEditMinRetweets(e.target.value)} placeholder="0"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Comments</label>
+                  <input type="number" min="0" step="1" value={editMinComments} onChange={(e) => setEditMinComments(e.target.value)} placeholder="0"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -513,8 +588,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <button
                 onClick={() => {
                   setEditDescription(task.description)
+                  setEditHeading(task.campaignConfig?.heading || '')
                   setEditDos((task.campaignConfig?.guidelines?.dos || []).length > 0 ? task.campaignConfig!.guidelines.dos : [''])
                   setEditDonts((task.campaignConfig?.guidelines?.donts || []).length > 0 ? task.campaignConfig!.guidelines.donts : [''])
+                  setEditMinViews(String(task.campaignConfig?.minViews ?? 100))
+                  setEditMinLikes(String(task.campaignConfig?.minLikes ?? 0))
+                  setEditMinRetweets(String(task.campaignConfig?.minRetweets ?? 0))
+                  setEditMinComments(String(task.campaignConfig?.minComments ?? 0))
                   setEditDeadline(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
                   setEditBudget('')
                   setEditError('')

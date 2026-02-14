@@ -57,8 +57,8 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   const minutes = Math.floor((diff % 3600000) / 60000)
   const seconds = Math.floor((diff % 60000) / 1000)
   
-  if (days > 0) return { label: `${days}d ${hours}h`, isEnded: false }
-  if (hours > 0) return { label: `${hours}h ${minutes}m`, isEnded: false }
+  if (days > 0) return { label: `${days}d ${hours}h ${minutes}m ${seconds}s`, isEnded: false }
+  if (hours > 0) return { label: `${hours}h ${minutes}m ${seconds}s`, isEnded: false }
   if (minutes > 0) return { label: `${minutes}m ${seconds}s`, isEnded: false }
   return { label: `${seconds}s`, isEnded: false }
 }
@@ -151,16 +151,6 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
               <span className="text-accent">
                 {formatSol(budgetLamports)}
               </span>
-              {!budgetExhausted && countdown && !countdown.isEnded && (
-                <span className="text-zinc-300">
-                  {countdown.label}
-                </span>
-              )}
-              {!budgetExhausted && countdown?.isEnded && (
-                <span className="text-red-400">
-                  Ended
-                </span>
-              )}
               {budgetExhausted && (
                 <span className="text-red-400">
                   Budget Used
@@ -211,7 +201,11 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
                   )}
                   <span className="text-xs" title={creatorWallet}>{creatorUsername || `${creatorWallet.slice(0, 4)}...${creatorWallet.slice(-4)}`}</span>
                 </Link>
-                <span className="text-xs text-zinc-500">{timeAgo}</span>
+                {!budgetExhausted && countdown && (
+                  <span className={`text-xs font-medium ${countdown.isEnded ? 'text-red-400' : 'text-zinc-300'}`}>
+                    {countdown.label}
+                  </span>
+                )}
               </div>
             </div>
           </div>

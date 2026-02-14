@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       include: {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         _count: { select: { bids: true, campaignSubmissions: true } },
-        campaignConfig: { select: { budgetRemainingLamports: true } },
+        campaignConfig: true,
         winningBid: {
           include: {
             bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } },
@@ -73,7 +73,20 @@ export async function GET(request: NextRequest) {
       bidCount: t._count.bids,
       submissionCount: t._count.campaignSubmissions,
       budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
+      campaignConfig: t.campaignConfig ? {
+        cpmLamports: t.campaignConfig.cpmLamports.toString(),
+        budgetRemainingLamports: t.campaignConfig.budgetRemainingLamports.toString(),
+        guidelines: t.campaignConfig.guidelines,
+        heading: t.campaignConfig.heading,
+        minViews: t.campaignConfig.minViews,
+        minLikes: t.campaignConfig.minLikes,
+        minRetweets: t.campaignConfig.minRetweets,
+        minComments: t.campaignConfig.minComments,
+        minPayoutLamports: t.campaignConfig.minPayoutLamports.toString(),
+      } : null,
       imageUrl: t.imageUrl,
+      imageTransform: t.imageTransform,
+      vaultAddress: t.vaultAddress,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
