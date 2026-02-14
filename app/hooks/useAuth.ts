@@ -33,6 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   publicKeyRef.current = publicKey
   tokenRef.current = token
 
+  // On mount: restore cached token immediately (no wallet connection needed)
+  useEffect(() => {
+    const stored = localStorage.getItem('slopwork_token')
+    const storedWallet = localStorage.getItem('slopwork_wallet')
+    const storedExpiry = localStorage.getItem('slopwork_token_expiry')
+
+    if (stored && storedWallet && storedExpiry) {
+      const expiry = Number(storedExpiry)
+      if (expiry > Date.now() / 1000 + 300) {
+        setToken(stored)
+        setWallet(storedWallet)
+      }
+    }
+  }, [])
+
   const authenticate = useCallback(async () => {
     const pk = publicKeyRef.current
     const sign = signMessageRef.current
@@ -78,9 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // On wallet connect: only restore cached token — never auto-trigger signMessage
-  // (Phantom shows a blank screen when signMessage is called without a user gesture,
-  //  e.g. during autoConnect. Authentication must be user-initiated.)
+  // On wallet connect: restore cached token or auto-authenticate
+  // Since autoConnect is disabled, all connections are user-initiated
+  // and Phantom will always render signMessage correctly.
   useEffect(() => {
     if (!publicKey) {
       setToken(null)
@@ -92,8 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const walletAddr = publicKey.toBase58()
 
     if (didAutoAuthRef.current === walletAddr) return
-    didAutoAuthRef.current = walletAddr
 
+    // Try to restore cached token
     const stored = localStorage.getItem('slopwork_token')
     const storedWallet = localStorage.getItem('slopwork_wallet')
     const storedExpiry = localStorage.getItem('slopwork_token_expiry')
@@ -103,9 +118,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (expiry > Date.now() / 1000 + 300) {
         setToken(stored)
         setWallet(storedWallet)
+        didAutoAuthRef.current = walletAddr
+        return
       }
     }
-  }, [publicKey])
+
+    // Wait for signMessage to be available
+    if (!signMessage) return
+
+    didAutoAuthRef.current = walletAddr
+
+    const timer = setTimeout(() => {
+      if (!authenticatingRef.current) {
+        authenticate().then(result => {
+          if (!result) didAutoAuthRef.current = null
+        })
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [publicKey, signMessage, authenticate])
 
   const authFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {

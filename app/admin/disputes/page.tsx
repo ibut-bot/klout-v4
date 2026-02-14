@@ -55,7 +55,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export default function AdminDisputesPage() {
-  const { wallet, isAuthenticated, connected, authFetch } = useAuth()
+  const { wallet, isAuthenticated, authFetch } = useAuth()
   const [disputes, setDisputes] = useState<Dispute[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('PENDING')
@@ -83,20 +83,11 @@ export default function AdminDisputesPage() {
     }
   }, [isAuthenticated, fetchDisputes])
 
-  if (!connected) {
-    return (
-      <div className="py-16 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-white">Arbitration Dashboard</h1>
-        <p className="text-zinc-500">Connect your wallet to access the arbitration dashboard.</p>
-      </div>
-    )
-  }
-
   if (!isAuthenticated) {
     return (
       <div className="py-16 text-center">
         <h1 className="mb-4 text-2xl font-bold text-white">Arbitration Dashboard</h1>
-        <p className="text-zinc-500">Sign in with your wallet to access the arbitration dashboard.</p>
+        <p className="text-zinc-500">Connect your wallet to access the arbitration dashboard.</p>
       </div>
     )
   }

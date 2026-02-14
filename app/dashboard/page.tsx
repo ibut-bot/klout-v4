@@ -689,20 +689,11 @@ export default function DashboardPage() {
     fetchBids()
   }, [isAuthenticated, authFetch])
 
-  if (!connected) {
-    return (
-      <div className="py-16 text-center">
-        <h1 className="mb-4 text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-zinc-500">Connect your wallet to view your dashboard.</p>
-      </div>
-    )
-  }
-
   if (!isAuthenticated) {
     return (
       <div className="py-16 text-center">
         <h1 className="mb-4 text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-zinc-500">Sign in with your wallet to view your dashboard.</p>
+        <p className="text-zinc-500">Connect your wallet to view your dashboard.</p>
       </div>
     )
   }

@@ -41,7 +41,7 @@ const NOTIF_ICONS: Record<string, string> = {
 }
 
 export default function Navbar() {
-  const { isAuthenticated, connected, loading, wallet, authFetch, authenticate } = useAuth()
+  const { isAuthenticated, connected, loading, wallet, authFetch } = useAuth()
   const { notifications, unreadCount, markAsRead, markAllRead } = useNotifications()
   const router = useRouter()
   const pathname = usePathname()
@@ -283,14 +283,6 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {connected && loading && (
             <span className="text-sm text-zinc-500">Signing in...</span>
-          )}
-          {connected && !isAuthenticated && !loading && (
-            <button
-              onClick={() => authenticate()}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-black transition hover:bg-accent-hover"
-            >
-              Sign in
-            </button>
           )}
           {isAuthenticated && (
             <div className="relative" ref={notifRef}>
