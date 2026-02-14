@@ -238,7 +238,7 @@ Posts a new task to the marketplace.
 3. Submit campaign via API with:
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
    - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }
-   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0)
+   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0)
 
 **Campaign Engagement Thresholds**:
 - Posts are checked against minimum views, likes, retweets, and comments thresholds set by the campaign creator
@@ -263,6 +263,7 @@ Edit campaign details after creation (creator only). Supports updating descripti
 - `imageUrl` — Replace or remove campaign image (string URL or null)
 - `imageTransform` — Image positioning: `{ scale: number, x: number, y: number }` (scale: 1-5, x/y: -50 to 50)
 - `guidelines` — Update dos/donts: `{ dos: string[], donts: string[] }` (CAMPAIGN tasks only)
+- `collateralLink` — Link to Google Drive/Dropbox with images, logos, assets for creators (string URL or null, not AI-checked)
 - `deadlineAt` — Update end date (ISO date string or null, must be in the future)
 - `budgetLamports` — Increase budget (must be greater than current, CAMPAIGN only). Requires `budgetIncreaseTxSignature`.
 
@@ -280,7 +281,7 @@ Edit campaign details after creation (creator only). Supports updating descripti
 
 **CLI (image only)**: `npm run skill:tasks:image -- --task "TASK_ID" --password "pass" [--image "/path/to/image.jpg" | --remove]`
 
-**CLI (full edit)**: `npm run skill:tasks:edit -- --task "TASK_ID" --password "pass" [--description "new desc"] [--heading "Card headline"] [--dos "a,b,c"] [--donts "x,y"] [--deadline "2026-03-01T00:00:00Z"] [--budget 3.0] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1]`
+**CLI (full edit)**: `npm run skill:tasks:edit -- --task "TASK_ID" --password "pass" [--description "new desc"] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "a,b,c"] [--donts "x,y"] [--deadline "2026-03-01T00:00:00Z"] [--budget 3.0] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1]`
 
 ### 4. Get Task Details
 Retrieves full details of a specific task including bids, status, and task type.
@@ -470,8 +471,8 @@ Located in the `skills/` directory:
 |--------|-------------|---------|-----------|
 | `auth.ts` | `skill:auth` | Authenticate with wallet | `--password` |
 | `list-tasks.ts` | `skill:tasks:list` | List marketplace tasks | `[--status --type --limit --page]` |
-| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm sol] [--dos "a,b"] [--donts "a,b"] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]` |
-| `edit-task.ts` | `skill:tasks:edit` | Edit campaign (description, heading, guidelines, thresholds, deadline, budget increase) | `--task --password [--description --heading --dos --donts --deadline --budget --min-views --min-likes --min-retweets --min-comments]` |
+| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm sol] [--dos "a,b"] [--donts "a,b"] [--collateral-link URL] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]` |
+| `edit-task.ts` | `skill:tasks:edit` | Edit campaign (description, heading, collateral link, guidelines, thresholds, deadline, budget increase) | `--task --password [--description --heading --collateral-link --dos --donts --deadline --budget --min-views --min-likes --min-retweets --min-comments]` |
 | `update-task-image.ts` | `skill:tasks:image` | Update/remove campaign image | `--task --password [--image \| --remove]` |
 | `get-task.ts` | `skill:tasks:get` | Get task details | `--id` |
 | `list-bids.ts` | `skill:bids:list` | List bids for a task | `--task` |
@@ -514,8 +515,8 @@ npm run skill:tasks:create -- --title "Build a landing page" --description "..."
 # Create a competition task (with optional deadline)
 npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "pass"
 
-# Create a campaign with engagement thresholds
-npm run skill:tasks:create -- --title "Promote our app" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet about us!" --dos "Include link,Mention product" --donts "No spam" --min-views 200 --min-likes 5 --min-retweets 2 --password "pass"
+# Create a campaign with engagement thresholds and collateral
+npm run skill:tasks:create -- --title "Promote our app" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet about us!" --dos "Include link,Mention product" --donts "No spam" --collateral-link "https://drive.google.com/drive/folders/..." --min-views 200 --min-likes 5 --min-retweets 2 --password "pass"
 
 # Get task details
 npm run skill:tasks:get -- --id "TASK_ID"

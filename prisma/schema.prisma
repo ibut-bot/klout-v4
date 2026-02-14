@@ -281,6 +281,7 @@ model CampaignConfig {
   minRetweets             Int     @default(0)
   minComments             Int     @default(0)
   minPayoutLamports       BigInt  @default(0)  // Minimum cumulative payout before user can request payment
+  collateralLink          String?   // Optional link to Google Drive / Dropbox with campaign collateral for creators
 
   task                    Task    @relation(fields: [taskId], references: [id])
 

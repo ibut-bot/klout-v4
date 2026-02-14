@@ -36,6 +36,7 @@ interface Task {
     minRetweets: number
     minComments: number
     minPayoutLamports: string
+    collateralLink?: string | null
   } | null
   winningBid?: {
     id: string
@@ -126,6 +127,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editMinComments, setEditMinComments] = useState(String(task.campaignConfig?.minComments ?? 0))
   const [editCpm, setEditCpm] = useState(task.campaignConfig ? String(Number(task.campaignConfig.cpmLamports) / LAMPORTS_PER_SOL) : '')
   const [editMinPayout, setEditMinPayout] = useState(task.campaignConfig && Number(task.campaignConfig.minPayoutLamports) > 0 ? String(Number(task.campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL) : '')
+  const [editCollateralLink, setEditCollateralLink] = useState(task.campaignConfig?.collateralLink || '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
@@ -240,6 +242,12 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         updates.heading = editHeading.trim() || null
       }
 
+      // Collateral link
+      const currentCollateralLink = task.campaignConfig?.collateralLink || ''
+      if (editCollateralLink.trim() !== currentCollateralLink) {
+        updates.collateralLink = editCollateralLink.trim() || null
+      }
+
       // Engagement thresholds
       const newMinViews = parseInt(editMinViews) || 0
       const newMinLikes = parseInt(editMinLikes) || 0
@@ -332,13 +340,14 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
           ...base,
           ...(updates.guidelines ? { guidelines: updates.guidelines } : {}),
           ...(updates.heading !== undefined ? { heading: updates.heading } : {}),
+          ...(updates.collateralLink !== undefined ? { collateralLink: updates.collateralLink } : {}),
           ...(updates.minViews !== undefined ? { minViews: updates.minViews } : {}),
           ...(updates.minLikes !== undefined ? { minLikes: updates.minLikes } : {}),
           ...(updates.minRetweets !== undefined ? { minRetweets: updates.minRetweets } : {}),
@@ -509,6 +518,18 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             </div>
 
             <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Collateral Link — optional</label>
+              <input
+                type="url"
+                value={editCollateralLink}
+                onChange={(e) => setEditCollateralLink(e.target.value)}
+                placeholder="https://drive.google.com/... or https://dropbox.com/..."
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+              />
+              <p className="mt-0.5 text-[10px] text-zinc-600">Link to images, logos, or other assets creators can use. Not checked by AI verification.</p>
+            </div>
+
+            <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Engagement Thresholds</label>
               <p className="mb-2 text-[10px] text-zinc-600">Posts must meet all minimums. Set to 0 to skip.</p>
               <div className="grid grid-cols-2 gap-2">
@@ -595,6 +616,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                   setEditMinLikes(String(task.campaignConfig?.minLikes ?? 0))
                   setEditMinRetweets(String(task.campaignConfig?.minRetweets ?? 0))
                   setEditMinComments(String(task.campaignConfig?.minComments ?? 0))
+                  setEditCollateralLink(task.campaignConfig?.collateralLink || '')
                   setEditDeadline(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
                   setEditBudget('')
                   setEditError('')

@@ -8,20 +8,22 @@
  *   npm run skill:tasks:edit -- --task "TASK_ID" --deadline "2026-03-01T00:00:00Z" --password "pass"
  *   npm run skill:tasks:edit -- --task "TASK_ID" --budget 3.0 --password "pass"  # Increase budget (sends SOL diff to vault)
  *   npm run skill:tasks:edit -- --task "TASK_ID" --heading "New card headline" --min-likes 10 --password "pass"
+ *   npm run skill:tasks:edit -- --task "TASK_ID" --collateral-link "https://drive.google.com/..." --password "pass"
  *
  * Options:
- *   --task          Task ID to edit
- *   --description   New description
- *   --heading       New card heading (campaign only)
- *   --dos           Comma-separated dos guidelines
- *   --donts         Comma-separated donts guidelines
- *   --min-views     Minimum views threshold (campaign only)
- *   --min-likes     Minimum likes threshold (campaign only)
- *   --min-retweets  Minimum retweets threshold (campaign only)
- *   --min-comments  Minimum comments threshold (campaign only)
- *   --deadline      New deadline (ISO date string, must be in the future; use "null" to remove)
- *   --budget        New budget in SOL (must be greater than current — increase only)
- *   --password      Wallet password for authentication
+ *   --task             Task ID to edit
+ *   --description      New description
+ *   --heading          New card heading (campaign only)
+ *   --collateral-link  Link to Google Drive/Dropbox with collateral for creators (campaign only, use "null" to remove)
+ *   --dos              Comma-separated dos guidelines
+ *   --donts            Comma-separated donts guidelines
+ *   --min-views        Minimum views threshold (campaign only)
+ *   --min-likes        Minimum likes threshold (campaign only)
+ *   --min-retweets     Minimum retweets threshold (campaign only)
+ *   --min-comments     Minimum comments threshold (campaign only)
+ *   --deadline         New deadline (ISO date string, must be in the future; use "null" to remove)
+ *   --budget           New budget in SOL (must be greater than current — increase only)
+ *   --password         Wallet password for authentication
  */
 
 import { LAMPORTS_PER_SOL, SystemProgram, Transaction, PublicKey } from '@solana/web3.js'
@@ -42,11 +44,11 @@ async function main() {
     process.exit(1)
   }
 
-  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined) {
+  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['collateral-link'] === undefined && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined) {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'At least one edit field required: --description, --heading, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments',
+      message: 'At least one edit field required: --description, --heading, --collateral-link, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments',
     }))
     process.exit(1)
   }
@@ -64,6 +66,10 @@ async function main() {
 
     if (args.heading !== undefined) {
       updates.heading = args.heading || null
+    }
+
+    if (args['collateral-link'] !== undefined) {
+      updates.collateralLink = args['collateral-link'] === 'null' ? null : args['collateral-link']
     }
 
     if (args['min-views'] !== undefined) updates.minViews = parseInt(args['min-views'])

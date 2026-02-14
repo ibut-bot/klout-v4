@@ -15,11 +15,12 @@ interface Props {
   budgetRemainingLamports: string
   minPayoutLamports?: string
   minViews?: number
+  collateralLink?: string | null
   xLinked: boolean
   onSubmitted: () => void
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, xLinked, onSubmitted }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -167,6 +168,23 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Collateral Link */}
+      {collateralLink && (
+        <div className="rounded-xl border border-k-border p-4">
+          <p className="text-xs font-medium text-zinc-400 mb-1">Campaign Collateral</p>
+          <a
+            href={collateralLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent-hover underline underline-offset-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            View collateral (images, logos, assets)
+          </a>
+          <p className="mt-1 text-[11px] text-zinc-600">Provided by the campaign owner for guidance. Use of these materials is optional.</p>
         </div>
       )}
 

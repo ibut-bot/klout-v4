@@ -133,7 +133,7 @@ export default function TaskDetailPage() {
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
-    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; collateralLink?: string | null
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
@@ -634,6 +634,7 @@ export default function TaskDetailPage() {
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
               minPayoutLamports={campaignConfig.minPayoutLamports}
               minViews={campaignConfig.minViews}
+              collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
             />
@@ -658,6 +659,14 @@ export default function TaskDetailPage() {
                 <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
                 {Number(campaignConfig.minPayoutLamports) > 0 && (
                   <p>Min payout threshold: {(Number(campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                )}
+                {campaignConfig.collateralLink && (
+                  <p>
+                    Collateral:{' '}
+                    <a href={campaignConfig.collateralLink} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline underline-offset-2">
+                      View campaign assets
+                    </a>
+                  </p>
                 )}
                 <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
               </div>

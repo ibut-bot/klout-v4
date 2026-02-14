@@ -80,6 +80,7 @@ export async function GET(
             minRetweets: task.campaignConfig.minRetweets,
             minComments: task.campaignConfig.minComments,
             minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
+            collateralLink: task.campaignConfig.collateralLink,
           }
         : null,
       bidCount: task._count.bids,
@@ -146,7 +147,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, collateralLink } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -314,7 +315,7 @@ export async function PATCH(
   }
 
   // Check if there are campaign config updates
-  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || budgetIncrease !== null
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || budgetIncrease !== null || collateralLink !== undefined
 
   // Use transaction for campaign config updates
   if (isCampaign && hasCampaignConfigUpdates) {
@@ -332,6 +333,7 @@ export async function PATCH(
         }
       }
       if (heading !== undefined) configUpdate.heading = heading || null
+      if (collateralLink !== undefined) configUpdate.collateralLink = collateralLink ? String(collateralLink).trim() : null
       if (minViews !== undefined) configUpdate.minViews = Math.max(0, parseInt(minViews) || 0)
       if (minLikes !== undefined) configUpdate.minLikes = Math.max(0, parseInt(minLikes) || 0)
       if (minRetweets !== undefined) configUpdate.minRetweets = Math.max(0, parseInt(minRetweets) || 0)

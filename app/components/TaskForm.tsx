@@ -37,6 +37,7 @@ export default function TaskForm() {
   const [minPayout, setMinPayout] = useState('')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
+  const [collateralLink, setCollateralLink] = useState('')
 
   // Image upload
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -152,6 +153,7 @@ export default function TaskForm() {
         minRetweets: parseInt(minRetweets) || 0,
         minComments: parseInt(minComments) || 0,
         ...(minPayout ? { minPayoutLamports: Math.round(parseFloat(minPayout) * LAMPORTS_PER_SOL) } : {}),
+        ...(collateralLink.trim() ? { collateralLink: collateralLink.trim() } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
           donts: donts.map(d => d.trim()).filter(Boolean),
@@ -431,6 +433,18 @@ export default function TaskForm() {
             ))}
             <button type="button" onClick={() => setDonts([...donts, ''])}
               className="text-xs text-accent hover:text-accent-hover">+ Add guideline</button>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Collateral Link — optional</label>
+            <input
+              type="url"
+              value={collateralLink}
+              onChange={(e) => setCollateralLink(e.target.value)}
+              placeholder="https://drive.google.com/... or https://dropbox.com/..."
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <p className="mt-1 text-xs text-zinc-500">Share a link to Google Drive, Dropbox, etc. with images, logos, or other collateral that creators can use in their posts. This is for guidance only and is not checked by AI verification.</p>
           </div>
         </>
       )}

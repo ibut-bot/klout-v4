@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading, collateralLink } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -311,6 +311,7 @@ export async function POST(request: NextRequest) {
           ...(minRetweets !== undefined ? { minRetweets: Math.max(0, parseInt(minRetweets) || 0) } : {}),
           ...(minComments !== undefined ? { minComments: Math.max(0, parseInt(minComments) || 0) } : {}),
           ...(minPayoutLamports !== undefined ? { minPayoutLamports: BigInt(Math.max(0, Number(minPayoutLamports) || 0)) } : {}),
+          ...(collateralLink ? { collateralLink: String(collateralLink).trim() } : {}),
         },
       })
 

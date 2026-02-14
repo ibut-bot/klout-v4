@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         minRetweets: t.campaignConfig.minRetweets,
         minComments: t.campaignConfig.minComments,
         minPayoutLamports: t.campaignConfig.minPayoutLamports.toString(),
+        collateralLink: t.campaignConfig.collateralLink,
       } : null,
       imageUrl: t.imageUrl,
       imageTransform: t.imageTransform,
