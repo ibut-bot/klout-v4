@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { getImageTransformStyle } from '../../components/ImagePositionEditor'
+import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../../components/ImagePositionEditor'
 
 function useCountdown(deadlineAt: string | null | undefined) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; expired: boolean } | null>(null)
@@ -137,6 +137,10 @@ export default function TaskDetailPage() {
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
+  // Image repositioning state
+  const [editingImage, setEditingImage] = useState(false)
+  const [imgTransform, setImgTransform] = useState<ImageTransform>({ scale: 1, x: 50, y: 50 })
+  const [savingImage, setSavingImage] = useState(false)
 
   const fetchTask = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}`)
@@ -146,6 +150,27 @@ export default function TaskDetailPage() {
       if (data.task.campaignConfig) setCampaignConfig(data.task.campaignConfig)
     }
   }, [id])
+
+  const handleSaveImagePosition = async () => {
+    if (!task) return
+    setSavingImage(true)
+    try {
+      const res = await authFetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageTransform: imgTransform }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTask({ ...task, imageTransform: imgTransform })
+        setEditingImage(false)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSavingImage(false)
+    }
+  }
 
   const fetchBids = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}/bids`)
@@ -344,12 +369,33 @@ export default function TaskDetailPage() {
       {/* Campaign Image */}
       {task.imageUrl && (
         <div className="mb-6 overflow-hidden rounded-xl">
-          <img
-            src={task.imageUrl}
-            alt={task.title}
-            className="w-full max-h-[400px] object-cover"
-            style={getImageTransformStyle(task.imageTransform as any)}
-          />
+          {editingImage ? (
+            <ImagePositionEditor
+              imageUrl={task.imageUrl}
+              initialTransform={task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }}
+              onTransformChange={setImgTransform}
+              onSave={handleSaveImagePosition}
+              onCancel={() => { setImgTransform(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }); setEditingImage(false) }}
+              height="h-[460px]"
+            />
+          ) : (
+            <div className="relative">
+              <img
+                src={task.imageUrl}
+                alt={task.title}
+                className="w-full max-h-[460px] object-cover"
+                style={getImageTransformStyle(task.imageTransform as any)}
+              />
+              {isCreator && (
+                <button
+                  onClick={() => { setImgTransform(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }); setEditingImage(true) }}
+                  className="absolute bottom-2 right-2 rounded-lg bg-black/60 px-3 py-1.5 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm transition"
+                >
+                  Reposition
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
