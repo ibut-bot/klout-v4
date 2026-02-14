@@ -30,12 +30,20 @@ export async function GET(request: NextRequest) {
     where.taskType = taskType
   }
   if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
-    // For CAMPAIGN tasks with COMPLETED filter, also include budget-exhausted campaigns
-    if (status === 'COMPLETED' && taskType === 'CAMPAIGN') {
-      where.OR = [
-        { status: 'COMPLETED' },
-        { campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
-      ]
+    if (taskType === 'CAMPAIGN') {
+      if (status === 'COMPLETED') {
+        // Completed = explicitly completed OR budget exhausted
+        where.OR = [
+          { status: 'COMPLETED' },
+          { campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
+        ]
+      } else if (status === 'OPEN') {
+        // Open = status is OPEN AND budget is NOT exhausted
+        where.status = 'OPEN'
+        where.campaignConfig = { budgetRemainingLamports: { gt: 0 } }
+      } else {
+        where.status = status
+      }
     } else {
       where.status = status
     }

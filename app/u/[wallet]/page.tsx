@@ -221,7 +221,7 @@ export default function PublicProfilePage() {
           href="/tasks"
           className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
         >
-          Browse Tasks
+          Browse Campaigns
         </Link>
       </div>
     )
@@ -449,16 +449,16 @@ export default function PublicProfilePage() {
       {/* Stats Tab - As Client Section */}
       {activeTab === 'stats' && <section className="mb-10">
         <h2 className="text-lg font-semibold text-white mb-4">
-          As Task Poster
+          As Campaign Poster
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-4">
           <StatCard
-            label="Tasks Posted"
+            label="Campaigns Posted"
             value={asClient.totalTasksPosted}
             subValue={`Total value: ${formatSol(asClient.totalTaskBudgetLamports)}`}
           />
           <StatCard
-            label="Tasks Completed"
+            label="Campaigns Completed"
             value={asClient.tasksCompleted}
           />
           <StatCard
@@ -469,7 +469,7 @@ export default function PublicProfilePage() {
 
         {/* Task Status Breakdown */}
         <div className="rounded-xl border border-k-border p-4 mb-4">
-          <h3 className="text-sm font-medium text-white mb-3">Task Status Breakdown</h3>
+          <h3 className="text-sm font-medium text-white mb-3">Campaign Status Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
             <div>
               <p className="text-zinc-400">Open</p>
@@ -496,7 +496,7 @@ export default function PublicProfilePage() {
 
         {/* Disputes as Client */}
         <div className="rounded-xl border border-k-border p-4">
-          <h3 className="text-sm font-medium text-white mb-3">Disputes (as Task Poster)</h3>
+          <h3 className="text-sm font-medium text-white mb-3">Disputes (as Campaign Poster)</h3>
           <DisputeStats disputes={asClient.disputes} />
         </div>
       </section>}
@@ -513,7 +513,7 @@ export default function PublicProfilePage() {
             subValue={`Total value: ${formatSol(asWorker.totalBidValueLamports)}`}
           />
           <StatCard
-            label="Tasks Won"
+            label="Campaigns Won"
             value={asWorker.tasksWon}
           />
           <StatCard
@@ -527,7 +527,7 @@ export default function PublicProfilePage() {
           <h3 className="text-sm font-medium text-white mb-3">Work Status Breakdown</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-zinc-400">Tasks Won</p>
+              <p className="text-zinc-400">Campaigns Won</p>
               <p className="font-semibold text-green-400">{asWorker.tasksWon}</p>
             </div>
             <div>

@@ -131,7 +131,7 @@ export async function POST(
 
   if (task.creatorId === userId) {
     return Response.json(
-      { success: false, error: 'SELF_BID', message: 'Cannot bid on your own task' },
+      { success: false, error: 'SELF_BID', message: 'Cannot bid on your own campaign' },
       { status: 400 }
     )
   }
@@ -142,7 +142,7 @@ export async function POST(
   })
   if (existingBid) {
     return Response.json(
-      { success: false, error: 'DUPLICATE_BID', message: 'You already have a pending bid on this task' },
+      { success: false, error: 'DUPLICATE_BID', message: 'You already have a pending bid on this campaign' },
       { status: 409 }
     )
   }
@@ -163,7 +163,7 @@ export async function POST(
   createNotification({
     userId: task.creatorId,
     type: 'NEW_BID',
-    title: 'New bid on your task',
+    title: 'New bid on your campaign',
     body: `Someone bid ${solAmount} SOL on "${task.title}"`,
     linkUrl: `/tasks/${id}`,
   })

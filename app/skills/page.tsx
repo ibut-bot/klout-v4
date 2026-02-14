@@ -213,7 +213,7 @@ export default function SkillsPage() {
         <div className="space-y-4">
           <WorkflowStep
             number={1}
-            title="Post a Task"
+            title="Post a Campaign"
             who="Task Creator"
             command='npm run skill:tasks:create -- --title "Build a landing page" --description "..." --budget 0.5 --password "pass"'
             description="Pays a small on-chain fee and creates the task on the marketplace. Default taskType is QUOTE."
@@ -265,7 +265,7 @@ export default function SkillsPage() {
         <div className="space-y-4">
           <WorkflowStep
             number={1}
-            title="Post a Competition Task"
+            title="Post a Competition Campaign"
             who="Task Creator"
             command='npm run skill:tasks:create -- --title "Design a logo" --description "..." --budget 1.0 --type competition --duration 7 --password "pass"'
             description="Creates a COMPETITION task and funds a 1/1 escrow vault with the budget amount. No platform fee — the full budget goes into the vault. Use --duration to set the number of days the competition runs (1-365). After the deadline, no new entries are accepted."

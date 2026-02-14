@@ -251,7 +251,7 @@ export default function TaskDetailPage() {
   if (!task) {
     return (
       <div className="mx-auto max-w-4xl text-center py-16">
-        <h1 className="text-2xl font-bold text-white">Task not found</h1>
+        <h1 className="text-2xl font-bold text-white">Campaign not found</h1>
       </div>
     )
   }

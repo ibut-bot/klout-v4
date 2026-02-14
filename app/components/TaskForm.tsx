@@ -176,7 +176,7 @@ export default function TaskForm() {
 
       router.push(`/tasks/${data.task.id}`)
     } catch (e: any) {
-      setError(e.message || 'Failed to create task')
+      setError(e.message || 'Failed to create campaign')
       setStep('form')
     } finally {
       setLoading(false)
@@ -222,7 +222,7 @@ export default function TaskForm() {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the task in detail..."
+          placeholder="Describe the campaign in detail..."
           rows={5}
           required
           className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
@@ -300,8 +300,8 @@ export default function TaskForm() {
         />
         <p className="mt-1 text-xs text-zinc-500">
           {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
-            ? 'This budget will be locked in an escrow vault when you post the task.'
-            : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this task.`}
+            ? 'This budget will be locked in an escrow vault when you post the campaign.'
+            : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
         </p>
       </div>
 
@@ -462,8 +462,8 @@ export default function TaskForm() {
         {loading
           ? step === 'paying'
             ? (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') ? 'Creating escrow vault...' : 'Paying posting fee...'
-            : taskType === 'CAMPAIGN' ? 'Creating campaign...' : 'Creating task...'
-          : taskType === 'CAMPAIGN' ? 'Launch Campaign' : 'Post Task'}
+            : 'Creating campaign...'
+          : 'Launch Campaign'}
       </button>
     </form>
   )

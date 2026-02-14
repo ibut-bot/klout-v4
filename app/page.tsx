@@ -29,18 +29,19 @@ interface Task {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'open' | 'completed'>('open')
   const { wallet, authFetch, isAuthenticated } = useAuth()
 
   useEffect(() => {
     setLoading(true)
-    const params = new URLSearchParams({ status: 'open', limit: '12', taskType: 'CAMPAIGN' })
+    const params = new URLSearchParams({ status: filter, limit: '12', taskType: 'CAMPAIGN' })
     fetch(`/api/tasks?${params}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) setTasks(data.tasks)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [filter])
 
   const handleImageTransformSave = useCallback(async (taskId: string, transform: ImageTransform) => {
     if (!isAuthenticated) return
@@ -87,7 +88,20 @@ export default function Home() {
       {/* Recent Tasks */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-white">Open Campaigns</h2>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setFilter('open')}
+              className={`text-2xl font-semibold transition ${filter === 'open' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+            >
+              Open
+            </button>
+            <button
+              onClick={() => setFilter('completed')}
+              className={`text-2xl font-semibold transition ${filter === 'completed' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+            >
+              Completed
+            </button>
+          </div>
           <Link href="/tasks" className="text-sm text-zinc-500 transition hover:text-accent">
             View all
           </Link>
@@ -101,7 +115,9 @@ export default function Home() {
           </div>
         ) : tasks.length === 0 ? (
           <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
-            <p className="text-zinc-500">No open campaigns yet. Be the first to post one!</p>
+            <p className="text-zinc-500">
+              {filter === 'open' ? 'No open campaigns yet. Be the first to post one!' : 'No completed campaigns yet.'}
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

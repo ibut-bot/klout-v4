@@ -8,18 +8,18 @@ export default function NewTaskPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-2 text-2xl font-bold text-white">Post a Task</h1>
+      <h1 className="mb-2 text-2xl font-bold text-white">Post a Campaign</h1>
       <p className="mb-8 text-sm text-zinc-400">
-        Describe what you need done and set a budget. A small fee is charged to post.
+        Describe your campaign and set a budget.
       </p>
 
       {!connected ? (
         <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
-          <p className="text-zinc-400">Connect your wallet to post a task.</p>
+          <p className="text-zinc-400">Connect your wallet to post a campaign.</p>
         </div>
       ) : !isAuthenticated ? (
         <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
-          <p className="text-zinc-400">Sign in with your wallet to post a task.</p>
+          <p className="text-zinc-400">Sign in with your wallet to post a campaign.</p>
         </div>
       ) : (
         <TaskForm />
