@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
+import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
 
 interface RouteContext {
   params: Promise<{ id: string; submissionId: string }>
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // Verify task exists and caller is creator
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, creatorId: true, taskType: true, multisigAddress: true },
+    select: { id: true, creatorId: true, taskType: true, paymentToken: true, multisigAddress: true },
   })
 
   if (!task) {
@@ -125,11 +126,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   // Notify the submitter
+  const pt = (task.paymentToken || 'SOL') as PaymentTokenType
+  const payoutDisplay = `${formatTokenAmount(submission.payoutLamports || 0, pt)} ${tokenSymbol(pt)}`
+
   await createNotification({
     userId: submission.submitterId,
     type: 'CAMPAIGN_PAYMENT_COMPLETED',
     title: 'Campaign payment received!',
-    body: `You received ${Number(submission.payoutLamports || 0) / 1e9} SOL for your campaign post.`,
+    body: `You received ${payoutDisplay} for your campaign post.`,
     linkUrl: `/tasks/${taskId}`,
   })
 
@@ -138,7 +142,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     userId,
     type: 'CAMPAIGN_PAYMENT_COMPLETED',
     title: 'Campaign payment sent',
-    body: `Payment of ${Number(submission.payoutLamports || 0) / 1e9} SOL sent to @${submission.submitter.xUsername || submission.submitter.walletAddress.slice(0, 8)}`,
+    body: `Payment of ${payoutDisplay} sent to @${submission.submitter.xUsername || submission.submitter.walletAddress.slice(0, 8)}`,
     linkUrl: `/tasks/${taskId}`,
   })
 

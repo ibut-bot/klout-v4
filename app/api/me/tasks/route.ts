@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
       description: t.description,
       budgetLamports: t.budgetLamports.toString(),
       taskType: t.taskType,
+      paymentToken: t.paymentToken,
       status: t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,

@@ -6,6 +6,8 @@ import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana
 import { useAuth } from '../hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createMultisigVaultAndFundWA } from '@/lib/solana/multisig'
+import { createMultisigVaultAndFundUsdcWA } from '@/lib/solana/spl-token'
+import { type PaymentTokenType, tokenMultiplier } from '@/lib/token-utils'
 import ImagePositionEditor, { type ImageTransform } from './ImagePositionEditor'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
@@ -26,6 +28,9 @@ export default function TaskForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
+
+  // Payment token selector (campaign only)
+  const [paymentToken, setPaymentToken] = useState<PaymentTokenType>('SOL')
 
   // Campaign-specific fields
   const [cpm, setCpm] = useState('')
@@ -98,7 +103,8 @@ export default function TaskForm() {
     setLoading(true)
 
     try {
-      const budgetLamports = Math.round(parseFloat(budget) * LAMPORTS_PER_SOL)
+      const multiplier = (taskType === 'CAMPAIGN') ? tokenMultiplier(paymentToken) : LAMPORTS_PER_SOL
+      const budgetLamports = Math.round(parseFloat(budget) * multiplier)
       if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
 
       // Upload image first if provided
@@ -114,11 +120,13 @@ export default function TaskForm() {
         // Competition/Campaign: create 1/1 multisig vault and fund it with budget
         if (!signTransaction) throw new Error('Wallet does not support signing')
         setStep('paying')
-        const result = await createMultisigVaultAndFundWA(
-          connection,
-          { publicKey, signTransaction },
-          budgetLamports,
-        )
+        const walletSigner = { publicKey, signTransaction }
+        let result: { multisigPda: { toBase58(): string }; vaultPda: { toBase58(): string }; signature: string }
+        if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
+          result = await createMultisigVaultAndFundUsdcWA(connection, walletSigner, budgetLamports)
+        } else {
+          result = await createMultisigVaultAndFundWA(connection, walletSigner, budgetLamports)
+        }
         signature = result.signature
         vaultDetails = {
           multisigAddress: result.multisigPda.toBase58(),
@@ -146,13 +154,14 @@ export default function TaskForm() {
       // Create task via API
       setStep('creating')
       const campaignFields = taskType === 'CAMPAIGN' ? {
-        cpmLamports: Math.round(parseFloat(cpm) * LAMPORTS_PER_SOL),
+        paymentToken,
+        cpmLamports: Math.round(parseFloat(cpm) * multiplier),
         ...(heading.trim() ? { heading: heading.trim() } : {}),
         minViews: parseInt(minViews) || 100,
         minLikes: parseInt(minLikes) || 0,
         minRetweets: parseInt(minRetweets) || 0,
         minComments: parseInt(minComments) || 0,
-        ...(minPayout ? { minPayoutLamports: Math.round(parseFloat(minPayout) * LAMPORTS_PER_SOL) } : {}),
+        ...(minPayout ? { minPayoutLamports: Math.round(parseFloat(minPayout) * multiplier) } : {}),
         ...(collateralLink.trim() ? { collateralLink: collateralLink.trim() } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
@@ -288,8 +297,31 @@ export default function TaskForm() {
         </div>
       )}
 
+      {taskType === 'CAMPAIGN' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Bounty Token</label>
+          <div className="flex gap-2">
+            {(['SOL', 'USDC'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPaymentToken(t)}
+                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+                  paymentToken === t
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-k-border bg-surface text-zinc-400 hover:border-zinc-500'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">All bounty payouts, CPM, and platform fees will be denominated in the selected token.</p>
+        </div>
+      )}
+
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Budget (SOL)</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Budget ({taskType === 'CAMPAIGN' ? paymentToken : 'SOL'})</label>
         <input
           type="number"
           step="0.01"
@@ -302,7 +334,7 @@ export default function TaskForm() {
         />
         <p className="mt-1 text-xs text-zinc-500">
           {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
-            ? 'This budget will be locked in an escrow vault when you post the campaign.'
+            ? `This ${paymentToken} budget will be locked in an escrow vault when you post the campaign.`
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
         </p>
       </div>
@@ -310,7 +342,7 @@ export default function TaskForm() {
       {taskType === 'CAMPAIGN' && (
         <>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-200">CPM — Cost per 1,000 views (SOL)</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">CPM — Cost per 1,000 views ({paymentToken})</label>
             <input
               type="number"
               step="0.001"
@@ -380,7 +412,7 @@ export default function TaskForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Payout Threshold (SOL) — optional</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Payout Threshold ({paymentToken}) — optional</label>
             <input
               type="number"
               step="0.001"

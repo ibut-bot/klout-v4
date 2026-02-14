@@ -91,6 +91,13 @@ enum CampaignSubmissionStatus {
   @@schema("slopwork")
 }
 
+enum PaymentToken {
+  SOL
+  USDC
+
+  @@schema("slopwork")
+}
+
 // --- Models ---
 
 model User {
@@ -143,6 +150,7 @@ model Task {
   paymentTxSignature  String     @unique
   multisigAddress     String?
   vaultAddress        String?
+  paymentToken        PaymentToken @default(SOL)
   winningBidId        String?    @unique
   deadlineAt          DateTime?
   imageUrl            String?

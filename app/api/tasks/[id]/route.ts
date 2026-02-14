@@ -49,6 +49,7 @@ export async function GET(
       description: task.description,
       budgetLamports: task.budgetLamports.toString(),
       taskType: task.taskType,
+      paymentToken: task.paymentToken,
       status: task.status,
       multisigAddress: task.multisigAddress,
       vaultAddress: task.vaultAddress,
@@ -117,6 +118,7 @@ export async function PATCH(
     select: {
       creatorId: true,
       taskType: true,
+      paymentToken: true,
       budgetLamports: true,
       vaultAddress: true,
       campaignConfig: { select: { id: true, budgetRemainingLamports: true } },

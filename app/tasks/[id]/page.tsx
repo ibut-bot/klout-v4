@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../../components/ImagePositionEditor'
+import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
 
 function useCountdown(deadlineAt: string | null | undefined) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; expired: boolean } | null>(null)
@@ -54,6 +55,7 @@ interface Task {
   description: string
   budgetLamports: string
   taskType: string
+  paymentToken?: string
   status: string
   multisigAddress?: string | null
   vaultAddress?: string | null
@@ -332,7 +334,9 @@ export default function TaskDetailPage() {
         {/* Task info inline */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500">
           <span className="font-semibold text-accent">
-            {formatSol(task.budgetLamports)}
+            {task.taskType === 'CAMPAIGN' && task.paymentToken
+              ? `${formatTokenAmount(task.budgetLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} ${tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}`
+              : formatSol(task.budgetLamports)}
           </span>
           <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-300">
             {task.creatorProfilePic ? (
@@ -622,6 +626,7 @@ export default function TaskDetailPage() {
               multisigAddress={task.multisigAddress}
               isCreator={true}
               refreshTrigger={dashboardRefresh}
+              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
             />
           )}
 
@@ -637,6 +642,7 @@ export default function TaskDetailPage() {
               collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
+              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
             />
           )}
 
@@ -647,6 +653,7 @@ export default function TaskDetailPage() {
               multisigAddress={task.multisigAddress}
               isCreator={false}
               refreshTrigger={dashboardRefresh}
+              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
             />
           )}
 
@@ -655,10 +662,10 @@ export default function TaskDetailPage() {
             <div className="rounded-xl border border-k-border p-4 border-k-border">
               <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
               <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
-                <p>CPM: {(Number(campaignConfig.cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL per 1,000 views</p>
-                <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
+                <p>CPM: {formatTokenAmount(campaignConfig.cpmLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')} per 1,000 views</p>
+                <p>Budget remaining: {formatTokenAmount(campaignConfig.budgetRemainingLamports, (task.paymentToken as PaymentTokenType) || 'SOL', 2)} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}</p>
                 {Number(campaignConfig.minPayoutLamports) > 0 && (
-                  <p>Min payout threshold: {(Number(campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                  <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}</p>
                 )}
                 {campaignConfig.collateralLink && (
                   <p>

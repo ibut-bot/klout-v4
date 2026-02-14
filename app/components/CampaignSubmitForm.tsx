@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
+import { type PaymentTokenType, formatTokenAmount, tokenSymbol } from '@/lib/token-utils'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000)
@@ -18,9 +19,10 @@ interface Props {
   collateralLink?: string | null
   xLinked: boolean
   onSubmitted: () => void
+  paymentToken?: PaymentTokenType
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL' }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -103,11 +105,12 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   }
 
   const feeSol = (X_API_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)
-  const cpmSol = (Number(cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)
-  const remainingSol = (Number(budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(2)
-  const minPayoutSol = minPayoutLamports && Number(minPayoutLamports) > 0
-    ? (Number(minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)
+  const cpmDisplay = formatTokenAmount(cpmLamports, paymentToken)
+  const remainingDisplay = formatTokenAmount(budgetRemainingLamports, paymentToken, 2)
+  const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
+    ? formatTokenAmount(minPayoutLamports, paymentToken)
     : null
+  const sym = tokenSymbol(paymentToken)
 
   if (!xLinked) {
     return (
@@ -125,11 +128,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">CPM (per 1,000 views)</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-100">{cpmSol} SOL</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">{cpmDisplay} {sym}</p>
         </div>
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Budget remaining</p>
-          <p className={`mt-1 text-sm font-semibold ${budgetExhausted ? 'text-red-500' : 'text-zinc-100'}`}>{remainingSol} SOL</p>
+          <p className={`mt-1 text-sm font-semibold ${budgetExhausted ? 'text-red-500' : 'text-zinc-100'}`}>{remainingDisplay} {sym}</p>
         </div>
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Verification fee</p>
@@ -141,10 +144,10 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minViews.toLocaleString()}</p>
           </div>
         )}
-        {minPayoutSol && (
+        {minPayoutDisplay && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Min payout threshold</p>
-            <p className="mt-1 text-sm font-semibold text-zinc-100">{minPayoutSol} SOL</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{minPayoutDisplay} {sym}</p>
           </div>
         )}
       </div>
@@ -229,7 +232,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
               <div className="rounded-lg bg-green-500/10 p-3 text-xs">
                 <p className="font-medium text-green-400">Submission approved!</p>
                 <p className="mt-1 text-green-300">
-                  Views: {result.viewCount?.toLocaleString()} | Pending payout: {result.payoutLamports ? (Number(result.payoutLamports) / LAMPORTS_PER_SOL).toFixed(4) : '0'} SOL
+                  Views: {result.viewCount?.toLocaleString()} | Pending payout: {result.payoutLamports ? formatTokenAmount(result.payoutLamports, paymentToken) : '0'} {sym}
                 </p>
               </div>
             )}
@@ -245,6 +248,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
                     : 'Processing...'
                 : `Submit Post (${feeSol} SOL fee)`}
             </button>
+
+            <ul className="mt-1 space-y-1 text-[11px] text-zinc-500">
+              <li>• Submissions with artificially inflated views, likes, or engagement (e.g. bots or paid services) will be rejected and may result in a permanent ban.</li>
+              <li>• Ensure your post complies with the campaign guidelines — violations may lead to account suspension.</li>
+            </ul>
           </form>
         )}
       </div>

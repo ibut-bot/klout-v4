@@ -7,6 +7,9 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../components/ImagePositionEditor'
+import { type PaymentTokenType, formatTokenAmount, tokenSymbol, tokenMultiplier } from '@/lib/token-utils'
+import { getAta, USDC_MINT } from '@/lib/solana/spl-token'
+import { createTransferInstruction } from '@solana/spl-token'
 
 interface Task {
   id: string
@@ -14,6 +17,7 @@ interface Task {
   description: string
   budgetLamports: string
   taskType?: string
+  paymentToken?: PaymentTokenType
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -106,6 +110,9 @@ interface CampaignCardProps {
 }
 
 function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
+  const pt: PaymentTokenType = task.paymentToken || 'SOL'
+  const sym = tokenSymbol(pt)
+  const mult = tokenMultiplier(pt)
   const { connection } = useConnection()
   const wallet = useWallet()
   const { publicKey, sendTransaction } = wallet
@@ -125,8 +132,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editMinLikes, setEditMinLikes] = useState(String(task.campaignConfig?.minLikes ?? 0))
   const [editMinRetweets, setEditMinRetweets] = useState(String(task.campaignConfig?.minRetweets ?? 0))
   const [editMinComments, setEditMinComments] = useState(String(task.campaignConfig?.minComments ?? 0))
-  const [editCpm, setEditCpm] = useState(task.campaignConfig ? String(Number(task.campaignConfig.cpmLamports) / LAMPORTS_PER_SOL) : '')
-  const [editMinPayout, setEditMinPayout] = useState(task.campaignConfig && Number(task.campaignConfig.minPayoutLamports) > 0 ? String(Number(task.campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL) : '')
+  const [editCpm, setEditCpm] = useState(task.campaignConfig ? String(Number(task.campaignConfig.cpmLamports) / mult) : '')
+  const [editMinPayout, setEditMinPayout] = useState(task.campaignConfig && Number(task.campaignConfig.minPayoutLamports) > 0 ? String(Number(task.campaignConfig.minPayoutLamports) / mult) : '')
   const [editCollateralLink, setEditCollateralLink] = useState(task.campaignConfig?.collateralLink || '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
@@ -137,7 +144,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const budgetTotal = Number(task.budgetLamports)
   const budgetRemaining = task.budgetRemainingLamports ? Number(task.budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
-  const currentBudgetSol = budgetTotal / LAMPORTS_PER_SOL
+  const currentBudgetHuman = budgetTotal / mult
 
   useEffect(() => {
     if (!task.deadlineAt) return
@@ -276,15 +283,15 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           setSaving(false)
           return
         }
-        const newBudgetLamports = Math.round(newBudgetSol * LAMPORTS_PER_SOL)
-        if (newBudgetLamports <= budgetTotal) {
+        const newBudgetBaseUnits = Math.round(newBudgetSol * mult)
+        if (newBudgetBaseUnits <= budgetTotal) {
           setEditError('New budget must be greater than current budget')
           setSaving(false)
           return
         }
 
         // Send the difference to the vault
-        const difference = newBudgetLamports - budgetTotal
+        const difference = newBudgetBaseUnits - budgetTotal
         if (!publicKey || !task.vaultAddress) {
           setEditError('Wallet not connected or vault address missing')
           setSaving(false)
@@ -296,17 +303,28 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           const tx = new Transaction()
           tx.recentBlockhash = blockhash
           tx.feePayer = publicKey
-          tx.add(
-            SystemProgram.transfer({
-              fromPubkey: publicKey,
-              toPubkey: new PublicKey(task.vaultAddress),
-              lamports: difference,
-            })
-          )
+
+          if (pt === 'USDC') {
+            // USDC: SPL token transfer to vault's ATA
+            const vaultPda = new PublicKey(task.vaultAddress)
+            const creatorAta = getAta(publicKey)
+            const vaultAta = getAta(vaultPda)
+            tx.add(createTransferInstruction(creatorAta, vaultAta, publicKey, difference))
+          } else {
+            // SOL: native transfer
+            tx.add(
+              SystemProgram.transfer({
+                fromPubkey: publicKey,
+                toPubkey: new PublicKey(task.vaultAddress),
+                lamports: difference,
+              })
+            )
+          }
+
           const sig = await sendTransaction(tx, connection)
           await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
 
-          updates.budgetLamports = newBudgetLamports
+          updates.budgetLamports = newBudgetBaseUnits
           updates.budgetIncreaseTxSignature = sig
         } catch (err: any) {
           setEditError(err.message || 'Budget increase transaction failed')
@@ -568,17 +586,17 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">
-                Increase Budget (current: {currentBudgetSol.toFixed(4)} SOL)
+                Increase Budget (current: {currentBudgetHuman.toFixed(4)} {sym})
               </label>
               <input
-                type="number" step="0.01" min={currentBudgetSol + 0.01}
+                type="number" step="0.01" min={currentBudgetHuman + 0.01}
                 value={editBudget}
                 onChange={(e) => setEditBudget(e.target.value)}
-                placeholder={`> ${currentBudgetSol.toFixed(4)} SOL`}
+                placeholder={`> ${currentBudgetHuman.toFixed(4)} ${sym}`}
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
               />
               <p className="mt-0.5 text-[10px] text-zinc-600">
-                Budget can only be increased. A SOL transfer for the difference will be sent to the campaign vault.
+                Budget can only be increased. A {sym} transfer for the difference will be sent to the campaign vault.
               </p>
             </div>
 
@@ -633,7 +651,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <div className="mb-1 flex items-center justify-between text-xs">
                 <span className="text-zinc-500">Budget Used</span>
                 <span className="font-medium text-zinc-300">
-                  {formatSol(budgetRemaining)} / {formatSol(task.budgetLamports)}
+                  {formatTokenAmount(budgetRemaining, pt)} {sym} / {formatTokenAmount(task.budgetLamports, pt)} {sym}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">

@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       description: t.description,
       budgetLamports: t.budgetLamports.toString(),
       taskType: t.taskType,
+      paymentToken: t.paymentToken,
       status: t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading, collateralLink } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading, collateralLink, paymentToken } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -125,6 +126,16 @@ export async function POST(request: NextRequest) {
 
   const isCompetition = resolvedTaskType === 'COMPETITION'
   const isCampaign = resolvedTaskType === 'CAMPAIGN'
+
+  // Validate paymentToken (only for CAMPAIGN, defaults to SOL)
+  const validTokens = ['SOL', 'USDC']
+  const resolvedPaymentToken = isCampaign && paymentToken ? String(paymentToken).toUpperCase() : 'SOL'
+  if (!validTokens.includes(resolvedPaymentToken)) {
+    return Response.json(
+      { success: false, error: 'INVALID_PAYMENT_TOKEN', message: 'paymentToken must be SOL or USDC' },
+      { status: 400 }
+    )
+  }
 
   if (!title || !description || !budgetLamports || !paymentTxSignature) {
     return Response.json(
@@ -287,6 +298,7 @@ export async function POST(request: NextRequest) {
           description: description.trim(),
           budgetLamports: parsedBudget,
           taskType: 'CAMPAIGN',
+          paymentToken: resolvedPaymentToken as any,
           paymentTxSignature,
           multisigAddress,
           vaultAddress,

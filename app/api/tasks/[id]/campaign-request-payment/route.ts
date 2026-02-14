@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
+import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -82,11 +83,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 4. Check minimum payout threshold
   const minPayout = config.minPayoutLamports
+  const pt = (task.paymentToken || 'SOL') as PaymentTokenType
+  const sym = tokenSymbol(pt)
+
   if (minPayout > BigInt(0) && totalPayout < minPayout) {
     return Response.json({
       success: false,
       error: 'BELOW_THRESHOLD',
-      message: `Cumulative payout (${Number(totalPayout) / 1e9} SOL) is below the minimum payout threshold (${Number(minPayout) / 1e9} SOL). Keep submitting posts to accumulate more.`,
+      message: `Cumulative payout (${formatTokenAmount(totalPayout, pt)} ${sym}) is below the minimum payout threshold (${formatTokenAmount(minPayout, pt)} ${sym}). Keep submitting posts to accumulate more.`,
       totalPayoutLamports: totalPayout.toString(),
       minPayoutLamports: minPayout.toString(),
     }, { status: 400 })
@@ -199,7 +203,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     userId: task.creatorId,
     type: 'CAMPAIGN_PAYMENT_REQUEST',
     title: 'Campaign payment requested',
-    body: `A participant requested payment for ${result.submissionCount} post(s). Total: ${Number(BigInt(result.totalPayoutLamports)) / 1e9} SOL`,
+    body: `A participant requested payment for ${result.submissionCount} post(s). Total: ${formatTokenAmount(result.totalPayoutLamports, pt)} ${sym}`,
     linkUrl: `/tasks/${taskId}`,
   })
 

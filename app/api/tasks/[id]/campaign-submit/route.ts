@@ -6,6 +6,7 @@ import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
+import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
 
 // Allow up to 60s for Solana + X API + Anthropic calls
 export const maxDuration = 60
@@ -376,11 +377,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   // 13. Notify campaign creator
+  const pt = (task.paymentToken || 'SOL') as PaymentTokenType
+  const payoutDisplay = `${formatTokenAmount(payoutLamports, pt)} ${tokenSymbol(pt)}`
+
   await createNotification({
     userId: task.creatorId,
     type: 'CAMPAIGN_SUBMISSION_APPROVED',
     title: 'New campaign post approved',
-    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${Number(payoutLamports) / 1e9} SOL`,
+    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}`,
     linkUrl: `/tasks/${taskId}`,
   })
 
@@ -389,7 +393,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     userId,
     type: 'CAMPAIGN_SUBMISSION_APPROVED',
     title: 'Campaign submission approved!',
-    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${Number(payoutLamports) / 1e9} SOL. Request payment once you meet the minimum payout threshold.`,
+    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}. Request payment once you meet the minimum payout threshold.`,
     linkUrl: `/tasks/${taskId}`,
   })
 
