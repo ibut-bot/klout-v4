@@ -655,7 +655,7 @@ export default function TaskDetailPage() {
               <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
               <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
                 <p>CPM: {(Number(campaignConfig.cpmLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL per 1,000 views</p>
-                <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
+                <p>Budget remaining: {(Number(campaignConfig.budgetRemainingLamports) / LAMPORTS_PER_SOL).toFixed(2)} SOL</p>
                 {Number(campaignConfig.minPayoutLamports) > 0 && (
                   <p>Min payout threshold: {(Number(campaignConfig.minPayoutLamports) / LAMPORTS_PER_SOL).toFixed(4)} SOL</p>
                 )}

@@ -51,11 +51,11 @@ interface Props {
   refreshTrigger?: number
 }
 
-function formatSol(lamports: string | number): string {
+function formatSol(lamports: string | number, decimals = 4): string {
   const sol = Number(lamports) / LAMPORTS_PER_SOL
   if (sol === 0) return '0'
-  if (sol < 0.001) return sol.toPrecision(2)
-  return sol.toFixed(4)
+  if (sol < 0.001 && decimals >= 4) return sol.toPrecision(2)
+  return sol.toFixed(decimals)
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -171,11 +171,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Budget</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.totalBudgetLamports)} SOL</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.totalBudgetLamports, 2)} SOL</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Remaining</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.budgetRemainingLamports)} SOL</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.budgetRemainingLamports, 2)} SOL</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Views</p>
@@ -186,6 +186,22 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             <p className="text-lg font-semibold text-zinc-100">{stats.totalSubmissions}</p>
             <p className="text-xs text-zinc-400">{stats.approved} approved, {stats.paymentRequested} pending pay, {stats.paid} paid, {stats.rejected} rejected</p>
           </div>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">CPM (per 1,000 views)</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.cpmLamports)} SOL</p>
+          </div>
+          {stats.minViews > 0 && (
+            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+              <p className="text-xs text-zinc-500">Min views per post</p>
+              <p className="text-lg font-semibold text-zinc-100">{stats.minViews.toLocaleString()}</p>
+            </div>
+          )}
+          {Number(stats.minPayoutLamports) > 0 && (
+            <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+              <p className="text-xs text-zinc-500">Min payout threshold</p>
+              <p className="text-lg font-semibold text-zinc-100">{formatSol(stats.minPayoutLamports)} SOL</p>
+            </div>
+          )}
         </div>
       )}
 
