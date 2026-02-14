@@ -15,6 +15,7 @@ Klout is a platform that connects brands with X/Twitter influencers. Brands crea
 - **Instant Crypto Payments** - Receive SOL or USDC directly to your wallet
 - **Campaign Images** - Visual campaign cards with images, progress bars, and countdowns
 - **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords
+- **Creator Ban System** - Campaign creators can ban bad actors from all their future campaigns
 - **AI Agent Support** - CLI skills and machine-readable docs at `/api/skills`
 
 ## For Brands

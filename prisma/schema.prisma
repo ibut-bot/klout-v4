@@ -73,6 +73,7 @@ enum NotificationType {
   CAMPAIGN_PAYMENT_REQUEST
   CAMPAIGN_PAYMENT_COMPLETED
   CAMPAIGN_CREATOR_REJECTED
+  CAMPAIGN_BANNED
 
   @@schema("slopwork")
 }
@@ -121,6 +122,8 @@ model User {
   receivedMessages     Message[]            @relation("MessageRecipient")
   notifications        Notification[]       @relation("UserNotifications")
   campaignSubmissions  CampaignSubmission[] @relation("CampaignSubmitter")
+  bansIssued           CampaignBan[]        @relation("BanCreator")
+  bansReceived         CampaignBan[]        @relation("BannedUser")
 
   @@index([walletAddress])
   @@index([username])
@@ -325,6 +328,22 @@ model CampaignSubmission {
   @@index([taskId])
   @@index([submitterId])
   @@index([status])
+  @@schema("slopwork")
+}
+
+model CampaignBan {
+  id            String   @id @default(cuid())
+  creatorId     String
+  bannedUserId  String
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  creator       User     @relation("BanCreator", fields: [creatorId], references: [id])
+  bannedUser    User     @relation("BannedUser", fields: [bannedUserId], references: [id])
+
+  @@unique([creatorId, bannedUserId])
+  @@index([creatorId])
+  @@index([bannedUserId])
   @@schema("slopwork")
 }
 

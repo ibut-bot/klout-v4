@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  const { reason } = body
+  const { reason, banSubmitter } = body
 
   if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
     return Response.json(
@@ -117,7 +117,40 @@ export async function POST(request: NextRequest, context: RouteContext) {
       : []),
   ])
 
-  // Notify the submitter
+  // Optionally ban the submitter from all future campaigns by this creator
+  let banned = false
+  if (banSubmitter) {
+    try {
+      await prisma.campaignBan.upsert({
+        where: {
+          creatorId_bannedUserId: {
+            creatorId: userId,
+            bannedUserId: submission.submitterId,
+          },
+        },
+        update: {},
+        create: {
+          creatorId: userId,
+          bannedUserId: submission.submitterId,
+          reason: reason.trim(),
+        },
+      })
+      banned = true
+
+      // Notify the banned user
+      await createNotification({
+        userId: submission.submitterId,
+        type: 'CAMPAIGN_BANNED',
+        title: 'You have been banned from a creator\'s campaigns',
+        body: `A campaign creator has banned you from submitting to their future campaigns. Reason: ${reason.trim()}`,
+        linkUrl: `/tasks/${taskId}`,
+      })
+    } catch (e) {
+      console.error('Failed to create campaign ban:', e)
+    }
+  }
+
+  // Notify the submitter about the rejection
   await createNotification({
     userId: submission.submitterId,
     type: 'CAMPAIGN_CREATOR_REJECTED',
@@ -128,7 +161,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   return Response.json({
     success: true,
-    message: 'Submission rejected',
+    message: banned ? 'Submission rejected and submitter banned' : 'Submission rejected',
+    banned,
     submission: {
       id: submission.id,
       status: 'CREATOR_REJECTED',

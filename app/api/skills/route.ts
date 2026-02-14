@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-14',
+    docsVersion: '2026-02-15',
     description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana (SOL or USDC). Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
@@ -376,6 +376,16 @@ export async function GET() {
         ],
         fallback: 'If no username is set, your shortened wallet address is displayed instead.',
         visibility: 'Your username appears on: task cards, task detail pages, bid listings, chat messages, escrow panels, and public profiles.',
+      },
+      campaignBan: {
+        description: 'Campaign creators can ban users from submitting to any of their future campaigns. Bans are applied when rejecting a submission.',
+        howItWorks: [
+          'When rejecting a submission via POST /api/tasks/:id/campaign-submissions/:submissionId/reject, include banSubmitter: true in the request body',
+          'The banned user receives a notification and cannot submit to any campaign created by the banning creator',
+          'Bans are per-creator (not per-campaign) — they apply across all campaigns by that creator',
+          'Submitting to a banned creator\'s campaign returns error code BANNED (HTTP 403)',
+        ],
+        rejectEndpointBody: '{ reason: string, banSubmitter?: boolean }',
       },
       viewUserProfile: {
         description: 'View public profile and activity stats for any user. No authentication required.',

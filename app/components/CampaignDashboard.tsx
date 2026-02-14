@@ -81,6 +81,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [rejectReason, setRejectReason] = useState('')
   const [rejectLoading, setRejectLoading] = useState(false)
   const [rejectError, setRejectError] = useState('')
+  const [banSubmitter, setBanSubmitter] = useState(false)
   const [requestingPayment, setRequestingPayment] = useState(false)
   const [requestPaymentError, setRequestPaymentError] = useState('')
   const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
@@ -109,7 +110,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions/${submissionId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: rejectReason.trim() }),
+        body: JSON.stringify({ reason: rejectReason.trim(), banSubmitter }),
       })
       const data = await res.json()
       if (!data.success) {
@@ -117,6 +118,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       } else {
         setRejectingId(null)
         setRejectReason('')
+        setBanSubmitter(false)
         fetchData()
       }
     } catch {
@@ -351,7 +353,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 paymentToken={paymentToken}
                               />
                               <button
-                                onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError('') }}
+                                onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
                                 className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                               >
                                 Reject
@@ -367,6 +369,15 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                   rows={2}
                                   maxLength={500}
                                 />
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={banSubmitter}
+                                    onChange={(e) => setBanSubmitter(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-900 text-red-500 focus:ring-red-500"
+                                  />
+                                  <span className="text-xs text-zinc-400">Ban from all your future campaigns</span>
+                                </label>
                                 {rejectError && <p className="text-xs text-red-500">{rejectError}</p>}
                                 <div className="flex items-center gap-1.5">
                                   <button
@@ -374,10 +385,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                     disabled={rejectLoading}
                                     className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                   >
-                                    {rejectLoading ? 'Rejecting...' : 'Confirm Reject'}
+                                    {rejectLoading ? (banSubmitter ? 'Rejecting & Banning...' : 'Rejecting...') : (banSubmitter ? 'Reject & Ban' : 'Confirm Reject')}
                                   </button>
                                   <button
-                                    onClick={() => setRejectingId(null)}
+                                    onClick={() => { setRejectingId(null); setBanSubmitter(false) }}
                                     className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
                                   >
                                     Cancel
@@ -391,7 +402,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-zinc-500">Awaiting payment request</span>
                             <button
-                              onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError('') }}
+                              onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
                               className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                             >
                               Reject
@@ -406,6 +417,15 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                   rows={2}
                                   maxLength={500}
                                 />
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={banSubmitter}
+                                    onChange={(e) => setBanSubmitter(e.target.checked)}
+                                    className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-900 text-red-500 focus:ring-red-500"
+                                  />
+                                  <span className="text-xs text-zinc-400">Ban from all your future campaigns</span>
+                                </label>
                                 {rejectError && <p className="text-xs text-red-500">{rejectError}</p>}
                                 <div className="flex items-center gap-1.5">
                                   <button
@@ -413,10 +433,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                     disabled={rejectLoading}
                                     className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                   >
-                                    {rejectLoading ? 'Rejecting...' : 'Confirm Reject'}
+                                    {rejectLoading ? (banSubmitter ? 'Rejecting & Banning...' : 'Rejecting...') : (banSubmitter ? 'Reject & Ban' : 'Confirm Reject')}
                                   </button>
                                   <button
-                                    onClick={() => setRejectingId(null)}
+                                    onClick={() => { setRejectingId(null); setBanSubmitter(false) }}
                                     className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
                                   >
                                     Cancel

@@ -114,6 +114,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
+  // Check if the submitter is banned by this campaign's creator
+  const ban = await prisma.campaignBan.findUnique({
+    where: {
+      creatorId_bannedUserId: {
+        creatorId: task.creatorId,
+        bannedUserId: userId,
+      },
+    },
+  })
+
+  if (ban) {
+    return Response.json(
+      { success: false, error: 'BANNED', message: 'You have been banned from submitting to this creator\'s campaigns' },
+      { status: 403 }
+    )
+  }
+
   const config = task.campaignConfig
   if (!config) {
     return Response.json(
