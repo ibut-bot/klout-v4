@@ -141,6 +141,111 @@ export async function getXUserProfile(accessToken: string): Promise<{
   return { id: data.id, username: data.username, name: data.name }
 }
 
+// ── X User Profile (extended) ──
+
+export interface XUserProfileFull {
+  id: string
+  username: string
+  name: string
+  followersCount: number
+  followingCount: number
+  tweetCount: number
+  listedCount: number
+  verifiedType: string | null  // "blue", "business", "government", or null
+  location: string | null
+  profileImageUrl: string | null
+  description: string | null
+  raw: any  // Full raw response for storage
+}
+
+/** Fetch extended X user profile with public metrics, verification, and location */
+export async function getXUserProfileFull(accessToken: string): Promise<XUserProfileFull> {
+  const params = new URLSearchParams({
+    'user.fields': 'public_metrics,verified_type,location,profile_image_url,description',
+  })
+
+  const res = await fetch(`${X_USERINFO_URL}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`X user profile fetch failed (${res.status}): ${err}`)
+  }
+
+  const json = await res.json()
+  const data = json.data
+
+  return {
+    id: data.id,
+    username: data.username,
+    name: data.name,
+    followersCount: data.public_metrics?.followers_count ?? 0,
+    followingCount: data.public_metrics?.following_count ?? 0,
+    tweetCount: data.public_metrics?.tweet_count ?? 0,
+    listedCount: data.public_metrics?.listed_count ?? 0,
+    verifiedType: data.verified_type || null,
+    location: data.location || null,
+    profileImageUrl: data.profile_image_url || null,
+    description: data.description || null,
+    raw: data,
+  }
+}
+
+export interface XTweetMetrics {
+  id: string
+  text: string
+  likeCount: number
+  retweetCount: number
+  replyCount: number
+  viewCount: number
+  createdAt: string
+}
+
+/** Fetch the user's most recent original tweets (excluding retweets/replies) */
+export async function getRecentTweets(
+  userId: string,
+  accessToken: string,
+  maxResults: number = 20
+): Promise<{ tweets: XTweetMetrics[]; raw: any }> {
+  const params = new URLSearchParams({
+    'tweet.fields': 'public_metrics,created_at,text',
+    'exclude': 'retweets,replies',
+    'max_results': String(Math.min(maxResults, 100)),
+  })
+
+  const res = await fetch(
+    `https://api.twitter.com/2/users/${userId}/tweets?${params.toString()}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+
+  if (res.status === 429) {
+    const resetEpoch = Number(res.headers.get('x-rate-limit-reset') || 0)
+    const resetDate = resetEpoch ? new Date(resetEpoch * 1000).toISOString() : 'unknown'
+    throw new Error(`X API rate limit exceeded. Resets at ${resetDate}.`)
+  }
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`X tweets fetch failed (${res.status}): ${err}`)
+  }
+
+  const json = await res.json()
+  const data = json.data || []
+
+  const tweets: XTweetMetrics[] = data.map((t: any) => ({
+    id: t.id,
+    text: t.text,
+    likeCount: t.public_metrics?.like_count ?? 0,
+    retweetCount: t.public_metrics?.retweet_count ?? 0,
+    replyCount: t.public_metrics?.reply_count ?? 0,
+    viewCount: t.public_metrics?.impression_count ?? 0,
+    createdAt: t.created_at,
+  }))
+
+  return { tweets, raw: json }
+}
+
 // ── X Post / Tweet helpers ──
 
 /** Extract post ID from an X/Twitter URL */

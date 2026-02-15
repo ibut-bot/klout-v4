@@ -125,6 +125,7 @@ model User {
   campaignSubmissions  CampaignSubmission[] @relation("CampaignSubmitter")
   bansIssued           CampaignBan[]        @relation("BanCreator")
   bansReceived         CampaignBan[]        @relation("BannedUser")
+  xScores              XScoreData[]
 
   @@index([walletAddress])
   @@index([username])
@@ -362,5 +363,56 @@ model KloutScore {
   rank      Int
 
   @@index([score])
+  @@schema("slopwork")
+}
+
+model XScoreData {
+  id                String   @id @default(uuid())
+  userId            String
+  xUserId           String
+  xUsername          String
+
+  // Raw profile data
+  followersCount    Int
+  followingCount    Int
+  tweetCount        Int
+  listedCount       Int?
+  verifiedType      String?   // "blue", "business", "government", or null
+  location          String?   // Raw location string from X profile
+  profileImageUrl   String?
+
+  // Parsed geo
+  geoTier           Int?      // 1=US/CA, 2=W.Europe/AU/NZ, 3=E.Europe/Asia, 4=Africa/Other
+  geoRegion         String?   // Parsed region/country name
+
+  // Aggregated tweet metrics (from last N tweets)
+  tweetsAnalyzed    Int
+  avgLikes          Float
+  avgRetweets       Float
+  avgReplies        Float
+  avgViews          Float
+
+  // Raw data blobs for future use
+  rawProfileData    Json?     // Full profile response from X API
+  rawTweetsData     Json?     // Array of tweet objects with metrics
+
+  // Computed score components
+  reachScore        Float
+  ratioScore        Float
+  engagementScore   Float
+  verificationScore Float
+  geoMultiplier     Float
+  qualityScore      Float     // reachScore * engagementScore + ratioScore + verificationScore
+  totalScore        Float     // qualityScore * geoMultiplier * 100
+
+  // Payment
+  feeTxSignature    String    @unique
+
+  createdAt         DateTime  @default(now())
+
+  user              User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([totalScore])
   @@schema("slopwork")
 }
