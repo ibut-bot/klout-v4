@@ -13,7 +13,7 @@ export default function WalletProvider({ children }: { children: ReactNode }) {
 
   return (
     <ConnectionProvider endpoint={RPC_URL}>
-      <SolanaWalletProvider wallets={wallets}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <AuthProvider>
             {children}

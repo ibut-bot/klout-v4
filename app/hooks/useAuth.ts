@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authenticatingRef = useRef(false)
   const didAutoAuthRef = useRef<string | null>(null)
+  const hadPublicKeyRef = useRef(false)
   const signMessageRef = useRef(signMessage)
   const publicKeyRef = useRef(publicKey)
   const tokenRef = useRef(token)
@@ -94,15 +95,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // On wallet connect: restore cached token or auto-authenticate
-  // Since autoConnect is disabled, all connections are user-initiated
-  // and Phantom will always render signMessage correctly.
   useEffect(() => {
     if (!publicKey) {
-      setToken(null)
-      setWallet(null)
-      didAutoAuthRef.current = null
+      // Only clear auth state if wallet was previously connected (user disconnected)
+      // Don't clear on initial mount while autoConnect is pending
+      if (hadPublicKeyRef.current) {
+        setToken(null)
+        setWallet(null)
+        didAutoAuthRef.current = null
+      }
       return
     }
+
+    hadPublicKeyRef.current = true
 
     const walletAddr = publicKey.toBase58()
 
