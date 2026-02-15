@@ -238,7 +238,7 @@ Posts a new task to the marketplace.
 3. Submit campaign via API with:
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
    - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }, paymentToken: "SOL", "USDC", or "CUSTOM" (default: SOL)
-   - For CUSTOM tokens: also provide `customTokenMint` (mint address), `customTokenSymbol` (e.g. "BONK"), `customTokenDecimals` (e.g. 5)
+   - For CUSTOM tokens: also provide `customTokenMint` (mint address), `customTokenSymbol` (e.g. "BONK"), `customTokenDecimals` (e.g. 5), and optionally `customTokenLogoUri` (token icon URL)
    - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0)
 
 **Note**: All amounts (budgetLamports, cpmLamports, minPayoutLamports) are in the token's base units. SOL: 1e9 lamports per SOL. USDC: 1e6 base units per USDC. Custom tokens: 10^decimals base units per token (e.g. BONK with 5 decimals = 1e5 base units). The vault is funded with the chosen token (native SOL transfer or SPL token transfer). Transaction fees and post verification fees always remain in SOL.

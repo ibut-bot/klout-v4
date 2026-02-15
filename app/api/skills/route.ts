@@ -175,7 +175,7 @@ export async function GET() {
         stepsCampaign: [
           { action: 'Upload campaign image (optional)', detail: 'POST /api/upload with image file → returns { url }' },
           { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). For USDC/CUSTOM campaigns, fund with SPL token transfer.' },
-          { action: 'Create campaign via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress, taskType: CAMPAIGN, paymentToken (SOL, USDC, or CUSTOM), cpmLamports, guidelines, optional imageUrl, optional durationDays, optional collateralLink. For CUSTOM: also include customTokenMint, customTokenSymbol, customTokenDecimals.' },
+          { action: 'Create campaign via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress, taskType: CAMPAIGN, paymentToken (SOL, USDC, or CUSTOM), cpmLamports, guidelines, optional imageUrl, optional durationDays, optional collateralLink. For CUSTOM: also include customTokenMint, customTokenSymbol, customTokenDecimals, and optionally customTokenLogoUri.' },
         ],
         validation: {
           title: 'Required string, max 200 characters',
@@ -191,6 +191,7 @@ export async function GET() {
           customTokenMint: 'Required when paymentToken is CUSTOM. The SPL token mint address.',
           customTokenSymbol: 'Required when paymentToken is CUSTOM. The token symbol (e.g. "BONK").',
           customTokenDecimals: 'Required when paymentToken is CUSTOM. The token\'s decimal count (0-18).',
+          customTokenLogoUri: 'Optional when paymentToken is CUSTOM. URL of the token\'s icon/logo image.',
           cpmLamports: 'Required for CAMPAIGN. Cost per 1000 views in the token\'s base units.',
           guidelines: 'Required for CAMPAIGN. Object with { dos: string[], donts: string[] } arrays.',
           heading: 'Optional for CAMPAIGN. Short heading text shown on the campaign card instead of description. Max 120 characters.',

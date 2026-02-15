@@ -72,6 +72,7 @@ async function main() {
   let customTokenMint: string | undefined
   let customTokenSymbol: string | undefined
   let customTokenDecimals: number | undefined
+  let customTokenLogoUri: string | undefined
 
   if (ptArg === 'SOL') {
     paymentToken = 'SOL'
@@ -87,7 +88,8 @@ async function main() {
     const meta = await fetchTokenMetadata(connection, customTokenMint)
     customTokenSymbol = meta.symbol
     customTokenDecimals = meta.decimals
-    console.error(`Token: ${meta.symbol} (${meta.name}), ${meta.decimals} decimals`)
+    customTokenLogoUri = meta.logoUri || undefined
+    console.error(`Token: ${meta.symbol} (${meta.name}), ${meta.decimals} decimals${meta.logoUri ? ', logo: ' + meta.logoUri : ''}`)
   } else {
     paymentToken = 'SOL'
   }
@@ -180,6 +182,7 @@ async function main() {
           customTokenMint,
           customTokenSymbol,
           customTokenDecimals,
+          ...(customTokenLogoUri ? { customTokenLogoUri } : {}),
         } : {}),
         cpmLamports: Math.round(cpmNum * multiplier),
         guidelines: { dos, donts },
