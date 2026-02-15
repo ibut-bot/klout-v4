@@ -29,6 +29,7 @@ export async function GET() {
       userProfile: `${BASE_URL}/u/{walletAddress}`,
       userProfileApi: `${BASE_URL}/api/users/{walletAddress}/stats`,
       dashboard: `${BASE_URL}/dashboard`,
+      myScore: `${BASE_URL}/my-score`,
       skills: `${BASE_URL}/skills`,
       skillsApi: `${BASE_URL}/api/skills`,
       apiBase: `${BASE_URL}/api`,
@@ -381,6 +382,31 @@ export async function GET() {
         fallback: 'If no username is set, your shortened wallet address is displayed instead.',
         visibility: 'Your username appears on: task cards, task detail pages, bid listings, chat messages, escrow panels, and public profiles.',
       },
+      kloutScore: {
+        description: 'Calculate a personalized X influence score. Uses a hybrid multiplicative model: (Reach × Engagement + Ratio + Verification) × Geo Multiplier × 100. Requires linked X account and 0.01 SOL fee payment.',
+        cost: '0.01 SOL (KLOUT_SCORE_FEE_LAMPORTS = 10,000,000 lamports)',
+        prerequisites: ['Wallet authenticated', 'X account linked via OAuth'],
+        scoringComponents: {
+          reach: '0–1 based on follower count tiers (500 → 100K+)',
+          engagement: '0–1 based on engagement rate from last 20 original tweets',
+          ratioBonus: '0–0.15 based on followers/following ratio',
+          verificationBonus: '0–0.10 (blue tick = 0.05, org-verified = 0.10)',
+          geoMultiplier: 'Tier 1 (US/CA) = 1.0, Tier 2 (W. Europe/AU/NZ) = 0.75, Tier 3 (E. Europe/Asia) = 0.45, Tier 4 (Africa/Other) = 0.15, Unknown = 0.35',
+        },
+        formula: 'totalScore = min(100, (reach × engagement + ratio + verification) × geoMultiplier × 100)',
+        dataStored: 'Raw X profile (followers, following, verified, location), raw tweet metrics (last 20), computed score components — all in XScoreData table.',
+        endpoints: {
+          calculate: 'POST /api/klout-score/calculate — Auth required. Body: { feeTxSig }. Returns full score breakdown.',
+          getLatest: 'GET /api/klout-score — Auth required. Returns most recent score for authenticated user.',
+        },
+        webUrl: `${BASE_URL}/my-score`,
+        steps: [
+          { action: 'Link X account', detail: 'User must have linked their X account via OAuth (GET /api/auth/x/authorize)' },
+          { action: 'Pay fee on-chain', detail: 'Transfer 0.01 SOL (10,000,000 lamports) to systemWalletAddress' },
+          { action: 'Calculate score', detail: 'POST /api/klout-score/calculate with { feeTxSig }' },
+          { action: 'View score', detail: 'GET /api/klout-score or visit /my-score page' },
+        ],
+      },
       campaignBan: {
         description: 'Campaign creators can ban users from submitting to any of their future campaigns. Bans are applied when rejecting a submission.',
         howItWorks: [
@@ -472,6 +498,8 @@ export async function GET() {
       { method: 'POST', path: '/api/tasks/:id/messages',                    auth: true,  description: 'Send PRIVATE message. Bidders: message goes to creator. Creators: MUST include recipientId (bidder user ID).', body: '{ content?, attachments?: [{ url, contentType, ... }], recipientId? (required for creators) }' },
       { method: 'GET',  path: '/api/users/:wallet/stats',                    auth: false, description: 'Public user profile and activity stats (tasks posted, bids placed, disputes, amounts paid/received)' },
       { method: 'GET',  path: '/api/users/:wallet/submissions',               auth: false, description: 'User submissions with task details, outcome (won/lost/pending), and payout info', params: 'page, limit (query)' },
+      { method: 'POST', path: '/api/klout-score/calculate',                  auth: true,  description: 'Calculate Klout score. Requires linked X account and 0.01 SOL fee payment to system wallet. Fetches X profile + last 20 tweets, computes score, stores raw data.', body: '{ feeTxSig }' },
+      { method: 'GET',  path: '/api/klout-score',                              auth: true,  description: 'Get most recent Klout score for the authenticated user. Returns null if no score calculated yet.' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
       { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
       { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health and block height' },

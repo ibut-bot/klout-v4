@@ -67,23 +67,23 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="mb-12 text-center">
-        <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
+      <section className="mb-8 sm:mb-12 text-center">
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
           Monetize your <span className="text-accent">Klout</span>
         </h1>
         <p className="mx-auto mb-8 max-w-xl text-lg text-zinc-400">
           Get paid to promote brands and products to your audience.
         </p>
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
           <Link
             href="/tasks/new"
-            className="rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-black transition hover:bg-accent-hover"
+            className="w-full sm:w-auto rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-black transition hover:bg-accent-hover text-center"
           >
             Launch Campaign
           </Link>
           <Link
             href="/tasks"
-            className="rounded-lg border border-k-border px-6 py-3 text-sm font-medium text-zinc-300 transition hover:border-k-border-hover hover:text-white"
+            className="w-full sm:w-auto rounded-lg border border-k-border px-6 py-3 text-sm font-medium text-zinc-300 transition hover:border-k-border-hover hover:text-white text-center"
           >
             Browse Campaigns
           </Link>

@@ -147,14 +147,14 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
     // Show position editor mode
     if (editingPosition && imageUrl) {
       return (
-        <div className="rounded-2xl overflow-hidden h-[552px] border border-accent/30">
+        <div className="rounded-2xl overflow-hidden h-[380px] sm:h-[480px] lg:h-[552px] border border-accent/30">
           <ImagePositionEditor
             imageUrl={imageUrl}
             initialTransform={pendingTransform}
             onTransformChange={setPendingTransform}
             onSave={handleSavePosition}
             onCancel={() => { setPendingTransform(imageTransform || { scale: 1, x: 50, y: 50 }); setEditingPosition(false) }}
-            height="h-[410px]"
+            height="h-[380px] sm:h-[480px] lg:h-[410px]"
           />
         </div>
       )
@@ -164,7 +164,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
 
     return (
       <Link href={`/tasks/${id}`} className="block group">
-        <div className="relative rounded-2xl overflow-hidden h-[552px] transition-all hover:shadow-xl hover:shadow-accent/10 hover:ring-1 hover:ring-accent/30">
+        <div className="relative rounded-2xl overflow-hidden h-[380px] sm:h-[480px] lg:h-[552px] transition-all hover:shadow-xl hover:shadow-accent/10 hover:ring-1 hover:ring-accent/30">
           {/* Full-bleed image */}
           <img
             src={imageUrl}

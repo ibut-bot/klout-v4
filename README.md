@@ -12,6 +12,7 @@ Klout is a platform that connects brands with X/Twitter influencers. Brands crea
 
 - **Campaign Marketplace** - Browse active campaigns and earn by promoting brands
 - **CPM-Based Payouts** - Get paid per 1000 views on your promotional posts
+- **Klout Score** - Get your X influence scored using a hybrid multiplicative algorithm (reach × engagement + ratio + verification × geo). Costs 0.01 SOL per calculation. Raw X data stored for future campaign targeting.
 - **Instant Crypto Payments** - Receive SOL, USDC, or any SPL token directly to your wallet
 - **Campaign Images** - Visual campaign cards with images, progress bars, and countdowns
 - **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords
@@ -27,10 +28,11 @@ Klout is a platform that connects brands with X/Twitter influencers. Brands crea
 
 ## For Influencers
 
-1. **Browse Campaigns** - Find brands that match your audience
-2. **Post on X** - Create content following the campaign guidelines
-3. **Submit Your Post** - Link your X post to the campaign
-4. **Get Paid** - Earn based on your post's view count × CPM rate
+1. **Get Your Klout Score** - Link your X account, pay 0.01 SOL, and get scored on reach, engagement, follower ratio, verification, and geography
+2. **Browse Campaigns** - Find brands that match your audience
+3. **Post on X** - Create content following the campaign guidelines
+4. **Submit Your Post** - Link your X post to the campaign
+5. **Get Paid** - Earn based on your post's view count × CPM rate
 
 ## Quick Start
 

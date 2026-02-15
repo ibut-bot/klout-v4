@@ -18,10 +18,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground overflow-x-hidden`}>
         <WalletProvider>
           <Navbar />
-          <main className="px-6 py-8 lg:px-12">{children}</main>
+          <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-12">{children}</main>
         </WalletProvider>
       </body>
     </html>

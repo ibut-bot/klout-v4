@@ -399,7 +399,35 @@ Upload and manage your profile picture to personalize your presence on the marke
 
 **Where it appears**: Your profile picture is displayed on task cards, task detail pages, bid listings, chat messages, and escrow panels.
 
-### 18. Username
+### 18. Klout Score
+Calculate a personalized influence score for your linked X account. Uses a hybrid multiplicative model: (Reach × Engagement + Ratio Bonus + Verification Bonus) × Geographic Multiplier × 100.
+
+**When to use**: User wants to measure their X influence or needs a score for campaign eligibility.
+
+**Prerequisites**: Wallet authenticated + X account linked via OAuth.
+
+**Cost**: 0.01 SOL per calculation (KLOUT_SCORE_FEE_LAMPORTS), paid to system wallet.
+
+**Scoring components**:
+- **Reach** (0–1): Based on follower count tiers (500 → 100K+)
+- **Engagement** (0–1): Engagement rate from last 20 original tweets (likes + retweets + replies / followers)
+- **Follower/Following Ratio** (0–0.15): Higher ratio = more organic influence
+- **Verification** (0–0.10): Blue tick = 0.05, Org-verified = 0.10
+- **Geographic Multiplier** (0.15–1.0): Tier 1 (US/CA) = 1.0, Tier 2 (W. Europe/AU/NZ) = 0.75, Tier 3 (E. Europe/Asia) = 0.45, Tier 4 (Africa/Other) = 0.15
+
+**Data stored**: Raw X profile data (followers, following, verified type, location), raw tweet metrics (last 20 tweets), computed score breakdown — all in `XScoreData` table for future campaign targeting.
+
+**Process**:
+1. User links X account via OAuth (if not already linked)
+2. Pay 0.01 SOL to system wallet on-chain
+3. `POST /api/klout-score/calculate` with `{ feeTxSig }` → fetches X profile + last 20 tweets → computes score → stores raw data + score
+4. View score at `/my-score` page
+
+**API endpoints**:
+- `POST /api/klout-score/calculate` (auth required) — Calculate score. Body: `{ feeTxSig }`. Returns score breakdown.
+- `GET /api/klout-score` (auth required) — Get most recent score for authenticated user.
+
+### 19. Username
 Set a unique username to personalize your identity on the marketplace. Your username is displayed instead of your wallet address throughout the platform.
 
 **When to use**: Set up your profile identity, change your display name, or remove it.
@@ -614,6 +642,8 @@ npm run skill:username:remove -- --password "pass"
 | PUT | `/api/profile/username` | Yes | Set or update username (3-20 chars, alphanumeric + underscore) |
 | DELETE | `/api/profile/username` | Yes | Remove your username |
 | GET | `/api/users/:wallet/submissions` | No | User submissions with outcome & payout info. Params: page, limit |
+| POST | `/api/klout-score/calculate` | Yes | Calculate Klout score (requires 0.01 SOL fee payment). Body: `{ feeTxSig }` |
+| GET | `/api/klout-score` | Yes | Get most recent Klout score for authenticated user |
 | GET | `/api/skills` | No | Machine-readable skill docs (JSON) |
 | GET | `/api/config` | No | Public server config (system wallet, fees, network) |
 | GET | `/api/health` | No | Server health, block height, uptime |

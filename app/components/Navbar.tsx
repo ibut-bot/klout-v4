@@ -56,6 +56,7 @@ export default function Navbar() {
   const [savingUsername, setSavingUsername] = useState(false)
   const [xUsername, setXUsername] = useState<string | null>(null)
   const [linkingX, setLinkingX] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
@@ -98,6 +99,11 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   const handleNotificationClick = (n: Notification) => {
     if (!n.read) markAsRead([n.id])
@@ -252,47 +258,47 @@ export default function Navbar() {
     return pathname.startsWith(href)
   }
 
+  const filteredNavItems = navItems.filter((item) => !item.auth || isAuthenticated)
+
   return (
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-      <div className="flex h-14 items-center justify-between px-6 lg:px-12">
+      <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-12">
         {/* Left — Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image src="/Klout1.svg" alt="Klout" width={32} height={32} />
           <span className="hidden sm:inline text-base font-bold text-white">Klout</span>
         </Link>
 
-        {/* Center — Nav items */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
-          {navItems
-            .filter((item) => !item.auth || isAuthenticated)
-            .map((item) => {
-              const active = isActive(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                    active
-                      ? 'bg-accent text-black'
-                      : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
-                  }`}
-                >
-                  {item.icon}
-                  <span className="hidden sm:inline">{item.label}</span>
-                </Link>
-              )
-            })}
+        {/* Center — Nav items (hidden on mobile) */}
+        <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-1">
+          {filteredNavItems.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? 'bg-accent text-black'
+                    : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
+                }`}
+              >
+                {item.icon}
+                <span className="hidden lg:inline">{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
 
         {/* Right — Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {connected && loading && (
-            <span className="text-sm text-zinc-500">Signing in...</span>
+            <span className="hidden sm:inline text-sm text-zinc-500">Signing in...</span>
           )}
           {isAuthenticated && (
             <div className="relative" ref={notifRef}>
               <button
-                onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false) }}
+                onClick={() => { setShowNotifications(!showNotifications); setShowDropdown(false); setMobileMenuOpen(false) }}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-k-border bg-surface transition hover:border-k-border-hover"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -305,7 +311,7 @@ export default function Navbar() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-11 z-50 w-80 rounded-xl border border-k-border bg-surface shadow-2xl">
+                <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-k-border bg-surface shadow-2xl">
                   <div className="flex items-center justify-between border-b border-k-border px-4 py-2.5">
                     <span className="text-sm font-semibold text-zinc-100">Notifications</span>
                     {unreadCount > 0 && (
@@ -353,8 +359,8 @@ export default function Navbar() {
           {isAuthenticated && (
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false) }}
-                className="flex h-[40px] w-[40px] items-center justify-center rounded-full border border-k-border bg-surface transition hover:border-accent/50"
+                onClick={() => { setShowDropdown(!showDropdown); setShowNotifications(false); setMobileMenuOpen(false) }}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-k-border bg-surface transition hover:border-accent/50"
               >
                 {profilePic ? (
                   <img src={profilePic} alt="" className="h-full w-full rounded-full object-cover" />
@@ -365,7 +371,7 @@ export default function Navbar() {
                 )}
               </button>
               {showDropdown && (
-                <div className="absolute right-0 top-11 z-50 w-56 rounded-xl border border-k-border bg-surface py-1 shadow-2xl">
+                <div className="absolute right-0 top-11 z-50 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-k-border bg-surface py-1 shadow-2xl">
                   {/* Display current username or wallet */}
                   <div className="px-4 py-2 border-b border-k-border">
                     <p className="text-xs text-zinc-500">Signed in as</p>
@@ -467,9 +473,57 @@ export default function Navbar() {
               )}
             </div>
           )}
-          <WalletMultiButton />
+          <div className="hidden sm:block">
+            <WalletMultiButton />
+          </div>
+          {/* Mobile hamburger button */}
+          <button
+            onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setShowDropdown(false); setShowNotifications(false) }}
+            className="flex md:hidden h-9 w-9 items-center justify-center rounded-full border border-k-border bg-surface transition hover:border-k-border-hover"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? (
+              <svg className="h-5 w-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-k-border bg-background/95 backdrop-blur-md">
+          <div className="px-4 py-3 space-y-1">
+            {filteredNavItems.map((item) => {
+              const active = isActive(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    active
+                      ? 'bg-accent text-black'
+                      : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+          {/* Mobile wallet button */}
+          <div className="sm:hidden border-t border-k-border px-4 py-3">
+            <WalletMultiButton />
+          </div>
+        </div>
+      )}
     </nav>
   )
 }

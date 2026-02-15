@@ -394,7 +394,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   return (
     <div className="rounded-xl border border-k-border bg-surface overflow-hidden">
       {/* Image Section */}
-      <div className="relative h-[552px] bg-zinc-900">
+      <div className="relative h-[300px] sm:h-[420px] lg:h-[552px] bg-zinc-900">
         {editingImagePosition && task.imageUrl ? (
           <ImagePositionEditor
             imageUrl={task.imageUrl}
@@ -402,7 +402,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             onTransformChange={setImageTransform}
             onSave={handleSaveImagePosition}
             onCancel={() => { setImageTransform(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }); setEditingImagePosition(false) }}
-            height="h-[552px]"
+            height="h-[300px] sm:h-[420px] lg:h-[552px]"
           />
         ) : task.imageUrl ? (
           <>
@@ -748,18 +748,18 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <Link
           href="/tasks/new"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:bg-accent-hover"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:bg-accent-hover text-center sm:text-left"
         >
           Create Campaign
         </Link>
       </div>
 
-      <div className="mb-6 rounded-lg bg-surface border border-k-border px-4 py-3 text-sm text-zinc-400">
-        Wallet: <Link href={`/u/${wallet}`} className="font-mono hover:text-accent">{wallet}</Link>
+      <div className="mb-6 rounded-lg bg-surface border border-k-border px-4 py-3 text-sm text-zinc-400 overflow-hidden">
+        Wallet: <Link href={`/u/${wallet}`} className="font-mono hover:text-accent break-all">{wallet}</Link>
       </div>
 
       {/* Tabs */}

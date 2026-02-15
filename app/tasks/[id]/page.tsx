@@ -295,9 +295,9 @@ export default function TaskDetailPage() {
     <div className="mx-auto max-w-6xl">
       {/* Header */}
       <div className="mb-6">
-        <div className="mb-3 flex items-start justify-between">
-          <h1 className="text-2xl font-bold text-white">{task.title}</h1>
-          <div className="flex items-center gap-2">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <h1 className="text-xl sm:text-2xl font-bold text-white min-w-0 break-words">{task.title}</h1>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={copyLink}
               className="shrink-0 rounded-full border border-k-border px-3 py-1 text-xs font-medium text-zinc-400 transition hover:border-k-border-hover hover:bg-surface"
@@ -392,14 +392,14 @@ export default function TaskDetailPage() {
               onTransformChange={setImgTransform}
               onSave={handleSaveImagePosition}
               onCancel={() => { setImgTransform(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 }); setEditingImage(false) }}
-              height="h-[460px]"
+              height="h-[280px] sm:h-[380px] lg:h-[460px]"
             />
           ) : (
             <div className="relative">
               <img
                 src={task.imageUrl}
                 alt={task.title}
-                className="w-full max-h-[460px] object-cover"
+                className="w-full max-h-[280px] sm:max-h-[380px] lg:max-h-[460px] object-cover"
                 style={getImageTransformStyle(task.imageTransform as any)}
               />
               {isCreator && (
@@ -652,8 +652,8 @@ export default function TaskDetailPage() {
               <div className="space-y-1 text-sm text-zinc-400">
                 <p>Symbol: <span className="font-semibold text-accent">{task.customTokenSymbol || 'Unknown'}</span></p>
                 <p>Decimals: <span className="text-zinc-200">{task.customTokenDecimals}</span></p>
-                <p className="flex items-center gap-2">
-                  Contract: <code className="text-xs text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded font-mono break-all">{task.customTokenMint}</code>
+                <p className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span>Contract:</span> <code className="text-xs text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded font-mono break-all">{task.customTokenMint}</code>
                 </p>
               </div>
             </div>

@@ -39,9 +39,16 @@ body {
   font-weight: 600 !important;
   border-radius: 0.5rem !important;
   font-size: 0.875rem !important;
-  height: 40px !important;
-  padding: 0 1.25rem !important;
+  height: 36px !important;
+  padding: 0 0.75rem !important;
   transition: background-color 0.15s !important;
+  white-space: nowrap !important;
+}
+@media (min-width: 640px) {
+  .wallet-adapter-button {
+    height: 40px !important;
+    padding: 0 1.25rem !important;
+  }
 }
 .wallet-adapter-button:hover {
   background-color: #eab308 !important;

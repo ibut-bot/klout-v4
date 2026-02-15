@@ -232,31 +232,31 @@ export default function PublicProfilePage() {
   return (
     <div className="mx-auto max-w-4xl">
       {/* Profile Header */}
-      <div className="mb-8 flex items-start gap-4">
+      <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
         {user.profilePicUrl ? (
           <img
             src={user.profilePicUrl}
             alt=""
-            className="h-[100px] w-[100px] rounded-full object-cover"
+            className="h-20 w-20 sm:h-[100px] sm:w-[100px] rounded-full object-cover shrink-0"
           />
         ) : (
-          <div className="flex h-[100px] w-[100px] items-center justify-center rounded-full bg-zinc-800 text-2xl font-bold text-zinc-300">
+          <div className="flex h-20 w-20 sm:h-[100px] sm:w-[100px] items-center justify-center rounded-full bg-zinc-800 text-2xl font-bold text-zinc-300 shrink-0">
             {user.walletAddress.slice(0, 2)}
           </div>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0 text-center sm:text-left">
           {user.username && (
             <h1 className="text-xl font-bold text-white mb-1">
               {user.username}
             </h1>
           )}
-          <div className="flex items-center gap-2 mb-1">
-            <p className={`${user.username ? 'text-sm text-zinc-400' : 'text-xl font-bold text-white'} font-mono`}>
+          <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+            <p className={`${user.username ? 'text-sm text-zinc-400' : 'text-xl font-bold text-white'} font-mono truncate`}>
               {user.walletAddress.slice(0, 8)}...{user.walletAddress.slice(-6)}
             </p>
             <button
               onClick={copyWallet}
-              className="rounded-full border border-k-border px-2 py-0.5 text-xs font-medium text-zinc-400 transition hover:border-k-border-hover hover:bg-surface"
+              className="shrink-0 rounded-full border border-k-border px-2 py-0.5 text-xs font-medium text-zinc-400 transition hover:border-k-border-hover hover:bg-surface"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>
