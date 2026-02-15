@@ -253,16 +253,8 @@ export default function MyScorePage() {
               value={`+${(scoreResult.breakdown.verification.score * 100).toFixed(0)}%`}
               detail={scoreResult.breakdown.verification.type || 'Not verified'}
             />
-            <BreakdownRow
-              label="Geographic"
-              value={`${scoreResult.breakdown.geo.multiplier}x`}
-              detail={`${scoreResult.breakdown.geo.tierLabel}${scoreResult.breakdown.geo.location ? ` — ${scoreResult.breakdown.geo.location}` : ''}`}
-            />
 
-            <div className="mt-3 pt-3 border-t border-k-border flex justify-between">
-              <span className="text-sm text-zinc-400">
-                Quality: {(scoreResult.qualityScore * 100).toFixed(1)}% × Geo: {scoreResult.breakdown.geo.multiplier}x
-              </span>
+            <div className="mt-3 pt-3 border-t border-k-border flex justify-end">
               <span className="text-sm font-bold text-accent">{scoreResult.totalScore}/100</span>
             </div>
           </div>
