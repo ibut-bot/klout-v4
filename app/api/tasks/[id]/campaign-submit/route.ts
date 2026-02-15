@@ -6,7 +6,7 @@ import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
-import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
+import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 
 // Allow up to 60s for Solana + X API + Anthropic calls
 export const maxDuration = 60
@@ -395,7 +395,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 13. Notify campaign creator
   const pt = (task.paymentToken || 'SOL') as PaymentTokenType
-  const payoutDisplay = `${formatTokenAmount(payoutLamports, pt)} ${tokenSymbol(pt)}`
+  const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
+  const payoutDisplay = `${formatTokenAmount(payoutLamports, tInfo)} ${tInfo.symbol}`
 
   await createNotification({
     userId: task.creatorId,

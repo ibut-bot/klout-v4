@@ -1,8 +1,8 @@
 /**
- * SPL Token (USDC) utilities for Squads Multisig vault operations.
+ * Generic SPL Token utilities for Squads Multisig vault operations.
  *
- * Mirrors the SOL-based functions in multisig.ts but uses SPL token
- * transfers instead of SystemProgram.transfer.
+ * All functions accept a `mint` parameter so they work with USDC, BONK,
+ * or any other SPL token.  Legacy USDC-named exports are thin wrappers.
  */
 
 import * as multisig from '@sqds/multisig'
@@ -50,12 +50,12 @@ const { Permissions } = multisig.types
 
 /** Get the Associated Token Account address for a wallet + mint. */
 export function getAta(owner: PublicKey, mint: PublicKey = USDC_MINT): PublicKey {
-  return getAssociatedTokenAddressSync(mint, owner, true) // allowOwnerOffCurve = true for PDAs
+  return getAssociatedTokenAddressSync(mint, owner, true)
 }
 
 /**
  * Build an instruction to create an ATA if it doesn't exist.
- * Returns null if the ATA already exists.
+ * Returns null instruction if the ATA already exists.
  */
 async function createAtaIfNeeded(
   connection: Connection,
@@ -66,7 +66,7 @@ async function createAtaIfNeeded(
   const ata = getAta(owner, mint)
   try {
     await getAccount(connection, ata)
-    return { ata, instruction: null } // already exists
+    return { ata, instruction: null }
   } catch {
     return {
       ata,
@@ -76,20 +76,17 @@ async function createAtaIfNeeded(
 }
 
 // ──────────────────────────────────────────────
-// Vault Creation + USDC Funding (WalletAdapter)
+// Generic SPL Vault Creation + Funding (WalletAdapter)
 // ──────────────────────────────────────────────
 
 /**
- * Create a 1/1 multisig vault and fund it with USDC -- all in one transaction.
- * Steps:
- * 1. Create 1/1 multisig (creator only)
- * 2. Create ATA for vault PDA (owned by vault PDA)
- * 3. Transfer USDC from creator → vault ATA
+ * Create a 1/1 multisig vault and fund it with any SPL token.
  */
-export async function createMultisigVaultAndFundUsdcWA(
+export async function createMultisigVaultAndFundSplWA(
   connection: Connection,
   wallet: WalletSigner,
   budgetBaseUnits: number,
+  mint: PublicKey = USDC_MINT,
 ): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
   const createKey = Keypair.generate()
   const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
@@ -98,7 +95,6 @@ export async function createMultisigVaultAndFundUsdcWA(
   const programConfigPda = getProgramConfigPda()
   const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
 
-  // 1. Create 1/1 multisig
   const createMultisigIx = multisig.instructions.multisigCreateV2({
     createKey: createKey.publicKey,
     creator: wallet.publicKey,
@@ -111,22 +107,14 @@ export async function createMultisigVaultAndFundUsdcWA(
     rentCollector: null,
   })
 
-  // 2. Create ATA for vault PDA
-  const vaultAta = getAta(vaultPda)
+  const vaultAta = getAta(vaultPda, mint)
   const createVaultAtaIx = createAssociatedTokenAccountInstruction(
-    wallet.publicKey, // payer
-    vaultAta,
-    vaultPda,         // owner
-    USDC_MINT,
+    wallet.publicKey, vaultAta, vaultPda, mint,
   )
 
-  // 3. Transfer USDC from creator to vault ATA
-  const creatorAta = getAta(wallet.publicKey)
+  const creatorAta = getAta(wallet.publicKey, mint)
   const transferIx = createTransferInstruction(
-    creatorAta,       // source
-    vaultAta,         // destination
-    wallet.publicKey, // authority
-    budgetBaseUnits,
+    creatorAta, vaultAta, wallet.publicKey, budgetBaseUnits,
   )
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
@@ -145,16 +133,17 @@ export async function createMultisigVaultAndFundUsdcWA(
 }
 
 // ──────────────────────────────────────────────
-// Vault Creation + USDC Funding (Keypair -- CLI)
+// Generic SPL Vault Creation + Funding (Keypair -- CLI)
 // ──────────────────────────────────────────────
 
 /**
- * Keypair-based variant of createMultisigVaultAndFundUsdcWA for CLI scripts.
+ * Keypair-based variant for CLI scripts.
  */
-export async function createMultisigVaultAndFundUsdc(
+export async function createMultisigVaultAndFundSpl(
   connection: Connection,
   creator: Keypair,
   budgetBaseUnits: number,
+  mint: PublicKey = USDC_MINT,
 ): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
   const createKey = Keypair.generate()
   const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
@@ -175,12 +164,12 @@ export async function createMultisigVaultAndFundUsdc(
     rentCollector: null,
   })
 
-  const vaultAta = getAta(vaultPda)
+  const vaultAta = getAta(vaultPda, mint)
   const createVaultAtaIx = createAssociatedTokenAccountInstruction(
-    creator.publicKey, vaultAta, vaultPda, USDC_MINT,
+    creator.publicKey, vaultAta, vaultPda, mint,
   )
 
-  const creatorAta = getAta(creator.publicKey)
+  const creatorAta = getAta(creator.publicKey, mint)
   const transferIx = createTransferInstruction(
     creatorAta, vaultAta, creator.publicKey, budgetBaseUnits,
   )
@@ -199,17 +188,14 @@ export async function createMultisigVaultAndFundUsdc(
 }
 
 // ──────────────────────────────────────────────
-// USDC Payout: Proposal + Approve + Execute (WA)
+// Generic SPL Payout: Proposal + Approve + Execute (WA)
 // ──────────────────────────────────────────────
 
 /**
- * Create proposal + approve + execute for a USDC payout from vault.
- * 90% goes to recipient, 10% to platform wallet — as SPL token transfers.
- *
- * Before calling, ensure recipient & platform ATAs exist (they are created
- * in the inner vault transaction if needed, or pre-created by the caller).
+ * Create proposal + approve + execute for an SPL token payout from vault.
+ * 90% goes to recipient, 10% to platform wallet.
  */
-export async function createProposalApproveExecuteUsdcWA(
+export async function createProposalApproveExecuteSplWA(
   connection: Connection,
   wallet: WalletSigner,
   multisigPda: PublicKey,
@@ -217,6 +203,7 @@ export async function createProposalApproveExecuteUsdcWA(
   totalBaseUnits: number,
   platformWallet?: PublicKey,
   memo?: string,
+  mint: PublicKey = USDC_MINT,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
@@ -224,44 +211,32 @@ export async function createProposalApproveExecuteUsdcWA(
 
   const { recipientAmount, platformAmount } = splitPayment(totalBaseUnits, platformWallet ? platformWallet : undefined)
 
-  const vaultAta = getAta(vaultPda)
-  const recipientAta = getAta(recipient)
+  const vaultAta = getAta(vaultPda, mint)
+  const recipientAta = getAta(recipient, mint)
 
-  // Pre-create recipient ATA if needed (outside the vault transaction)
   const preInstructions: ReturnType<typeof createAssociatedTokenAccountInstruction>[] = []
 
-  const recipientAtaInfo = await createAtaIfNeeded(connection, wallet.publicKey, recipient)
+  const recipientAtaInfo = await createAtaIfNeeded(connection, wallet.publicKey, recipient, mint)
   if (recipientAtaInfo.instruction) {
     preInstructions.push(recipientAtaInfo.instruction)
   }
 
   let platformAta: PublicKey | null = null
   if (platformWallet && platformAmount > 0) {
-    platformAta = getAta(platformWallet)
-    const platformAtaInfo = await createAtaIfNeeded(connection, wallet.publicKey, platformWallet)
+    platformAta = getAta(platformWallet, mint)
+    const platformAtaInfo = await createAtaIfNeeded(connection, wallet.publicKey, platformWallet, mint)
     if (platformAtaInfo.instruction) {
       preInstructions.push(platformAtaInfo.instruction)
     }
   }
 
-  // Inner vault transaction instructions: SPL token transfers from vault ATA
   const innerInstructions = [
-    createTransferInstruction(
-      vaultAta,  // source
-      recipientAta, // dest
-      vaultPda,  // authority (PDA — program signs)
-      recipientAmount,
-    ),
+    createTransferInstruction(vaultAta, recipientAta, vaultPda, recipientAmount),
   ]
 
   if (platformAta && platformAmount > 0) {
     innerInstructions.push(
-      createTransferInstruction(
-        vaultAta,
-        platformAta,
-        vaultPda,
-        platformAmount,
-      ),
+      createTransferInstruction(vaultAta, platformAta, vaultPda, platformAmount),
     )
   }
 
@@ -273,7 +248,6 @@ export async function createProposalApproveExecuteUsdcWA(
     instructions: innerInstructions,
   })
 
-  // 1. Create vault transaction
   const createVaultTxIx = multisig.instructions.vaultTransactionCreate({
     multisigPda,
     transactionIndex,
@@ -284,30 +258,21 @@ export async function createProposalApproveExecuteUsdcWA(
     memo,
   })
 
-  // 2. Create proposal
   const createProposalIx = multisig.instructions.proposalCreate({
     multisigPda,
     transactionIndex,
     creator: wallet.publicKey,
   })
 
-  // 3. Approve
   const approveIx = multisig.instructions.proposalApprove({
     multisigPda,
     transactionIndex,
     member: wallet.publicKey,
   })
 
-  // 4. Execute
   const [transactionPda] = multisig.getTransactionPda({ multisigPda, index: transactionIndex })
   const [proposalPda] = multisig.getProposalPda({ multisigPda, transactionIndex })
 
-  // Remaining accounts mirror the compiled inner message keys:
-  //   vaultPda (signer in inner msg → isSigner: false, PDA signing)
-  //   vaultAta (writable)
-  //   recipientAta (writable)
-  //   platformAta (writable, if present)
-  //   TOKEN_PROGRAM_ID (read-only)
   const anchorRemainingAccounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
     { pubkey: vaultPda, isSigner: false, isWritable: true },
     { pubkey: vaultAta, isSigner: false, isWritable: true },
@@ -326,11 +291,9 @@ export async function createProposalApproveExecuteUsdcWA(
     anchorRemainingAccounts,
   })
 
-  // Bundle everything into one transaction
   const tx = new Transaction()
   tx.recentBlockhash = blockhash
   tx.feePayer = wallet.publicKey
-  // Pre-instructions: create ATAs that don't exist yet
   for (const ix of preInstructions) {
     tx.add(ix)
   }
@@ -347,21 +310,23 @@ export async function createProposalApproveExecuteUsdcWA(
 // Read Helpers
 // ──────────────────────────────────────────────
 
-/** Get the USDC balance of a vault PDA's ATA. */
-export async function getVaultUsdcBalance(
+/** Get the SPL token balance of a vault PDA's ATA. */
+export async function getVaultSplBalance(
   connection: Connection,
   multisigPda: PublicKey,
-): Promise<{ usdcBalance: number; vaultAta: string }> {
+  mint: PublicKey = USDC_MINT,
+  decimals: number = USDC_DECIMALS,
+): Promise<{ balance: number; vaultAta: string }> {
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
-  const vaultAta = getAta(vaultPda)
+  const vaultAta = getAta(vaultPda, mint)
   try {
     const account = await getAccount(connection, vaultAta)
     return {
-      usdcBalance: Number(account.amount) / 10 ** USDC_DECIMALS,
+      balance: Number(account.amount) / 10 ** decimals,
       vaultAta: vaultAta.toBase58(),
     }
   } catch {
-    return { usdcBalance: 0, vaultAta: vaultAta.toBase58() }
+    return { balance: 0, vaultAta: vaultAta.toBase58() }
   }
 }
 
@@ -378,11 +343,9 @@ export interface TokenTxVerification {
 }
 
 /**
- * Verify a USDC (SPL token) transfer transaction on-chain.
- * Checks that the tx exists, is confirmed, and transfers at least `minAmount`
- * base-units of the given mint to an ATA owned by the expected recipient.
+ * Verify an SPL token transfer transaction on-chain.
  */
-export async function verifyUsdcTransferTx(
+export async function verifySplTransferTx(
   txSignature: string,
   expectedRecipient: string,
   minAmount: number,
@@ -403,11 +366,9 @@ export async function verifyUsdcTransferTx(
       return { valid: false, error: 'Transaction failed on-chain' }
     }
 
-    // The expected recipient ATA
     const expectedAta = getAta(new PublicKey(expectedRecipient), mint).toBase58()
 
-    // Look for spl-token transfer or transferChecked instructions
-    for (const ix of tx.transaction.message.instructions) {
+    const checkIx = (ix: any): TokenTxVerification | null => {
       if ('parsed' in ix && ix.program === 'spl-token') {
         const parsed = ix.parsed
         if (
@@ -420,59 +381,70 @@ export async function verifyUsdcTransferTx(
             : Number(parsed.info.amount || 0)
 
           if (dest === expectedAta && amount >= minAmount) {
-            return {
-              valid: true,
-              from: parsed.info.source,
-              to: dest,
-              amount,
-            }
+            return { valid: true, from: parsed.info.source, to: dest, amount }
           }
         }
       }
+      return null
     }
 
-    // Also check inner instructions (vault transactions have inner ixs)
+    for (const ix of tx.transaction.message.instructions) {
+      const result = checkIx(ix)
+      if (result) return result
+    }
+
     if (tx.meta?.innerInstructions) {
       for (const inner of tx.meta.innerInstructions) {
         for (const ix of inner.instructions) {
-          if ('parsed' in ix && ix.program === 'spl-token') {
-            const parsed = ix.parsed
-            if (
-              (parsed?.type === 'transfer' || parsed?.type === 'transferChecked') &&
-              parsed.info
-            ) {
-              const dest = parsed.info.destination
-              const amount = parsed.type === 'transferChecked'
-                ? Number(parsed.info.tokenAmount?.amount || 0)
-                : Number(parsed.info.amount || 0)
-
-              if (dest === expectedAta && amount >= minAmount) {
-                return {
-                  valid: true,
-                  from: parsed.info.source,
-                  to: dest,
-                  amount,
-                }
-              }
-            }
-          }
+          const result = checkIx(ix)
+          if (result) return result
         }
       }
     }
 
-    return { valid: false, error: 'No matching USDC transfer found in transaction' }
+    return { valid: false, error: 'No matching SPL token transfer found in transaction' }
   } catch (e: any) {
     return { valid: false, error: e.message || 'Failed to verify transaction' }
   }
 }
 
 /**
- * Verify that a funding transaction sent USDC to a vault's ATA.
+ * Verify that a funding transaction sent SPL tokens to a vault's ATA.
  */
-export async function verifyUsdcFundingTx(
+export async function verifySplFundingTx(
   txSignature: string,
   vaultAddress: string,
   expectedBaseUnits: number,
+  mint: PublicKey = USDC_MINT,
 ): Promise<TokenTxVerification> {
-  return verifyUsdcTransferTx(txSignature, vaultAddress, expectedBaseUnits)
+  return verifySplTransferTx(txSignature, vaultAddress, expectedBaseUnits, mint)
 }
+
+// ──────────────────────────────────────────────
+// Legacy USDC-named wrappers (backward compat)
+// ──────────────────────────────────────────────
+
+export const createMultisigVaultAndFundUsdcWA = (
+  connection: Connection, wallet: WalletSigner, budgetBaseUnits: number,
+) => createMultisigVaultAndFundSplWA(connection, wallet, budgetBaseUnits, USDC_MINT)
+
+export const createMultisigVaultAndFundUsdc = (
+  connection: Connection, creator: Keypair, budgetBaseUnits: number,
+) => createMultisigVaultAndFundSpl(connection, creator, budgetBaseUnits, USDC_MINT)
+
+export const createProposalApproveExecuteUsdcWA = (
+  connection: Connection, wallet: WalletSigner, multisigPda: PublicKey,
+  recipient: PublicKey, totalBaseUnits: number, platformWallet?: PublicKey, memo?: string,
+) => createProposalApproveExecuteSplWA(connection, wallet, multisigPda, recipient, totalBaseUnits, platformWallet, memo, USDC_MINT)
+
+export const getVaultUsdcBalance = (
+  connection: Connection, multisigPda: PublicKey,
+) => getVaultSplBalance(connection, multisigPda, USDC_MINT, USDC_DECIMALS).then(r => ({ usdcBalance: r.balance, vaultAta: r.vaultAta }))
+
+export const verifyUsdcTransferTx = (
+  txSignature: string, expectedRecipient: string, minAmount: number, mint: PublicKey = USDC_MINT,
+) => verifySplTransferTx(txSignature, expectedRecipient, minAmount, mint)
+
+export const verifyUsdcFundingTx = (
+  txSignature: string, vaultAddress: string, expectedBaseUnits: number,
+) => verifySplFundingTx(txSignature, vaultAddress, expectedBaseUnits, USDC_MINT)

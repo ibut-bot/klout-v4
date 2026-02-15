@@ -7,7 +7,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../components/ImagePositionEditor'
-import { type PaymentTokenType, formatTokenAmount, tokenSymbol, tokenMultiplier } from '@/lib/token-utils'
+import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 import { getAta, USDC_MINT } from '@/lib/solana/spl-token'
 import { createTransferInstruction } from '@solana/spl-token'
 
@@ -18,6 +18,10 @@ interface Task {
   budgetLamports: string
   taskType?: string
   paymentToken?: PaymentTokenType
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
+  customTokenLogoUri?: string | null
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -111,8 +115,9 @@ interface CampaignCardProps {
 
 function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const pt: PaymentTokenType = task.paymentToken || 'SOL'
-  const sym = tokenSymbol(pt)
-  const mult = tokenMultiplier(pt)
+  const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
+  const sym = tInfo.symbol
+  const mult = tInfo.multiplier
   const { connection } = useConnection()
   const wallet = useWallet()
   const { publicKey, sendTransaction } = wallet
@@ -304,13 +309,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           tx.recentBlockhash = blockhash
           tx.feePayer = publicKey
 
-          if (pt === 'USDC') {
-            // USDC: SPL token transfer to vault's ATA
-            const vaultPda = new PublicKey(task.vaultAddress)
-            const creatorAta = getAta(publicKey)
-            const vaultAta = getAta(vaultPda)
-            tx.add(createTransferInstruction(creatorAta, vaultAta, publicKey, difference))
-          } else {
+          if (pt === 'SOL') {
             // SOL: native transfer
             tx.add(
               SystemProgram.transfer({
@@ -319,6 +318,15 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                 lamports: difference,
               })
             )
+          } else {
+            // USDC or CUSTOM: SPL token transfer to vault's ATA
+            const mint = pt === 'CUSTOM' && task.customTokenMint
+              ? new PublicKey(task.customTokenMint)
+              : USDC_MINT
+            const vaultPda = new PublicKey(task.vaultAddress)
+            const creatorAta = getAta(publicKey, mint)
+            const vaultAta = getAta(vaultPda, mint)
+            tx.add(createTransferInstruction(creatorAta, vaultAta, publicKey, difference))
           }
 
           const sig = await sendTransaction(tx, connection)
@@ -651,7 +659,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <div className="mb-1 flex items-center justify-between text-xs">
                 <span className="text-zinc-500">Budget Used</span>
                 <span className="font-medium text-zinc-300">
-                  {formatTokenAmount(budgetRemaining, pt)} {sym} / {formatTokenAmount(task.budgetLamports, pt)} {sym}
+                  {formatTokenAmount(budgetRemaining, tInfo)} {sym} / {formatTokenAmount(task.budgetLamports, tInfo)} {sym}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">

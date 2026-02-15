@@ -73,6 +73,10 @@ export async function GET(request: NextRequest) {
       budgetLamports: t.budgetLamports.toString(),
       taskType: t.taskType,
       paymentToken: t.paymentToken,
+      customTokenMint: t.customTokenMint,
+      customTokenSymbol: t.customTokenSymbol,
+      customTokenDecimals: t.customTokenDecimals,
+      customTokenLogoUri: t.customTokenLogoUri,
       status: t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,
@@ -112,7 +116,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading, collateralLink, paymentToken } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -128,13 +132,35 @@ export async function POST(request: NextRequest) {
   const isCampaign = resolvedTaskType === 'CAMPAIGN'
 
   // Validate paymentToken (only for CAMPAIGN, defaults to SOL)
-  const validTokens = ['SOL', 'USDC']
+  const validTokens = ['SOL', 'USDC', 'CUSTOM']
   const resolvedPaymentToken = isCampaign && paymentToken ? String(paymentToken).toUpperCase() : 'SOL'
   if (!validTokens.includes(resolvedPaymentToken)) {
     return Response.json(
-      { success: false, error: 'INVALID_PAYMENT_TOKEN', message: 'paymentToken must be SOL or USDC' },
+      { success: false, error: 'INVALID_PAYMENT_TOKEN', message: 'paymentToken must be SOL, USDC, or CUSTOM' },
       { status: 400 }
     )
+  }
+
+  // CUSTOM token requires mint, symbol, and decimals
+  if (resolvedPaymentToken === 'CUSTOM') {
+    if (!customTokenMint || typeof customTokenMint !== 'string' || customTokenMint.length < 32) {
+      return Response.json(
+        { success: false, error: 'MISSING_FIELDS', message: 'CUSTOM paymentToken requires a valid customTokenMint address' },
+        { status: 400 }
+      )
+    }
+    if (!customTokenSymbol || typeof customTokenSymbol !== 'string') {
+      return Response.json(
+        { success: false, error: 'MISSING_FIELDS', message: 'CUSTOM paymentToken requires customTokenSymbol' },
+        { status: 400 }
+      )
+    }
+    if (customTokenDecimals === undefined || customTokenDecimals === null || !Number.isInteger(Number(customTokenDecimals)) || Number(customTokenDecimals) < 0 || Number(customTokenDecimals) > 18) {
+      return Response.json(
+        { success: false, error: 'MISSING_FIELDS', message: 'CUSTOM paymentToken requires customTokenDecimals (integer 0-18)' },
+        { status: 400 }
+      )
+    }
   }
 
   if (!title || !description || !budgetLamports || !paymentTxSignature) {
@@ -299,6 +325,12 @@ export async function POST(request: NextRequest) {
           budgetLamports: parsedBudget,
           taskType: 'CAMPAIGN',
           paymentToken: resolvedPaymentToken as any,
+          ...(resolvedPaymentToken === 'CUSTOM' ? {
+            customTokenMint: customTokenMint,
+            customTokenSymbol: customTokenSymbol,
+            customTokenDecimals: Number(customTokenDecimals),
+            ...(customTokenLogoUri ? { customTokenLogoUri: String(customTokenLogoUri) } : {}),
+          } : {}),
           paymentTxSignature,
           multisigAddress,
           vaultAddress,

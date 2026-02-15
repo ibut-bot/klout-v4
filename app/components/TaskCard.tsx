@@ -3,9 +3,21 @@
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from './ImagePositionEditor'
-import { type PaymentTokenType, formatTokenAmount } from '@/lib/token-utils'
+import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
-function TokenIcon({ token, size = 16 }: { token: PaymentTokenType; size?: number }) {
+function TokenIcon({ token, size = 16, logoUri }: { token: PaymentTokenType; size?: number; logoUri?: string | null }) {
+  if (token === 'CUSTOM' && logoUri) {
+    return <img src={logoUri} alt="token" className="rounded-full" style={{ width: size, height: size }} />
+  }
+  if (token === 'CUSTOM') {
+    // Generic token icon for custom tokens without a logo
+    return (
+      <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="16" cy="16" r="15" stroke="#a1a1aa" strokeWidth="2" fill="none"/>
+        <text x="16" y="21" textAnchor="middle" fontSize="14" fill="#a1a1aa" fontFamily="monospace">$</text>
+      </svg>
+    )
+  }
   if (token === 'USDC') {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,6 +47,10 @@ interface TaskCardProps {
   budgetLamports: string
   taskType?: string
   paymentToken?: string
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
+  customTokenLogoUri?: string | null
   status: string
   creatorWallet: string
   creatorUsername?: string | null
@@ -80,7 +96,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -88,7 +104,8 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   
   const isCampaign = taskType === 'CAMPAIGN'
   const pt: PaymentTokenType = (paymentToken as PaymentTokenType) || 'SOL'
-  const budgetAmountDisplay = formatTokenAmount(budgetLamports, pt, pt === 'USDC' ? 0 : 1)
+  const tInfo = resolveTokenInfo(pt, customTokenMint, customTokenSymbol, customTokenDecimals)
+  const budgetAmountDisplay = formatTokenAmount(budgetLamports, tInfo, pt === 'SOL' ? 1 : 0)
   const budgetTotal = Number(budgetLamports)
   const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
@@ -152,7 +169,8 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
             <span className="flex items-center gap-2 rounded-lg bg-black/60 backdrop-blur-sm px-3.5 py-2 text-lg font-bold text-accent">
               {budgetAmountDisplay}
-              <TokenIcon token={pt} size={pt === 'USDC' ? 26 : 22} />
+              <TokenIcon token={pt} size={pt === 'USDC' ? 26 : 22} logoUri={customTokenLogoUri} />
+              {pt === 'CUSTOM' && <span className="text-sm font-semibold">{tInfo.symbol}</span>}
             </span>
             {isCreator && onImageTransformSave && (
               <button
@@ -249,7 +267,8 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           <div className="mb-3 flex items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-sm font-bold text-accent">
               {budgetAmountDisplay}
-              <TokenIcon token={pt} size={pt === 'USDC' ? 20 : 16} />
+              <TokenIcon token={pt} size={pt === 'USDC' ? 20 : 16} logoUri={customTokenLogoUri} />
+              {pt === 'CUSTOM' && <span className="text-xs font-semibold">{tInfo.symbol}</span>}
             </span>
           </div>
           

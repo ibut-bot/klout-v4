@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../../components/ImagePositionEditor'
-import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
+import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType, type TokenInfo } from '@/lib/token-utils'
 
 function useCountdown(deadlineAt: string | null | undefined) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number; expired: boolean } | null>(null)
@@ -56,6 +56,10 @@ interface Task {
   budgetLamports: string
   taskType: string
   paymentToken?: string
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
+  customTokenLogoUri?: string | null
   status: string
   multisigAddress?: string | null
   vaultAddress?: string | null
@@ -334,9 +338,17 @@ export default function TaskDetailPage() {
         {/* Task info inline */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-zinc-500">
           <span className="font-semibold text-accent">
-            {task.taskType === 'CAMPAIGN' && task.paymentToken
-              ? `${formatTokenAmount(task.budgetLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} ${tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}`
-              : formatSol(task.budgetLamports)}
+            {(() => {
+              const tInfo = resolveTokenInfo(
+                (task.paymentToken as PaymentTokenType) || 'SOL',
+                task.customTokenMint,
+                task.customTokenSymbol,
+                task.customTokenDecimals,
+              )
+              return task.taskType === 'CAMPAIGN'
+                ? `${formatTokenAmount(task.budgetLamports, tInfo)} ${tInfo.symbol}`
+                : formatSol(task.budgetLamports)
+            })()}
           </span>
           <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-300">
             {task.creatorProfilePic ? (
@@ -626,8 +638,25 @@ export default function TaskDetailPage() {
               multisigAddress={task.multisigAddress}
               isCreator={true}
               refreshTrigger={dashboardRefresh}
-              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
+              paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
+              customTokenMint={task.customTokenMint}
+              customTokenSymbol={task.customTokenSymbol}
+              customTokenDecimals={task.customTokenDecimals}
             />
+          )}
+
+          {/* Custom token info block */}
+          {task.paymentToken === 'CUSTOM' && task.customTokenMint && (
+            <div className="rounded-xl border border-accent/20 bg-accent/5 p-4">
+              <h3 className="mb-2 text-sm font-semibold text-white">Custom Token</h3>
+              <div className="space-y-1 text-sm text-zinc-400">
+                <p>Symbol: <span className="font-semibold text-accent">{task.customTokenSymbol || 'Unknown'}</span></p>
+                <p>Decimals: <span className="text-zinc-200">{task.customTokenDecimals}</span></p>
+                <p className="flex items-center gap-2">
+                  Contract: <code className="text-xs text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded font-mono break-all">{task.customTokenMint}</code>
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Campaign submission form for participants */}
@@ -642,7 +671,10 @@ export default function TaskDetailPage() {
               collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
-              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
+              paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
+              customTokenMint={task.customTokenMint}
+              customTokenSymbol={task.customTokenSymbol}
+              customTokenDecimals={task.customTokenDecimals}
             />
           )}
 
@@ -653,32 +685,46 @@ export default function TaskDetailPage() {
               multisigAddress={task.multisigAddress}
               isCreator={false}
               refreshTrigger={dashboardRefresh}
-              paymentToken={(task.paymentToken as 'SOL' | 'USDC') || 'SOL'}
+              paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
+              customTokenMint={task.customTokenMint}
+              customTokenSymbol={task.customTokenSymbol}
+              customTokenDecimals={task.customTokenDecimals}
             />
           )}
 
           {/* Campaign info for logged-out users */}
-          {!isAuthenticated && campaignConfig && (
-            <div className="rounded-xl border border-k-border p-4 border-k-border">
-              <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
-              <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
-                <p>CPM: {formatTokenAmount(campaignConfig.cpmLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')} per 1,000 views</p>
-                <p>Budget remaining: {formatTokenAmount(campaignConfig.budgetRemainingLamports, (task.paymentToken as PaymentTokenType) || 'SOL', 2)} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}</p>
-                {Number(campaignConfig.minPayoutLamports) > 0 && (
-                  <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, (task.paymentToken as PaymentTokenType) || 'SOL')} {tokenSymbol((task.paymentToken as PaymentTokenType) || 'SOL')}</p>
-                )}
-                {campaignConfig.collateralLink && (
-                  <p>
-                    Collateral:{' '}
-                    <a href={campaignConfig.collateralLink} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline underline-offset-2">
-                      View campaign assets
-                    </a>
-                  </p>
-                )}
-                <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
+          {!isAuthenticated && campaignConfig && (() => {
+            const tInfo = resolveTokenInfo(
+              (task.paymentToken as PaymentTokenType) || 'SOL',
+              task.customTokenMint,
+              task.customTokenSymbol,
+              task.customTokenDecimals,
+            )
+            return (
+              <div className="rounded-xl border border-k-border p-4 border-k-border">
+                <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
+                <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
+                  <p>CPM: {formatTokenAmount(campaignConfig.cpmLamports, tInfo)} {tInfo.symbol} per 1,000 views</p>
+                  <p>Budget remaining: {formatTokenAmount(campaignConfig.budgetRemainingLamports, tInfo, 2)} {tInfo.symbol}</p>
+                  {Number(campaignConfig.minPayoutLamports) > 0 && (
+                    <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, tInfo)} {tInfo.symbol}</p>
+                  )}
+                  {task.paymentToken === 'CUSTOM' && task.customTokenMint && (
+                    <p>Token: <span className="font-semibold text-accent">{tInfo.symbol}</span> <code className="text-xs text-zinc-500 font-mono">({task.customTokenMint.slice(0, 8)}...)</code></p>
+                  )}
+                  {campaignConfig.collateralLink && (
+                    <p>
+                      Collateral:{' '}
+                      <a href={campaignConfig.collateralLink} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline underline-offset-2">
+                        View campaign assets
+                      </a>
+                    </p>
+                  )}
+                  <p className="text-xs text-zinc-500">Connect your wallet and link your X account to participate.</p>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
 

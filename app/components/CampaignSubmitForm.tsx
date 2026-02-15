@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
-import { type PaymentTokenType, formatTokenAmount, tokenSymbol } from '@/lib/token-utils'
+import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000)
@@ -20,9 +20,12 @@ interface Props {
   xLinked: boolean
   onSubmitted: () => void
   paymentToken?: PaymentTokenType
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL' }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -119,12 +122,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   }
 
   const feeSol = (X_API_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)
-  const cpmDisplay = formatTokenAmount(cpmLamports, paymentToken)
-  const remainingDisplay = formatTokenAmount(budgetRemainingLamports, paymentToken, 2)
+  const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
+  const sym = tInfo.symbol
+  const cpmDisplay = formatTokenAmount(cpmLamports, tInfo)
+  const remainingDisplay = formatTokenAmount(budgetRemainingLamports, tInfo, 2)
   const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
-    ? formatTokenAmount(minPayoutLamports, paymentToken)
+    ? formatTokenAmount(minPayoutLamports, tInfo)
     : null
-  const sym = tokenSymbol(paymentToken)
 
   if (!xLinked) {
     return (
@@ -246,7 +250,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
               <div className="rounded-lg bg-green-500/10 p-3 text-xs">
                 <p className="font-medium text-green-400">Submission approved!</p>
                 <p className="mt-1 text-green-300">
-                  Views: {result.viewCount?.toLocaleString()} | Pending payout: {result.payoutLamports ? formatTokenAmount(result.payoutLamports, paymentToken) : '0'} {sym}
+                  Views: {result.viewCount?.toLocaleString()} | Pending payout: {result.payoutLamports ? formatTokenAmount(result.payoutLamports, tInfo) : '0'} {sym}
                 </p>
               </div>
             )}

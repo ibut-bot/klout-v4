@@ -5,8 +5,8 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { createProposalApproveExecuteWA } from '@/lib/solana/multisig'
-import { createProposalApproveExecuteUsdcWA } from '@/lib/solana/spl-token'
-import { type PaymentTokenType, formatTokenAmount, tokenSymbol, tokenMultiplier } from '@/lib/token-utils'
+import { createProposalApproveExecuteSplWA, USDC_MINT } from '@/lib/solana/spl-token'
+import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
 const PLATFORM_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
 
@@ -18,9 +18,12 @@ interface Props {
   payoutLamports: string
   onPaid: () => void
   paymentToken?: PaymentTokenType
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
 }
 
-export default function CampaignPayButton({ taskId, submissionId, multisigAddress, recipientWallet, payoutLamports, onPaid, paymentToken = 'SOL' }: Props) {
+export default function CampaignPayButton({ taskId, submissionId, multisigAddress, recipientWallet, payoutLamports, onPaid, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const wallet = useWallet()
@@ -40,9 +43,16 @@ export default function CampaignPayButton({ taskId, submissionId, multisigAddres
       const platformPk = new PublicKey(PLATFORM_WALLET)
       const amount = Number(payoutLamports)
 
-      const result = paymentToken === 'USDC'
-        ? await createProposalApproveExecuteUsdcWA(connection, walletSigner, msigPda, recipientPk, amount, platformPk)
-        : await createProposalApproveExecuteWA(connection, walletSigner, msigPda, recipientPk, amount, platformPk)
+      let result: { transactionIndex: bigint; signature: string }
+      if (paymentToken === 'SOL') {
+        result = await createProposalApproveExecuteWA(connection, walletSigner, msigPda, recipientPk, amount, platformPk)
+      } else {
+        // USDC or CUSTOM — use SPL transfer with the correct mint
+        const mint = paymentToken === 'CUSTOM' && customTokenMint
+          ? new PublicKey(customTokenMint)
+          : USDC_MINT
+        result = await createProposalApproveExecuteSplWA(connection, walletSigner, msigPda, recipientPk, amount, platformPk, undefined, mint)
+      }
 
       // 2. Notify the backend
       const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions/${submissionId}/pay`, {
@@ -64,13 +74,14 @@ export default function CampaignPayButton({ taskId, submissionId, multisigAddres
     }
   }
 
+  const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const totalLamports = Number(payoutLamports)
   const platformFee = Math.floor(totalLamports * 0.1)
   const recipientAmount = totalLamports - platformFee
-  const sym = tokenSymbol(paymentToken)
-  const totalDisplay = formatTokenAmount(totalLamports, paymentToken)
-  const recipientDisplay = formatTokenAmount(recipientAmount, paymentToken)
-  const feeDisplay = formatTokenAmount(platformFee, paymentToken)
+  const sym = tInfo.symbol
+  const totalDisplay = formatTokenAmount(totalLamports, tInfo)
+  const recipientDisplay = formatTokenAmount(recipientAmount, tInfo)
+  const feeDisplay = formatTokenAmount(platformFee, tInfo)
 
   return (
     <div>

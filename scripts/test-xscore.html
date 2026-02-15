@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>X Score API Test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; background: #0a0a0a; color: #ededed; }
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+    input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 14px; }
+    button { padding: 10px 20px; border-radius: 8px; border: none; background: #3b82f6; color: white; cursor: pointer; font-size: 14px; font-weight: 500; }
+    button:hover { background: #2563eb; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .result { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; white-space: pre-wrap; font-family: monospace; font-size: 13px; min-height: 60px; }
+    .score-display { font-size: 2rem; font-weight: bold; color: #3b82f6; margin: 12px 0; }
+    .error { color: #ef4444; }
+    .info { color: #888; font-size: 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Wallchain X Score API Tester</h1>
+  <div class="input-row">
+    <input type="text" id="username" placeholder="X username (without @)" value="A_captaincook" />
+    <button id="fetchBtn" onclick="fetchScore()">Get Score</button>
+  </div>
+  <div id="output" class="result">Enter a username and click "Get Score"</div>
+  <p class="info">Proxy: GET http://localhost:3000/api/xscore/{username}<br>Upstream: https://api.wallchain.xyz/extension/x_score/score/{username}</p>
+
+  <script>
+    async function fetchScore() {
+      const username = document.getElementById('username').value.trim().replace('@', '');
+      const output = document.getElementById('output');
+      const btn = document.getElementById('fetchBtn');
+
+      if (!username) { output.textContent = 'Please enter a username'; return; }
+
+      btn.disabled = true;
+      output.textContent = 'Fetching...';
+
+      try {
+        const url = `http://localhost:3000/api/xscore/${username}`;
+        const res = await fetch(url);
+        const text = await res.text();
+
+        let data;
+        try { data = JSON.parse(text); } catch { data = null; }
+
+        if (res.ok && data) {
+          output.innerHTML = `<div>Username: <strong>${data.xUsername ?? username}</strong></div>` +
+            `<div class="score-display">${data.score ?? 'N/A'} / 1000</div>` +
+            `<details><summary>Raw JSON</summary><pre>${JSON.stringify(data, null, 2)}</pre></details>`;
+        } else {
+          output.innerHTML = `<span class="error">HTTP ${res.status}</span>\n\n` +
+            (data ? JSON.stringify(data, null, 2) : text.substring(0, 500));
+        }
+      } catch (err) {
+        output.innerHTML = `<span class="error">Error: ${err.message}</span>\n\nThis likely means Cloudflare is blocking the request. ` +
+          `Try opening this URL directly in your browser:\nhttps://api.wallchain.xyz/extension/x_score/score/${username}`;
+      }
+
+      btn.disabled = false;
+    }
+
+    // Allow Enter key
+    document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') fetchScore(); });
+  </script>
+</body>
+</html>

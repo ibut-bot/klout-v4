@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
-import { formatTokenAmount, tokenSymbol, type PaymentTokenType } from '@/lib/token-utils'
+import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 
 interface RouteContext {
   params: Promise<{ id: string; submissionId: string }>
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // Verify task exists and caller is creator
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, creatorId: true, taskType: true, paymentToken: true, multisigAddress: true },
+    select: { id: true, creatorId: true, taskType: true, paymentToken: true, customTokenMint: true, customTokenSymbol: true, customTokenDecimals: true, multisigAddress: true },
   })
 
   if (!task) {
@@ -127,7 +127,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // Notify the submitter
   const pt = (task.paymentToken || 'SOL') as PaymentTokenType
-  const payoutDisplay = `${formatTokenAmount(submission.payoutLamports || 0, pt)} ${tokenSymbol(pt)}`
+  const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
+  const payoutDisplay = `${formatTokenAmount(submission.payoutLamports || 0, tInfo)} ${tInfo.symbol}`
 
   await createNotification({
     userId: submission.submitterId,

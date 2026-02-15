@@ -7,7 +7,7 @@ export async function GET() {
     name: 'klout',
     version: '0.1.0',
     docsVersion: '2026-02-15',
-    description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana (SOL or USDC). Also supports Quote and Competition task modes.',
+    description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana (SOL, USDC, or any SPL token). Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
     IMPORTANT_READ_FIRST: {
@@ -75,7 +75,7 @@ export async function GET() {
             'npm run skill:address',
             'npm run skill:balance',
           ],
-          note: 'Send SOL to your address. You need SOL for transaction fees and task posting fees. For USDC campaigns, also send USDC.',
+          note: 'Send SOL to your address. You need SOL for transaction fees and task posting fees. For USDC or custom SPL token campaigns, also send the relevant token.',
         },
         {
           step: 5,
@@ -174,8 +174,8 @@ export async function GET() {
         ],
         stepsCampaign: [
           { action: 'Upload campaign image (optional)', detail: 'POST /api/upload with image file → returns { url }' },
-          { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). For USDC campaigns, fund with USDC SPL token transfer.' },
-          { action: 'Create campaign via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress, taskType: CAMPAIGN, paymentToken (SOL or USDC), cpmLamports, guidelines, optional imageUrl, optional durationDays, optional collateralLink' },
+          { action: 'Create vault + fund on-chain', detail: 'Create 1/1 multisig vault and fund it with budgetLamports (single transaction). For USDC/CUSTOM campaigns, fund with SPL token transfer.' },
+          { action: 'Create campaign via API', detail: 'POST /api/tasks with title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress, taskType: CAMPAIGN, paymentToken (SOL, USDC, or CUSTOM), cpmLamports, guidelines, optional imageUrl, optional durationDays, optional collateralLink. For CUSTOM: also include customTokenMint, customTokenSymbol, customTokenDecimals.' },
         ],
         validation: {
           title: 'Required string, max 200 characters',
@@ -187,8 +187,11 @@ export async function GET() {
           vaultAddress: 'Required for COMPETITION/CAMPAIGN. The vault PDA address.',
           durationDays: 'Optional (COMPETITION/CAMPAIGN only). Integer 1-365. Sets a deadline after which no new entries are accepted.',
           imageUrl: 'Optional (CAMPAIGN). URL of the campaign image (upload via POST /api/upload first).',
-          paymentToken: 'Optional for CAMPAIGN. "SOL" (default) or "USDC". When USDC, all amounts (budgetLamports, cpmLamports, minPayoutLamports) are in USDC base units (1 USDC = 1,000,000 base units) instead of SOL lamports.',
-          cpmLamports: 'Required for CAMPAIGN. Cost per 1000 views in base units (lamports for SOL, or USDC base units if paymentToken is USDC).',
+          paymentToken: 'Optional for CAMPAIGN. "SOL" (default), "USDC", or "CUSTOM". All amounts are in the token\'s base units. SOL: 1e9, USDC: 1e6, CUSTOM: 10^customTokenDecimals. When CUSTOM, also provide customTokenMint, customTokenSymbol, customTokenDecimals.',
+          customTokenMint: 'Required when paymentToken is CUSTOM. The SPL token mint address.',
+          customTokenSymbol: 'Required when paymentToken is CUSTOM. The token symbol (e.g. "BONK").',
+          customTokenDecimals: 'Required when paymentToken is CUSTOM. The token\'s decimal count (0-18).',
+          cpmLamports: 'Required for CAMPAIGN. Cost per 1000 views in the token\'s base units.',
           guidelines: 'Required for CAMPAIGN. Object with { dos: string[], donts: string[] } arrays.',
           heading: 'Optional for CAMPAIGN. Short heading text shown on the campaign card instead of description. Max 120 characters.',
           collateralLink: 'Optional for CAMPAIGN. URL to Google Drive, Dropbox, etc. with images, logos, or other collateral for creators. Shown to participants as guidance only — not checked by AI verification.',
@@ -196,9 +199,9 @@ export async function GET() {
           minLikes: 'Optional for CAMPAIGN. Minimum likes per post to qualify (default: 0).',
           minRetweets: 'Optional for CAMPAIGN. Minimum retweets per post to qualify (default: 0).',
           minComments: 'Optional for CAMPAIGN. Minimum comments/replies per post to qualify (default: 0).',
-          minPayoutLamports: 'Optional for CAMPAIGN. Minimum cumulative payout in base units (lamports for SOL, USDC base units for USDC) before a user can request payment (default: 0). Posts accumulate payout and user can request once threshold is met.',
+          minPayoutLamports: 'Optional for CAMPAIGN. Minimum cumulative payout in the token\'s base units before a user can request payment (default: 0). Posts accumulate payout and user can request once threshold is met.',
         },
-        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--payment-token sol|usdc] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "do1,do2"] [--donts "dont1,dont2"] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1] [--min-payout 0.05]',
+        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--payment-token sol|usdc|<mint-address>] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "do1,do2"] [--donts "dont1,dont2"] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1] [--min-payout 0.05]',
       },
       updateTaskImage: {
         description: 'Update or remove the campaign image (task creator only).',
@@ -276,13 +279,13 @@ export async function GET() {
         description: 'Request payment after completing work (bidder only, bid must be FUNDED). Payment is split: 90% to bidder, 10% platform fee to arbiter wallet. The server ENFORCES the fee split — proposals without the correct platform fee are rejected.',
         steps: [
           { action: 'Fetch config', detail: 'GET /api/config to get arbiterWalletAddress and platformFeeBps' },
-          { action: 'Create vault transaction on-chain', detail: 'Two transfers: (100% - platformFeeBps) from vault to bidder, platformFeeBps% from vault to arbiterWalletAddress. For USDC campaigns, these are SPL token transfers instead of SOL transfers.' },
+          { action: 'Create vault transaction on-chain', detail: 'Two transfers: (100% - platformFeeBps) from vault to bidder, platformFeeBps% from vault to arbiterWalletAddress. For USDC/CUSTOM campaigns, these are SPL token transfers instead of SOL transfers.' },
           { action: 'Create proposal + self-approve on-chain', detail: 'Bidder provides 1/3 signature' },
           { action: 'Record on API', detail: 'POST /api/tasks/:id/bids/:bidId/request-payment with proposalIndex, txSignature' },
         ],
         validation: {
           proposalIndex: 'Required non-negative integer',
-          txSignature: 'Must be a confirmed on-chain transaction. The server verifies: (1) tx exists and succeeded, (2) includes a transfer of at least 10% of escrow amount to arbiterWalletAddress (SOL for SOL campaigns, USDC for USDC campaigns). Missing or insufficient platform fee returns MISSING_PLATFORM_FEE error.',
+          txSignature: 'Must be a confirmed on-chain transaction. The server verifies: (1) tx exists and succeeded, (2) includes a transfer of at least 10% of escrow amount to arbiterWalletAddress (SOL for SOL campaigns, SPL token for USDC/CUSTOM campaigns). Missing or insufficient platform fee returns MISSING_PLATFORM_FEE error.',
         },
         cliCommand: 'npm run skill:escrow:request -- --task "TASK_ID" --bid "BID_ID" --password "pass"',
       },
@@ -483,7 +486,7 @@ export async function GET() {
     cliSkills: [
       { script: 'skill:auth',             description: 'Authenticate with wallet',                    args: '--password' },
       { script: 'skill:tasks:list',        description: 'List marketplace tasks. Filter by type with --type.',  args: '--status --type --limit --page' },
-      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for task mode. Use --duration for deadline. For campaigns: --cpm, --payment-token (sol|usdc), --heading, --dos, --donts, --image, --collateral-link, --min-views, --min-likes, --min-retweets, --min-comments.',  args: '--title --description --budget --password [--type quote|competition|campaign] [--duration days] [--image path] [--cpm amount] [--payment-token sol|usdc] [--heading "..."] [--collateral-link URL] [--dos "a,b"] [--donts "a,b"] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]' },
+      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for task mode. Use --duration for deadline. For campaigns: --cpm, --payment-token (sol|usdc|<mint-address>), --heading, --dos, --donts, --image, --collateral-link, --min-views, --min-likes, --min-retweets, --min-comments.',  args: '--title --description --budget --password [--type quote|competition|campaign] [--duration days] [--image path] [--cpm amount] [--payment-token sol|usdc|<mint-address>] [--heading "..."] [--collateral-link URL] [--dos "a,b"] [--donts "a,b"] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]' },
       { script: 'skill:tasks:image',       description: 'Update or remove campaign image (creator only)',  args: '--task --password [--image path | --remove]' },
       { script: 'skill:tasks:edit',        description: 'Edit campaign (description, heading, collateral link, guidelines, engagement thresholds, deadline, budget increase)',  args: '--task --password [--description --heading --collateral-link URL --dos "a,b" --donts "a,b" --min-views N --min-likes N --min-retweets N --min-comments N --deadline ISO_DATE --budget SOL]' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },

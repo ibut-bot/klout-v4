@@ -6,13 +6,13 @@ Built with Next.js, Prisma, Solana, and Squads Protocol v4.
 
 ## What is Klout?
 
-Klout is a platform that connects brands with X/Twitter influencers. Brands create promotional campaigns with a budget (in SOL or USDC), and influencers earn by posting about them. Payouts are calculated based on post views (CPM model) and distributed automatically via Solana.
+Klout is a platform that connects brands with X/Twitter influencers. Brands create promotional campaigns with a budget (in SOL, USDC, or any SPL token), and influencers earn by posting about them. Payouts are calculated based on post views (CPM model) and distributed automatically via Solana.
 
 ## Features
 
 - **Campaign Marketplace** - Browse active campaigns and earn by promoting brands
 - **CPM-Based Payouts** - Get paid per 1000 views on your promotional posts
-- **Instant Crypto Payments** - Receive SOL or USDC directly to your wallet
+- **Instant Crypto Payments** - Receive SOL, USDC, or any SPL token directly to your wallet
 - **Campaign Images** - Visual campaign cards with images, progress bars, and countdowns
 - **Wallet-Signature Auth** - Authenticate with your Solana keypair, no passwords
 - **Creator Ban System** - Campaign creators can ban bad actors from all their future campaigns

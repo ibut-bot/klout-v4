@@ -13,6 +13,10 @@ interface Task {
   budgetLamports: string
   taskType?: string
   paymentToken?: string
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
+  customTokenLogoUri?: string | null
   status: string
   creatorWallet: string
   creatorUsername?: string | null

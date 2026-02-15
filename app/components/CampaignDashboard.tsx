@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import CampaignPayButton from './CampaignPayButton'
-import { type PaymentTokenType, formatTokenAmount, tokenSymbol } from '@/lib/token-utils'
+import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
 interface CampaignStats {
   totalBudgetLamports: string
@@ -51,6 +51,9 @@ interface Props {
   isCreator: boolean
   refreshTrigger?: number
   paymentToken?: PaymentTokenType
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
 }
 
 function formatSol(lamports: string | number, decimals = 4): string {
@@ -72,7 +75,9 @@ const STATUS_BADGE: Record<string, string> = {
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
-export default function CampaignDashboard({ taskId, multisigAddress, isCreator, refreshTrigger, paymentToken = 'SOL' }: Props) {
+export default function CampaignDashboard({ taskId, multisigAddress, isCreator, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+  const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
+  const sym = tInfo.symbol
   const { authFetch } = useAuth()
   const [stats, setStats] = useState<CampaignStats | null>(null)
   const [submissions, setSubmissions] = useState<CampaignSubmission[]>([])
@@ -139,7 +144,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       if (!data.success) {
         setRequestPaymentError(data.message || 'Payment request failed')
       } else {
-        setRequestPaymentSuccess(`Payment requested for ${data.submissionCount} post(s) — ${formatTokenAmount(data.totalPayoutLamports, paymentToken)} ${tokenSymbol(paymentToken)}`)
+        setRequestPaymentSuccess(`Payment requested for ${data.submissionCount} post(s) — ${formatTokenAmount(data.totalPayoutLamports, tInfo)} ${sym}`)
         fetchData()
       }
     } catch {
@@ -175,11 +180,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Budget</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.totalBudgetLamports, paymentToken, 2)} {tokenSymbol(paymentToken)}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.totalBudgetLamports, tInfo, 2)} {sym}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Remaining</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.budgetRemainingLamports, paymentToken, 2)} {tokenSymbol(paymentToken)}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.budgetRemainingLamports, tInfo, 2)} {sym}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Views</p>
@@ -192,7 +197,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">CPM (per 1,000 views)</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.cpmLamports, paymentToken)} {tokenSymbol(paymentToken)}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.cpmLamports, tInfo)} {sym}</p>
           </div>
           {stats.minViews > 0 && (
             <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
@@ -203,7 +208,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           {Number(stats.minPayoutLamports) > 0 && (
             <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
               <p className="text-xs text-zinc-500">Min payout threshold</p>
-              <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.minPayoutLamports, paymentToken)} {tokenSymbol(paymentToken)}</p>
+              <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.minPayoutLamports, tInfo)} {sym}</p>
             </div>
           )}
         </div>
@@ -213,7 +218,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       <div>
         <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
           <span>Budget used: {budgetPct.toFixed(1)}%</span>
-          <span>CPM: {formatTokenAmount(stats.cpmLamports, paymentToken)} {tokenSymbol(paymentToken)}</span>
+          <span>CPM: {formatTokenAmount(stats.cpmLamports, tInfo)} {sym}</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700 bg-surface">
           <div
@@ -231,16 +236,16 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             <div className="flex justify-between text-zinc-400">
               <span>Approved (unpaid):</span>
               <span className="font-medium text-zinc-100">
-                {formatTokenAmount(myApprovedPayout, paymentToken)} {tokenSymbol(paymentToken)}
+                {formatTokenAmount(myApprovedPayout, tInfo)} {sym}
                 {myApprovedPayout > 0 && cappedPayout < myApprovedPayout && (
-                  <span className="text-amber-400"> (capped to {formatTokenAmount(cappedPayout, paymentToken)} {tokenSymbol(paymentToken)})</span>
+                  <span className="text-amber-400"> (capped to {formatTokenAmount(cappedPayout, tInfo)} {sym})</span>
                 )}
               </span>
             </div>
             {minPayoutThreshold > 0 && (
               <div className="flex justify-between text-zinc-400">
                 <span>Min payout threshold:</span>
-                <span className="font-medium text-zinc-100">{formatTokenAmount(minPayoutThreshold, paymentToken)} {tokenSymbol(paymentToken)}</span>
+                <span className="font-medium text-zinc-100">{formatTokenAmount(minPayoutThreshold, tInfo)} {sym}</span>
               </div>
             )}
             {minPayoutThreshold > 0 && myApprovedPayout > 0 && myApprovedPayout < minPayoutThreshold && (
@@ -268,9 +273,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               {requestingPayment
                 ? 'Requesting...'
                 : canRequestPayment
-                  ? `Request Payment (${formatTokenAmount(cappedPayout, paymentToken)} ${tokenSymbol(paymentToken)})`
+                  ? `Request Payment (${formatTokenAmount(cappedPayout, tInfo)} ${sym})`
                   : myApprovedPayout > 0
-                    ? `Below threshold (${formatTokenAmount(myApprovedPayout, paymentToken)} / ${formatTokenAmount(minPayoutThreshold, paymentToken)} ${tokenSymbol(paymentToken)})`
+                    ? `Below threshold (${formatTokenAmount(myApprovedPayout, tInfo)} / ${formatTokenAmount(minPayoutThreshold, tInfo)} ${sym})`
                     : 'No approved payouts yet'}
             </button>
           </div>
@@ -322,7 +327,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
-                      {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, paymentToken)} ${tokenSymbol(paymentToken)}` : '-'}
+                      {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo)} ${sym}` : '-'}
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
@@ -351,6 +356,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 payoutLamports={s.payoutLamports}
                                 onPaid={fetchData}
                                 paymentToken={paymentToken}
+                                customTokenMint={customTokenMint}
+                                customTokenSymbol={customTokenSymbol}
+                                customTokenDecimals={customTokenDecimals}
                               />
                               <button
                                 onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}

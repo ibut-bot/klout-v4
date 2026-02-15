@@ -32,7 +32,7 @@ import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
 import { apiRequest, parseArgs } from './lib/api-client'
 import { getAta, USDC_MINT } from '../lib/solana/spl-token'
-import { type PaymentTokenType, tokenMultiplier, tokenSymbol } from '../lib/token-utils'
+import { type PaymentTokenType, resolveTokenInfo } from '../lib/token-utils'
 
 async function main() {
   const args = parseArgs()
@@ -121,8 +121,9 @@ async function main() {
       if (!taskData.success) throw new Error(taskData.message || 'Failed to fetch task')
 
       const pt: PaymentTokenType = (taskData.task.paymentToken as PaymentTokenType) || 'SOL'
-      const sym = tokenSymbol(pt)
-      const mult = tokenMultiplier(pt)
+      const tInfo = resolveTokenInfo(pt, taskData.task.customTokenMint, taskData.task.customTokenSymbol, taskData.task.customTokenDecimals)
+      const sym = tInfo.symbol
+      const mult = tInfo.multiplier
       const newBudgetBaseUnits = Math.round(newBudgetNum * mult)
 
       const currentBudget = Number(taskData.task.budgetLamports)
@@ -146,13 +147,7 @@ async function main() {
       tx.recentBlockhash = blockhash
       tx.feePayer = keypair.publicKey
 
-      if (pt === 'USDC') {
-        // USDC: SPL token transfer to vault's ATA
-        const vaultPda = new PublicKey(vaultAddress)
-        const creatorAta = getAta(keypair.publicKey)
-        const vaultAta = getAta(vaultPda)
-        tx.add(createTransferInstruction(creatorAta, vaultAta, keypair.publicKey, difference))
-      } else {
+      if (pt === 'SOL') {
         // SOL: native transfer
         tx.add(
           SystemProgram.transfer({
@@ -161,6 +156,15 @@ async function main() {
             lamports: difference,
           })
         )
+      } else {
+        // USDC or CUSTOM: SPL token transfer to vault's ATA
+        const mint = pt === 'CUSTOM' && taskData.task.customTokenMint
+          ? new PublicKey(taskData.task.customTokenMint)
+          : USDC_MINT
+        const vaultPda = new PublicKey(vaultAddress)
+        const creatorAta = getAta(keypair.publicKey, mint)
+        const vaultAta = getAta(vaultPda, mint)
+        tx.add(createTransferInstruction(creatorAta, vaultAta, keypair.publicKey, difference))
       }
       tx.sign(keypair)
 

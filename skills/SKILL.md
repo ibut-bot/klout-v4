@@ -34,7 +34,7 @@ Klout connects brands with X/Twitter influencers. Brands create promotional camp
 - **CPM-based payouts** — Earn per 1000 views on your promotional posts
 - **Campaign images** — Visual campaign cards with progress bars and countdowns
 - **Content guidelines** — Dos and don'ts for brand compliance
-- **Instant crypto payments** — Receive SOL or USDC directly to your wallet
+- **Instant crypto payments** — Receive SOL, USDC, or any SPL token directly to your wallet
 
 Also supports Quote and Competition modes for general task workflows:
 - **On-chain escrow** via Squads Protocol v4
@@ -222,7 +222,7 @@ Posts a new task to the marketplace.
 **Task Types**:
 - **QUOTE** (default): Bidders propose, creator picks a winner, winner completes the work, then payment is released. Pays a small fee to the system wallet.
 - **COMPETITION**: Creator funds a 1/1 multisig escrow vault with the budget amount. Bidders submit work for free. Creator picks the best submission and pays winner from the vault.
-- **CAMPAIGN**: Similar to competition but for promotional campaigns. Supports SOL or USDC as the payment token (`paymentToken` field). Includes CPM (cost per 1000 views), guidelines, optional campaign image, and configurable minimum payout threshold. Participants submit X/Twitter posts which are auto-verified. Approved posts accumulate payout, and participants can request payment once their cumulative approved payout exceeds the campaign's minimum payout threshold. Budget is only deducted when payment is requested, not at approval time. Posts can only be submitted to one campaign globally.
+- **CAMPAIGN**: Similar to competition but for promotional campaigns. Supports SOL, USDC, or any SPL token as the payment token (`paymentToken` field — `SOL`, `USDC`, or `CUSTOM`). When `CUSTOM`, the task also stores `customTokenMint` (mint address), `customTokenSymbol`, and `customTokenDecimals`. Includes CPM (cost per 1000 views), guidelines, optional campaign image, and configurable minimum payout threshold. Participants submit X/Twitter posts which are auto-verified. Approved posts accumulate payout, and participants can request payment once their cumulative approved payout exceeds the campaign's minimum payout threshold. Budget is only deducted when payment is requested, not at approval time. Posts can only be submitted to one campaign globally.
 
 **Process (QUOTE)**:
 1. Transfer TASK_FEE_LAMPORTS to SYSTEM_WALLET_ADDRESS on-chain
@@ -237,10 +237,11 @@ Posts a new task to the marketplace.
 2. Create a 1/1 multisig vault on-chain and fund it with the budget amount (SOL or USDC depending on `paymentToken`)
 3. Submit campaign via API with:
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
-   - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }, paymentToken: "SOL" or "USDC" (default: SOL)
+   - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }, paymentToken: "SOL", "USDC", or "CUSTOM" (default: SOL)
+   - For CUSTOM tokens: also provide `customTokenMint` (mint address), `customTokenSymbol` (e.g. "BONK"), `customTokenDecimals` (e.g. 5)
    - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0)
 
-**Note**: When `paymentToken` is USDC, all amounts (budgetLamports, cpmLamports, minPayoutLamports) are in USDC base units (1 USDC = 1,000,000 base units) instead of SOL lamports (1 SOL = 1,000,000,000 lamports). The vault is funded with USDC (SPL token transfer). Transaction fees and post verification fees remain in SOL.
+**Note**: All amounts (budgetLamports, cpmLamports, minPayoutLamports) are in the token's base units. SOL: 1e9 lamports per SOL. USDC: 1e6 base units per USDC. Custom tokens: 10^decimals base units per token (e.g. BONK with 5 decimals = 1e5 base units). The vault is funded with the chosen token (native SOL transfer or SPL token transfer). Transaction fees and post verification fees always remain in SOL.
 
 **Campaign Engagement Thresholds**:
 - Posts are checked against minimum views, likes, retweets, and comments thresholds set by the campaign creator
@@ -278,7 +279,7 @@ Edit campaign details after creation (creator only). Supports updating descripti
 
 **Budget increase process**:
 1. Calculate the difference between new budget and current budget
-2. Send a SOL or USDC transfer (matching the campaign's `paymentToken`) for the difference to the campaign's `vaultAddress` on-chain. For USDC, send an SPL token transfer to the vault's associated token account.
+2. Send a transfer matching the campaign's `paymentToken` for the difference to the campaign's `vaultAddress` on-chain. For USDC/CUSTOM tokens, send an SPL token transfer to the vault's associated token account.
 3. Submit `PATCH /api/tasks/:id` with `{ budgetLamports: newAmount, budgetIncreaseTxSignature: txSig }`
 4. The API verifies the transaction and updates both `Task.budgetLamports` and `CampaignConfig.budgetRemainingLamports`
 
@@ -480,7 +481,7 @@ Located in the `skills/` directory:
 |--------|-------------|---------|-----------|
 | `auth.ts` | `skill:auth` | Authenticate with wallet | `--password` |
 | `list-tasks.ts` | `skill:tasks:list` | List marketplace tasks | `[--status --type --limit --page]` |
-| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm amount] [--payment-token sol\|usdc] [--dos "a,b"] [--donts "a,b"] [--collateral-link URL] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]` |
+| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm amount] [--payment-token sol\|usdc\|<mint-address>] [--dos "a,b"] [--donts "a,b"] [--collateral-link URL] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]` |
 | `edit-task.ts` | `skill:tasks:edit` | Edit campaign (description, heading, collateral link, guidelines, thresholds, deadline, budget increase) | `--task --password [--description --heading --collateral-link --dos --donts --deadline --budget --min-views --min-likes --min-retweets --min-comments]` |
 | `update-task-image.ts` | `skill:tasks:image` | Update/remove campaign image | `--task --password [--image \| --remove]` |
 | `get-task.ts` | `skill:tasks:get` | Get task details | `--id` |
@@ -529,6 +530,9 @@ npm run skill:tasks:create -- --title "Promote our app" --description "..." --bu
 
 # Create a USDC campaign
 npm run skill:tasks:create -- --title "USDC Promo" --description "..." --budget 50.0 --type campaign --cpm 1.0 --payment-token usdc --dos "Include link" --donts "No spam" --password "pass"
+
+# Create a custom SPL token campaign (e.g. BONK)
+npm run skill:tasks:create -- --title "BONK Promo" --description "..." --budget 1000000 --type campaign --cpm 100 --payment-token DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263 --dos "Include link" --password "pass"
 
 # Get task details
 npm run skill:tasks:get -- --id "TASK_ID"

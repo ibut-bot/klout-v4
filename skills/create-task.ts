@@ -8,25 +8,26 @@
  *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --heading "Get paid to tweet!" --dos "Include link,Mention product" --donts "No spam" --image "/path/to/image.jpg" --min-views 200 --min-likes 5 --password "mypass"
  *   npm run skill:tasks:create -- --title "Promo campaign" --description "..." --budget 2.0 --type campaign --cpm 0.01 --collateral-link "https://drive.google.com/..." --password "mypass"
  *   npm run skill:tasks:create -- --title "USDC Promo" --description "..." --budget 50.0 --type campaign --cpm 1.0 --payment-token usdc --dos "Include link" --password "mypass"
+ *   npm run skill:tasks:create -- --title "BONK Promo" --description "..." --budget 1000000 --type campaign --cpm 100 --payment-token DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263 --dos "Include link" --password "mypass"
  *
  * Options:
  *   --title           Task title
  *   --description     Task description
- *   --budget          Budget in SOL or USDC (converted to base units)
+ *   --budget          Budget in token units (converted to base units)
  *   --type            Task type: "quote" (default), "competition", or "campaign"
  *   --duration        (Competition/Campaign) Duration in days (1-365). After this, no new entries accepted.
  *   --image           (Campaign) Path to campaign image file
- *   --cpm             (Campaign) Cost per 1000 views in SOL or USDC (matches --payment-token)
+ *   --cpm             (Campaign) Cost per 1000 views in the chosen token
  *   --heading         (Campaign) Short heading shown on campaign card instead of description
  *   --collateral-link (Campaign) Link to Google Drive/Dropbox with images, logos, assets for creators (optional, not AI-checked)
  *   --min-views       (Campaign) Minimum views per post (default: 100). Set to 0 to accept all.
  *   --min-likes       (Campaign) Minimum likes per post (default: 0)
  *   --min-retweets    (Campaign) Minimum retweets per post (default: 0)
  *   --min-comments    (Campaign) Minimum comments per post (default: 0)
- *   --min-payout      (Campaign) Minimum cumulative payout in SOL/USDC before user can request payment (default: 0)
+ *   --min-payout      (Campaign) Minimum cumulative payout before user can request payment (default: 0)
  *   --dos             (Campaign) Comma-separated list of dos guidelines
  *   --donts           (Campaign) Comma-separated list of donts guidelines
- *   --payment-token   (Campaign) Payment token: "sol" (default) or "usdc"
+ *   --payment-token   (Campaign) Payment token: "sol" (default), "usdc", or a mint address for any SPL token
  *   --password        Wallet password to sign transactions
  *   --dry-run         Validate without creating
  */
@@ -37,8 +38,9 @@ import { getKeypair } from './lib/wallet'
 import { getConnection } from './lib/rpc'
 import { apiRequest, parseArgs, getPublicConfig, uploadFile } from './lib/api-client'
 import { createMultisigVaultAndFund } from '../lib/solana/multisig'
-import { createMultisigVaultAndFundUsdc } from '../lib/solana/spl-token'
-import { type PaymentTokenType, tokenMultiplier } from '../lib/token-utils'
+import { createMultisigVaultAndFundSpl, USDC_MINT } from '../lib/solana/spl-token'
+import { type PaymentTokenType, resolveTokenInfo } from '../lib/token-utils'
+import { fetchTokenMetadata } from '../lib/solana/token-metadata'
 
 async function main() {
   const args = parseArgs()
@@ -65,8 +67,33 @@ async function main() {
 
   // Resolve payment token (only for campaigns)
   const taskType = (args.type || 'quote').toUpperCase()
-  const paymentToken: PaymentTokenType = (taskType === 'CAMPAIGN' && args['payment-token']?.toUpperCase() === 'USDC') ? 'USDC' : 'SOL'
-  const multiplier = (taskType === 'CAMPAIGN') ? tokenMultiplier(paymentToken) : LAMPORTS_PER_SOL
+  const ptArg = args['payment-token']?.toUpperCase() || 'SOL'
+  let paymentToken: PaymentTokenType
+  let customTokenMint: string | undefined
+  let customTokenSymbol: string | undefined
+  let customTokenDecimals: number | undefined
+
+  if (ptArg === 'SOL') {
+    paymentToken = 'SOL'
+  } else if (ptArg === 'USDC') {
+    paymentToken = 'USDC'
+  } else if (taskType === 'CAMPAIGN' && args['payment-token'] && args['payment-token'].length >= 32) {
+    // Treat as custom mint address
+    paymentToken = 'CUSTOM'
+    customTokenMint = args['payment-token']
+    // Fetch metadata on-chain
+    const connection = getConnection()
+    console.error(`Fetching token metadata for ${customTokenMint}...`)
+    const meta = await fetchTokenMetadata(connection, customTokenMint)
+    customTokenSymbol = meta.symbol
+    customTokenDecimals = meta.decimals
+    console.error(`Token: ${meta.symbol} (${meta.name}), ${meta.decimals} decimals`)
+  } else {
+    paymentToken = 'SOL'
+  }
+
+  const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
+  const multiplier = (taskType === 'CAMPAIGN') ? tInfo.multiplier : LAMPORTS_PER_SOL
 
   try {
     const keypair = getKeypair(args.password)
@@ -149,6 +176,11 @@ async function main() {
 
       campaignFields = {
         paymentToken,
+        ...(paymentToken === 'CUSTOM' ? {
+          customTokenMint,
+          customTokenSymbol,
+          customTokenDecimals,
+        } : {}),
         cpmLamports: Math.round(cpmNum * multiplier),
         guidelines: { dos, donts },
         ...(args.heading ? { heading: args.heading } : {}),
@@ -182,10 +214,12 @@ async function main() {
 
     if (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') {
       // Competition/Campaign: create 1/1 multisig vault and fund it with budget
-      console.error(`Creating escrow vault and funding with budget (${paymentToken})...`)
+      console.error(`Creating escrow vault and funding with budget (${tInfo.symbol})...`)
       let result: { multisigPda: PublicKey; vaultPda: PublicKey; signature: string }
       if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
-        result = await createMultisigVaultAndFundUsdc(connection, keypair, budgetLamports)
+        result = await createMultisigVaultAndFundSpl(connection, keypair, budgetLamports, USDC_MINT)
+      } else if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && customTokenMint) {
+        result = await createMultisigVaultAndFundSpl(connection, keypair, budgetLamports, new PublicKey(customTokenMint))
       } else {
         result = await createMultisigVaultAndFund(connection, keypair, budgetLamports)
       }

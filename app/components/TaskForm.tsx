@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { createMultisigVaultAndFundWA } from '@/lib/solana/multisig'
-import { createMultisigVaultAndFundUsdcWA } from '@/lib/solana/spl-token'
-import { type PaymentTokenType, tokenMultiplier } from '@/lib/token-utils'
+import { createMultisigVaultAndFundSplWA, USDC_MINT, getAta } from '@/lib/solana/spl-token'
+import { type PaymentTokenType, resolveTokenInfo } from '@/lib/token-utils'
+import { fetchTokenMetadata, type SplTokenMetadata } from '@/lib/solana/token-metadata'
 import ImagePositionEditor, { type ImageTransform } from './ImagePositionEditor'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
@@ -31,6 +32,82 @@ export default function TaskForm() {
 
   // Payment token selector (campaign only)
   const [paymentToken, setPaymentToken] = useState<PaymentTokenType>('SOL')
+  const [customMint, setCustomMint] = useState('')
+  const [customTokenMeta, setCustomTokenMeta] = useState<SplTokenMetadata | null>(null)
+  const [tokenLoading, setTokenLoading] = useState(false)
+  const [tokenError, setTokenError] = useState('')
+
+  // Fetch metadata when user enters a custom mint address
+  useEffect(() => {
+    if (paymentToken !== 'CUSTOM' || customMint.length < 32) {
+      setCustomTokenMeta(null)
+      setTokenError('')
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      setTokenLoading(true)
+      setTokenError('')
+      try {
+        const meta = await fetchTokenMetadata(connection, customMint)
+        if (!cancelled) setCustomTokenMeta(meta)
+      } catch (e: any) {
+        if (!cancelled) {
+          setTokenError(e.message || 'Failed to fetch token info')
+          setCustomTokenMeta(null)
+        }
+      } finally {
+        if (!cancelled) setTokenLoading(false)
+      }
+    }, 500)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [paymentToken, customMint, connection])
+
+  // Wallet balance for the selected token
+  const [walletBalance, setWalletBalance] = useState<string | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!publicKey || taskType !== 'CAMPAIGN') { setWalletBalance(null); return }
+    let cancelled = false
+    const fetchBalance = async () => {
+      setBalanceLoading(true)
+      try {
+        if (paymentToken === 'SOL') {
+          const lamports = await connection.getBalance(publicKey)
+          if (!cancelled) setWalletBalance((lamports / LAMPORTS_PER_SOL).toString())
+        } else {
+          const mint = paymentToken === 'USDC'
+            ? USDC_MINT
+            : customTokenMeta ? new PublicKey(customTokenMeta.mint) : null
+          if (!mint) { if (!cancelled) setWalletBalance(null); return }
+          try {
+            const ata = getAta(publicKey, mint)
+            const info = await connection.getTokenAccountBalance(ata)
+            if (!cancelled) setWalletBalance(info.value.uiAmountString ?? '0')
+          } catch {
+            // ATA doesn't exist — balance is 0
+            if (!cancelled) setWalletBalance('0')
+          }
+        }
+      } catch {
+        if (!cancelled) setWalletBalance(null)
+      } finally {
+        if (!cancelled) setBalanceLoading(false)
+      }
+    }
+    fetchBalance()
+    return () => { cancelled = true }
+  }, [publicKey, paymentToken, customTokenMeta, connection, taskType])
+
+  // Resolved token info for display labels
+  const tokenInfo = resolveTokenInfo(
+    paymentToken,
+    customTokenMeta?.mint,
+    customTokenMeta?.symbol,
+    customTokenMeta?.decimals,
+  )
+  const tokenLabel = tokenInfo.symbol
 
   // Campaign-specific fields
   const [cpm, setCpm] = useState('')
@@ -103,7 +180,10 @@ export default function TaskForm() {
     setLoading(true)
 
     try {
-      const multiplier = (taskType === 'CAMPAIGN') ? tokenMultiplier(paymentToken) : LAMPORTS_PER_SOL
+      if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && !customTokenMeta) {
+        throw new Error('Please enter a valid token mint address first')
+      }
+      const multiplier = (taskType === 'CAMPAIGN') ? tokenInfo.multiplier : LAMPORTS_PER_SOL
       const budgetLamports = Math.round(parseFloat(budget) * multiplier)
       if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
 
@@ -123,7 +203,9 @@ export default function TaskForm() {
         const walletSigner = { publicKey, signTransaction }
         let result: { multisigPda: { toBase58(): string }; vaultPda: { toBase58(): string }; signature: string }
         if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
-          result = await createMultisigVaultAndFundUsdcWA(connection, walletSigner, budgetLamports)
+          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, USDC_MINT)
+        } else if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && customTokenMeta) {
+          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, new PublicKey(customTokenMeta.mint))
         } else {
           result = await createMultisigVaultAndFundWA(connection, walletSigner, budgetLamports)
         }
@@ -155,6 +237,12 @@ export default function TaskForm() {
       setStep('creating')
       const campaignFields = taskType === 'CAMPAIGN' ? {
         paymentToken,
+        ...(paymentToken === 'CUSTOM' && customTokenMeta ? {
+          customTokenMint: customTokenMeta.mint,
+          customTokenSymbol: customTokenMeta.symbol,
+          customTokenDecimals: customTokenMeta.decimals,
+          ...(customTokenMeta.logoUri ? { customTokenLogoUri: customTokenMeta.logoUri } : {}),
+        } : {}),
         cpmLamports: Math.round(parseFloat(cpm) * multiplier),
         ...(heading.trim() ? { heading: heading.trim() } : {}),
         minViews: parseInt(minViews) || 100,
@@ -301,7 +389,7 @@ export default function TaskForm() {
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-200">Bounty Token</label>
           <div className="flex gap-2">
-            {(['SOL', 'USDC'] as const).map((t) => (
+            {(['SOL', 'USDC', 'CUSTOM'] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -312,29 +400,77 @@ export default function TaskForm() {
                     : 'border-k-border bg-surface text-zinc-400 hover:border-zinc-500'
                 }`}
               >
-                {t}
+                {t === 'CUSTOM' ? 'Custom SPL' : t}
               </button>
             ))}
           </div>
+          {paymentToken === 'CUSTOM' && (
+            <div className="mt-3 space-y-2">
+              <input
+                type="text"
+                value={customMint}
+                onChange={(e) => setCustomMint(e.target.value.trim())}
+                placeholder="Token mint address (e.g. DezX...)"
+                className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50 font-mono"
+              />
+              {tokenLoading && (
+                <p className="text-xs text-zinc-500">Looking up token info...</p>
+              )}
+              {tokenError && (
+                <p className="text-xs text-red-400">{tokenError}</p>
+              )}
+              {customTokenMeta && (
+                <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {customTokenMeta.logoUri && (
+                      <img src={customTokenMeta.logoUri} alt={customTokenMeta.symbol} className="h-6 w-6 rounded-full" />
+                    )}
+                    <span className="text-sm font-semibold text-accent">{customTokenMeta.symbol}</span>
+                    <span className="text-xs text-zinc-400">{customTokenMeta.name}</span>
+                  </div>
+                  <p className="text-xs text-zinc-500">Decimals: {customTokenMeta.decimals}</p>
+                  <p className="text-xs text-zinc-500 font-mono break-all">Mint: {customTokenMeta.mint}</p>
+                </div>
+              )}
+            </div>
+          )}
           <p className="mt-1 text-xs text-zinc-500">All bounty payouts, CPM, and platform fees will be denominated in the selected token.</p>
         </div>
       )}
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Budget ({taskType === 'CAMPAIGN' ? paymentToken : 'SOL'})</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0.01"
-          value={budget}
-          onChange={(e) => setBudget(e.target.value)}
-          placeholder="0.5"
-          required
-          className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
-        />
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="block text-sm font-medium text-zinc-200">Budget ({taskType === 'CAMPAIGN' ? tokenLabel : 'SOL'})</label>
+          {taskType === 'CAMPAIGN' && walletBalance !== null && (
+            <span className="text-xs text-zinc-400">
+              Balance: {balanceLoading ? '...' : <span className="text-zinc-200">{parseFloat(walletBalance).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>} {tokenLabel}
+            </span>
+          )}
+        </div>
+        <div className="relative">
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={budget}
+            onChange={(e) => setBudget(e.target.value)}
+            placeholder="0.5"
+            required
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 pr-16 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+          />
+          {taskType === 'CAMPAIGN' && walletBalance !== null && parseFloat(walletBalance) > 0 && (
+            <button
+              type="button"
+              onClick={() => setBudget(walletBalance)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-accent/15 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/25 transition"
+            >
+              Max
+            </button>
+          )}
+        </div>
         <p className="mt-1 text-xs text-zinc-500">
           {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
-            ? `This ${paymentToken} budget will be locked in an escrow vault when you post the campaign.`
+            ? `This ${tokenLabel} budget will be locked in an escrow vault when you post the campaign.`
             : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
         </p>
       </div>
@@ -342,7 +478,7 @@ export default function TaskForm() {
       {taskType === 'CAMPAIGN' && (
         <>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-200">CPM — Cost per 1,000 views ({paymentToken})</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">CPM — Cost per 1,000 views ({tokenLabel})</label>
             <input
               type="number"
               step="0.001"
@@ -412,7 +548,7 @@ export default function TaskForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Payout Threshold ({paymentToken}) — optional</label>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Payout Threshold ({tokenLabel}) — optional</label>
             <input
               type="number"
               step="0.001"
