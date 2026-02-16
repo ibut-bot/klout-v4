@@ -258,13 +258,7 @@ export function calculateKloutScore(
 }
 
 /** Human-readable label for a score */
-export function getScoreLabel(score: number): string {
-  if (score >= 80) return 'Excellent'
-  if (score >= 60) return 'Good'
-  if (score >= 40) return 'Average'
-  if (score >= 20) return 'Below Average'
-  return 'Poor'
-}
+export { getScoreTierTitle as getScoreLabel } from './score-tiers'
 
 /** Human-readable label for a geo tier */
 export function getGeoTierLabel(tier: number | null): string {

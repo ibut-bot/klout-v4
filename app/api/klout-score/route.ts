@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
         },
       },
       qualityScore: latest.qualityScore,
+      buffedImageUrl: latest.buffedImageUrl,
+      tierQuote: latest.tierQuote,
       xUsername: latest.xUsername,
       profileImageUrl: latest.profileImageUrl,
       createdAt: latest.createdAt.toISOString(),

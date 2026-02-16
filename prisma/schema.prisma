@@ -405,6 +405,10 @@ model XScoreData {
   qualityScore      Float     // reachScore * engagementScore + ratioScore + verificationScore
   totalScore        Float     // qualityScore * geoMultiplier * 100
 
+  // Buffed profile image
+  buffedImageUrl    String?   // AI-generated buffed version of profile pic
+  tierQuote         String?   // Random quote from the user's score tier
+
   // Payment
   feeTxSignature    String    @unique
 

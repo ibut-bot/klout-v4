@@ -4,6 +4,8 @@ import { requireAuth } from '@/lib/api-helpers'
 import { getValidXToken, getXUserProfileFull, getRecentTweets } from '@/lib/x-api'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { calculateKloutScore, getScoreLabel, getGeoTierLabel } from '@/lib/klout-scoring'
+import { generateBuffedProfileImage } from '@/lib/fal'
+import { getRandomQuote } from '@/lib/score-tiers'
 
 // Allow up to 60s for Solana + X API calls
 export const maxDuration = 60
@@ -132,7 +134,15 @@ export async function POST(request: NextRequest) {
   const avgReplies = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.replyCount, 0) / tweetsCount : 0
   const avgViews = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.viewCount, 0) / tweetsCount : 0
 
-  // 8. Store in database
+  // 8. Generate buffed profile image (non-blocking — don't fail the score if this fails)
+  let buffedImageUrl: string | null = null
+  try {
+    buffedImageUrl = await generateBuffedProfileImage(profile.profileImageUrl, profile.username, scoreBreakdown.totalScore)
+  } catch (err) {
+    console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
+  }
+
+  // 9. Store in database
   const scoreData = await prisma.xScoreData.create({
     data: {
       userId,
@@ -161,6 +171,8 @@ export async function POST(request: NextRequest) {
       geoMultiplier: scoreBreakdown.geoMultiplier,
       qualityScore: scoreBreakdown.qualityScore,
       totalScore: scoreBreakdown.totalScore,
+      buffedImageUrl,
+      tierQuote: getRandomQuote(scoreBreakdown.totalScore),
       feeTxSignature: feeTxSig,
     },
   })
@@ -171,6 +183,8 @@ export async function POST(request: NextRequest) {
       id: scoreData.id,
       totalScore: scoreData.totalScore,
       label: getScoreLabel(scoreData.totalScore),
+      buffedImageUrl: scoreData.buffedImageUrl,
+      tierQuote: scoreData.tierQuote,
       breakdown: {
         reach: { score: scoreBreakdown.reachScore, followers: profile.followersCount },
         engagement: { score: scoreBreakdown.engagementScore, avgLikes, avgRetweets, avgReplies, avgViews, tweetsAnalyzed: tweetsCount },
