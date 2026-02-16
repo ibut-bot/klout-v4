@@ -129,6 +129,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Edit form state
+  const [editTitle, setEditTitle] = useState(task.title)
   const [editDescription, setEditDescription] = useState(task.description)
   const [editHeading, setEditHeading] = useState(task.campaignConfig?.heading || '')
   const [editDos, setEditDos] = useState<string[]>((task.campaignConfig?.guidelines?.dos || []).length > 0 ? task.campaignConfig!.guidelines.dos : [''])
@@ -234,6 +235,10 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
     setEditError('')
     try {
       const updates: any = {}
+
+      if (editTitle.trim() !== task.title) {
+        updates.title = editTitle.trim()
+      }
 
       if (editDescription !== task.description) {
         updates.description = editDescription
@@ -356,6 +361,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
 
       // Update local state
       const localUpdates: Partial<Task> = {}
+      if (updates.title) localUpdates.title = updates.title
       if (updates.description) localUpdates.description = updates.description
       if (updates.deadlineAt !== undefined) localUpdates.deadlineAt = updates.deadlineAt
       if (updates.budgetLamports) {
@@ -483,6 +489,18 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             {editError && (
               <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-2 text-xs text-red-400">{editError}</div>
             )}
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Campaign Title</label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Campaign title"
+                maxLength={200}
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
+              />
+            </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Description</label>
