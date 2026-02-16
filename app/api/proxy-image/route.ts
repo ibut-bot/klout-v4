@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const ext = url.split('.').pop()?.toLowerCase()
     const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png'
 
-    return new Response(buffer, {
+    return new Response(new Uint8Array(buffer), {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
