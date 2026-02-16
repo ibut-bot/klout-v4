@@ -53,10 +53,11 @@ function AnimatedScore({ target }: { target: number }) {
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
-  // Proxy through our API to guarantee same-origin (avoids CORS canvas tainting)
-  const proxied = `/api/proxy-image?url=${encodeURIComponent(src)}`
-  const res = await fetch(proxied)
-  if (!res.ok) throw new Error(`Image proxy failed: ${res.status}`)
+  // Local files (same-origin) can load directly; external S3 URLs need the proxy
+  const isExternal = src.startsWith('http')
+  const url = isExternal ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Image load failed: ${res.status}`)
   const blob = await res.blob()
   const objectUrl = URL.createObjectURL(blob)
   return new Promise((resolve, reject) => {
@@ -101,27 +102,38 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, W, H)
 
-  // Score number
+  // Klout logo + score number
+  const kloutLogo = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = '/Klout.png'
+  })
+  const kloutH = 140
+  const kloutW = (kloutLogo.width / kloutLogo.height) * kloutH
+  ctx.drawImage(kloutLogo, 50, H - 260, kloutW, kloutH)
+
   ctx.fillStyle = '#ffffff'
   ctx.font = 'bold 140px system-ui, -apple-system, sans-serif'
   ctx.textBaseline = 'bottom'
-  ctx.fillText(String(score.totalScore), 60, H - 160)
+  ctx.textAlign = 'left'
+  ctx.fillText(String(score.totalScore), 50 + kloutW + 10, H - 130)
 
   // Tier title
   ctx.fillStyle = '#eab308'
   ctx.font = 'bold 36px system-ui, -apple-system, sans-serif'
-  ctx.fillText(score.label, 64, H - 115)
+  ctx.textAlign = 'left'
+  ctx.fillText(score.label, 54, H - 85)
 
   // Quote
   if (score.tierQuote) {
     ctx.fillStyle = 'rgba(255,255,255,0.6)'
     ctx.font = 'italic 24px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'left'
     const quote = `"${score.tierQuote}"`
-    // Word-wrap the quote
     const maxW = W - 120
     const words = quote.split(' ')
     let line = ''
-    let y = H - 60
     const lines: string[] = []
     for (const word of words) {
       const test = line ? line + ' ' + word : word
@@ -133,27 +145,26 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
       }
     }
     if (line) lines.push(line)
-    // Draw from bottom up (max 2 lines)
     const display = lines.slice(0, 2)
     display.forEach((l, i) => {
-      ctx.fillText(l, 60, y - (display.length - 1 - i) * 32)
+      ctx.fillText(l, 54, H - 45 + i * 30)
     })
   }
 
-  // Username
-  if (score.xUsername) {
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    ctx.font = '28px system-ui, -apple-system, sans-serif'
-    ctx.textBaseline = 'top'
-    ctx.fillText(`@${score.xUsername}`, 60, 40)
+  // Enhanced logo bottom-right
+  try {
+    const enhLogo = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = '/enhanced.png'
+    })
+    const enhH = 40
+    const enhW = (enhLogo.width / enhLogo.height) * enhH
+    ctx.drawImage(enhLogo, W - enhW - 50, H - enhH - 130, enhW, enhH)
+  } catch {
+    // silent
   }
-
-  // Branding
-  ctx.fillStyle = 'rgba(255,255,255,0.35)'
-  ctx.font = 'bold 28px system-ui, -apple-system, sans-serif'
-  ctx.textBaseline = 'top'
-  ctx.textAlign = 'right'
-  ctx.fillText('klout.gg', W - 40, 40)
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'))
 }
@@ -345,31 +356,22 @@ export default function MyScorePage() {
             {/* Gradient overlay for readability */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-            {/* Score + tier overlaid on the image */}
-            <div className="absolute bottom-0 left-0 right-0 p-5">
-              <div className="flex items-end justify-between">
-                <div>
+            {/* Score + tier + logos overlaid on the image, bottom-aligned */}
+            <div className="absolute bottom-0 left-0 right-0 px-5 pb-4 flex items-end justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <img src="/Klout.png" alt="Klout" className="h-10" />
                   <p className="text-5xl font-black text-white leading-none">
                     <AnimatedScore target={scoreResult.totalScore} />
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-accent">{scoreResult.label}</p>
-                  {scoreResult.xUsername && (
-                    <a
-                      href={`https://x.com/${scoreResult.xUsername}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 block text-xs text-zinc-400 hover:text-accent"
-                    >
-                      @{scoreResult.xUsername}
-                    </a>
-                  )}
                 </div>
-                {scoreResult.createdAt && (
-                  <span className="text-[10px] text-zinc-500">
-                    {new Date(scoreResult.createdAt).toLocaleDateString()}
-                  </span>
-                )}
+                <p className="mt-1 text-sm font-semibold text-accent">{scoreResult.label}</p>
               </div>
+              <img
+                src="/enhanced.svg"
+                alt="Enhanced"
+                className="h-5 opacity-70 mb-0.5"
+              />
             </div>
           </div>
 
@@ -381,6 +383,20 @@ export default function MyScorePage() {
                 &ldquo;{scoreResult.tierQuote}&rdquo;
               </p>
             )}
+
+          {/* Share Button */}
+          <button
+            onClick={handleShare}
+            disabled={sharing}
+            className="mb-4 w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+          >
+            {sharing ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            ) : (
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            )}
+            {sharing ? 'Generating...' : 'Share on X (image copied to clipboard)'}
+          </button>
 
           {/* Breakdown */}
           <div className="rounded-xl border border-k-border bg-zinc-900/50 p-4">
@@ -394,7 +410,6 @@ export default function MyScorePage() {
             <BreakdownRow
               label="Engagement"
               value={`${(scoreResult.breakdown.engagement.score * 100).toFixed(0)}%`}
-              detail={`avg ${scoreResult.breakdown.engagement.avgLikes.toFixed(1)} likes, ${scoreResult.breakdown.engagement.avgRetweets.toFixed(1)} RTs, ${scoreResult.breakdown.engagement.avgReplies.toFixed(1)} replies across ${scoreResult.breakdown.engagement.tweetsAnalyzed} tweets`}
             />
             <BreakdownRow
               label="Follower Ratio"
@@ -416,19 +431,6 @@ export default function MyScorePage() {
             </div>
           </div>
 
-          {/* Share Button */}
-          <button
-            onClick={handleShare}
-            disabled={sharing}
-            className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
-          >
-            {sharing ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            ) : (
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            )}
-            {sharing ? 'Generating...' : 'Share on X (image copied to clipboard)'}
-          </button>
           </div>
         </div>
       )}
