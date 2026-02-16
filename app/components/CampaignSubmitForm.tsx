@@ -16,6 +16,9 @@ interface Props {
   budgetRemainingLamports: string
   minPayoutLamports?: string
   minViews?: number
+  minLikes?: number
+  minRetweets?: number
+  minComments?: number
   collateralLink?: string | null
   xLinked: boolean
   onSubmitted: () => void
@@ -25,7 +28,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -124,10 +127,10 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   const feeSol = (X_API_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
-  const cpmDisplay = formatTokenAmount(cpmLamports, tInfo)
+  const cpmDisplay = formatTokenAmount(cpmLamports, tInfo, 2)
   const remainingDisplay = formatTokenAmount(budgetRemainingLamports, tInfo, 2)
   const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
-    ? formatTokenAmount(minPayoutLamports, tInfo)
+    ? formatTokenAmount(minPayoutLamports, tInfo, 2)
     : null
 
   if (!xLinked) {
@@ -160,6 +163,24 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Min views per post</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minViews.toLocaleString()}</p>
+          </div>
+        )}
+        {minLikes !== undefined && minLikes > 0 && (
+          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+            <p className="text-[11px] text-zinc-500">Min likes per post</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{minLikes.toLocaleString()}</p>
+          </div>
+        )}
+        {minRetweets !== undefined && minRetweets > 0 && (
+          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+            <p className="text-[11px] text-zinc-500">Min retweets per post</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{minRetweets.toLocaleString()}</p>
+          </div>
+        )}
+        {minComments !== undefined && minComments > 0 && (
+          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+            <p className="text-[11px] text-zinc-500">Min comments per post</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{minComments.toLocaleString()}</p>
           </div>
         )}
         {minPayoutDisplay && (

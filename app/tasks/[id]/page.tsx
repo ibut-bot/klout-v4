@@ -668,6 +668,9 @@ export default function TaskDetailPage() {
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
               minPayoutLamports={campaignConfig.minPayoutLamports}
               minViews={campaignConfig.minViews}
+              minLikes={campaignConfig.minLikes}
+              minRetweets={campaignConfig.minRetweets}
+              minComments={campaignConfig.minComments}
               collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
@@ -704,10 +707,10 @@ export default function TaskDetailPage() {
               <div className="rounded-xl border border-k-border p-4 border-k-border">
                 <h3 className="mb-3 text-sm font-semibold text-white">Campaign Details</h3>
                 <div className="space-y-2 text-sm text-zinc-600 text-zinc-400">
-                  <p>CPM: {formatTokenAmount(campaignConfig.cpmLamports, tInfo)} {tInfo.symbol} per 1,000 views</p>
+                  <p>CPM: {formatTokenAmount(campaignConfig.cpmLamports, tInfo, 2)} {tInfo.symbol} per 1,000 views</p>
                   <p>Budget remaining: {formatTokenAmount(campaignConfig.budgetRemainingLamports, tInfo, 2)} {tInfo.symbol}</p>
                   {Number(campaignConfig.minPayoutLamports) > 0 && (
-                    <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, tInfo)} {tInfo.symbol}</p>
+                    <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, tInfo, 2)} {tInfo.symbol}</p>
                   )}
                   {task.paymentToken === 'CUSTOM' && task.customTokenMint && (
                     <p>Token: <span className="font-semibold text-accent">{tInfo.symbol}</span> <code className="text-xs text-zinc-500 font-mono">({task.customTokenMint.slice(0, 8)}...)</code></p>

@@ -94,13 +94,13 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
     }
   }
 
-  // Gradient overlay
-  const grad = ctx.createLinearGradient(0, H * 0.35, 0, H)
+  // Gradient overlay — only bottom 40%
+  const grad = ctx.createLinearGradient(0, H * 0.6, 0, H)
   grad.addColorStop(0, 'rgba(0,0,0,0)')
-  grad.addColorStop(0.5, 'rgba(0,0,0,0.6)')
-  grad.addColorStop(1, 'rgba(0,0,0,0.92)')
+  grad.addColorStop(0.5, 'rgba(0,0,0,0.4)')
+  grad.addColorStop(1, 'rgba(0,0,0,0.85)')
   ctx.fillStyle = grad
-  ctx.fillRect(0, 0, W, H)
+  ctx.fillRect(0, H * 0.6, W, H * 0.4)
 
   // Klout logo + score number
   const kloutLogo = await new Promise<HTMLImageElement>((resolve, reject) => {
