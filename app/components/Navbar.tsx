@@ -201,7 +201,8 @@ export default function Navbar() {
   const handleLinkX = async () => {
     setLinkingX(true)
     try {
-      const res = await authFetch('/api/auth/x/authorize')
+      const returnTo = encodeURIComponent(window.location.pathname)
+      const res = await authFetch(`/api/auth/x/authorize?returnTo=${returnTo}`)
       const data = await res.json()
       if (data.success && data.authUrl) {
         window.location.href = data.authUrl

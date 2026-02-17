@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=expired_session`)
   }
 
-  let cookieData: { state: string; verifier: string; userId: string }
+  let cookieData: { state: string; verifier: string; userId: string; returnTo?: string }
   try {
     cookieData = JSON.parse(Buffer.from(cookieValue, 'base64').toString())
   } catch {
@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const response = NextResponse.redirect(`${appUrl}/dashboard?x_link=success&x_username=${xProfile.username}`)
+    const redirectTo = cookieData.returnTo || '/dashboard'
+    const response = NextResponse.redirect(`${appUrl}${redirectTo}${redirectTo.includes('?') ? '&' : '?'}x_link=success&x_username=${xProfile.username}`)
     // Clear the OAuth state cookie
     response.cookies.delete('x_oauth_state')
     return response

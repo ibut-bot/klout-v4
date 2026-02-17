@@ -262,7 +262,7 @@ export default function MyScorePage() {
   const handleLinkX = useCallback(async () => {
     setLinkingX(true)
     try {
-      const res = await authFetch('/api/auth/x/authorize')
+      const res = await authFetch('/api/auth/x/authorize?returnTo=/my-score')
       const data = await res.json()
       if (data.success && data.authUrl) {
         window.location.href = data.authUrl
@@ -356,7 +356,7 @@ export default function MyScorePage() {
 
       {/* Follow @kloutgg Prompt */}
       {xLinked && !scoreResult && (
-        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-3">
+        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-3 text-center">
           <div className="flex items-start gap-3">
             <svg className="h-5 w-5 mt-0.5 text-accent flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -501,7 +501,7 @@ export default function MyScorePage() {
                 {scoreResult ? 'Recalculate Score' : 'Get My Score'} — 0.01 SOL
               </button>
               <p className="mt-2 text-xs text-zinc-600">
-                Fee covers X API costs. Score is computed from your profile metrics and last 20 tweets.
+                Fee covers X API costs. Score is computed from your profile metrics and historical tweets performance.
               </p>
             </>
           ) : (

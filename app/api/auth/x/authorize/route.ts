@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
 
+  const returnTo = new URL(request.url).searchParams.get('returnTo') || '/dashboard'
+
   // Revoke any existing X token so X shows the account picker
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
@@ -28,8 +30,8 @@ export async function GET(request: NextRequest) {
 
   const authUrl = buildAuthUrl(state, challenge)
 
-  // Store state + verifier + userId in a cookie (encrypted-ish via httpOnly + short TTL)
-  const cookiePayload = JSON.stringify({ state, verifier, userId: auth.userId })
+  // Store state + verifier + userId + returnTo in a cookie
+  const cookiePayload = JSON.stringify({ state, verifier, userId: auth.userId, returnTo })
   const encoded = Buffer.from(cookiePayload).toString('base64')
 
   const response = NextResponse.json({ success: true, authUrl })
