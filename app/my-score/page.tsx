@@ -188,6 +188,7 @@ export default function MyScorePage() {
 
   const [xLinked, setXLinked] = useState<boolean | null>(null)
   const [xUsername, setXUsername] = useState<string | null>(null)
+  const [linkingX, setLinkingX] = useState(false)
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null)
@@ -242,6 +243,7 @@ export default function MyScorePage() {
       .catch(() => {})
   }, [isAuthenticated, authFetch])
 
+
   // Load existing score
   useEffect(() => {
     if (!isAuthenticated) return
@@ -256,6 +258,18 @@ export default function MyScorePage() {
       .catch(() => {})
       .finally(() => setLoadingExisting(false))
   }, [isAuthenticated, authFetch])
+
+  const handleLinkX = useCallback(async () => {
+    setLinkingX(true)
+    try {
+      const res = await authFetch('/api/auth/x/authorize')
+      const data = await res.json()
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch {}
+    setLinkingX(false)
+  }, [authFetch])
 
   const handleCalculateScore = useCallback(async () => {
     if (!publicKey) return
@@ -330,12 +344,39 @@ export default function MyScorePage() {
           <p className="text-sm text-amber-400 mb-3">
             You need to link your X account before calculating your score.
           </p>
-          <Link
-            href="/dashboard"
-            className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
+          <button
+            onClick={handleLinkX}
+            disabled={linkingX}
+            className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
           >
-            Link X Account
-          </Link>
+            {linkingX ? 'Redirecting...' : 'Link X Account'}
+          </button>
+        </div>
+      )}
+
+      {/* Follow @kloutgg Prompt */}
+      {xLinked && !scoreResult && (
+        <div className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <svg className="h-5 w-5 mt-0.5 text-accent flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-white">Follow @kloutgg on X</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Make sure to follow <span className="text-accent font-medium">@kloutgg</span> on X/Twitter to stay updated on new campaigns and platform news.
+              </p>
+            </div>
+          </div>
+          <a
+            href="https://x.com/intent/follow?screen_name=kloutgg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-black hover:bg-accent-hover transition-colors"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            Follow @kloutgg
+          </a>
         </div>
       )}
 

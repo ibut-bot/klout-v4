@@ -25,7 +25,7 @@ export function buildAuthUrl(state: string, codeChallenge: string): string {
     response_type: 'code',
     client_id: X_CLIENT_ID,
     redirect_uri: X_REDIRECT_URI,
-    scope: 'users.read tweet.read offline.access users.email',
+    scope: 'users.read tweet.read follows.read offline.access users.email',
     state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',

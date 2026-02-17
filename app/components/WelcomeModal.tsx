@@ -64,6 +64,9 @@ export default function WelcomeModal() {
           <p className="text-xs text-zinc-400 leading-relaxed">
             Your Klout score measures your X/Twitter influence. It&apos;s <span className="text-zinc-200 font-medium">required to participate in campaigns</span> and submit posts for payment. A higher score also unlocks access to <span className="text-zinc-200 font-medium">exclusive, higher-paying campaigns</span> and lets you earn more per post.
           </p>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            To get your score, you&apos;ll need to <span className="text-accent font-medium">follow @kloutgg on X</span> first.
+          </p>
           {referrer && (
             <p className="text-xs text-accent/80">
               Getting your score also activates your referral — so @{referrer} can start earning from your work.
