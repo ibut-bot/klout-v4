@@ -6,6 +6,7 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { calculateKloutScore, getScoreLabel, getGeoTierLabel } from '@/lib/klout-scoring'
 import { generateBuffedProfileImage } from '@/lib/fal'
 import { getRandomQuote } from '@/lib/score-tiers'
+import { getTotalReferralCount, getCurrentTier, isReferralProgramActive } from '@/lib/referral'
 
 // Allow up to 60s for Solana + X API calls
 export const maxDuration = 60
@@ -142,16 +143,34 @@ export async function POST(request: NextRequest) {
     console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
   }
 
-  // 9. Mark referral as completed (user now has a Klout score)
+  // 9. Mark referral as completed and assign tier/position (user now has a Klout score)
   try {
     const pendingReferral = await prisma.referral.findUnique({
       where: { referredUserId: userId },
     })
     if (pendingReferral && !pendingReferral.completedAt) {
-      await prisma.referral.update({
-        where: { id: pendingReferral.id },
-        data: { completedAt: new Date() },
-      })
+      const totalCompleted = await getTotalReferralCount()
+      if (isReferralProgramActive(totalCompleted)) {
+        const position = totalCompleted + 1
+        const tier = getCurrentTier(totalCompleted)
+        if (tier) {
+          await prisma.referral.update({
+            where: { id: pendingReferral.id },
+            data: {
+              completedAt: new Date(),
+              globalPosition: position,
+              tierNumber: tier.tier,
+              referrerFeePct: tier.referrerFeePct,
+            },
+          })
+        }
+      } else {
+        // Program ended — mark completed but no fee share
+        await prisma.referral.update({
+          where: { id: pendingReferral.id },
+          data: { completedAt: new Date() },
+        })
+      }
     }
   } catch {
     // Non-fatal: don't block score calculation

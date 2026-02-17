@@ -2,11 +2,6 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyWalletSignature, issueToken } from '@/lib/auth'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
-import {
-  getTotalReferralCount,
-  getCurrentTier,
-  isReferralProgramActive,
-} from '@/lib/referral'
 
 export async function POST(request: NextRequest) {
   let body: any
@@ -88,30 +83,23 @@ export async function POST(request: NextRequest) {
         // Referrer must have a Klout score
         const newUser = await prisma.user.findUnique({ where: { walletAddress: wallet } })
         if (newUser && referrer.id !== newUser.id) {
-          // Check program is still active
-          const totalReferrals = await getTotalReferralCount()
-          if (isReferralProgramActive(totalReferrals)) {
-            const position = totalReferrals + 1
-            const tier = getCurrentTier(totalReferrals)
-            if (tier) {
-              // Check user isn't already referred
-              const existingReferral = await prisma.referral.findUnique({
-                where: { referredUserId: newUser.id },
-              })
-              if (!existingReferral) {
-                await prisma.referral.create({
-                  data: {
-                    referrerId: referrer.id,
-                    referredUserId: newUser.id,
-                    referralCode: referralCode.toLowerCase(),
-                    tierNumber: tier.tier,
-                    referrerFeePct: tier.referrerFeePct,
-                    globalPosition: position,
-                  },
-                })
-                referralApplied = true
-              }
-            }
+          // Check user isn't already referred
+          const existingReferral = await prisma.referral.findUnique({
+            where: { referredUserId: newUser.id },
+          })
+          if (!existingReferral) {
+            // Create a pending referral — tier/position assigned when user gets Klout score
+            await prisma.referral.create({
+              data: {
+                referrerId: referrer.id,
+                referredUserId: newUser.id,
+                referralCode: referralCode.toLowerCase(),
+                tierNumber: 0,
+                referrerFeePct: 0,
+                globalPosition: 0,
+              },
+            })
+            referralApplied = true
           }
         }
       }

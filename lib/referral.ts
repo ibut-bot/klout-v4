@@ -118,9 +118,9 @@ export function generateReferralCode(): string {
 // Database helpers
 // ──────────────────────────────────────────────
 
-/** Get total number of referrals (for determining current tier). */
+/** Get total number of completed referrals (referred user has a Klout score). */
 export async function getTotalReferralCount(): Promise<number> {
-  return prisma.referral.count()
+  return prisma.referral.count({ where: { completedAt: { not: null } } })
 }
 
 /** Get referral info for a task performer (by userId). Returns null if not referred or not completed. */
