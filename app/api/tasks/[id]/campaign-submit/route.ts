@@ -63,15 +63,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 1. Check user has linked X account
+  // 1. Check user has linked X account and Klout score
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, xUserId: true, xUsername: true, walletAddress: true },
+    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, xScores: { select: { id: true }, take: 1 } },
   })
 
   if (!user?.xUserId) {
     return Response.json(
       { success: false, error: 'X_NOT_LINKED', message: 'You must link your X account before submitting to campaigns' },
+      { status: 400 }
+    )
+  }
+
+  if (!user.xScores || user.xScores.length === 0) {
+    return Response.json(
+      { success: false, error: 'NO_KLOUT_SCORE', message: 'You need a Klout score before submitting to campaigns. Calculate your score first to unlock campaign participation.' },
       { status: 400 }
     )
   }

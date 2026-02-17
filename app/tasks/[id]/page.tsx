@@ -142,6 +142,7 @@ export default function TaskDetailPage() {
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; collateralLink?: string | null
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
+  const [hasKloutScore, setHasKloutScore] = useState(false)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
   // Image repositioning state
   const [editingImage, setEditingImage] = useState(false)
@@ -214,13 +215,25 @@ export default function TaskDetailPage() {
     } catch {}
   }, [isAuthenticated, authFetch])
 
+  const fetchKloutScore = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch('/api/klout-score')
+      const data = await res.json()
+      if (data.success && data.score) setHasKloutScore(true)
+    } catch {}
+  }, [isAuthenticated, authFetch])
+
   useEffect(() => {
     Promise.all([fetchTask(), fetchBids(), fetchSubmissions()]).finally(() => setLoading(false))
   }, [fetchTask, fetchBids, fetchSubmissions])
 
   useEffect(() => {
-    if (isAuthenticated) fetchXStatus()
-  }, [isAuthenticated, fetchXStatus])
+    if (isAuthenticated) {
+      fetchXStatus()
+      fetchKloutScore()
+    }
+  }, [isAuthenticated, fetchXStatus, fetchKloutScore])
 
   // Fetch conversation counts for sidebar indicators
   useEffect(() => {
@@ -673,6 +686,7 @@ export default function TaskDetailPage() {
               minComments={campaignConfig.minComments}
               collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
+              hasKloutScore={hasKloutScore}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
               paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
               customTokenMint={task.customTokenMint}

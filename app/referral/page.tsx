@@ -142,11 +142,27 @@ export default function ReferralPage() {
       <div className="rounded-xl border border-k-border p-6 space-y-4">
         <h2 className="text-lg font-semibold text-white">Your Referral Link</h2>
         {!dashboard?.hasKloutScore ? (
-          <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-4">
-            <p className="text-sm text-amber-400">
-              You need a Klout score to start referring.{' '}
-              <a href="/my-score" className="underline hover:text-amber-300">Calculate your score</a> first.
-            </p>
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-5 space-y-3">
+            <div className="flex items-start gap-3">
+              <svg className="h-5 w-5 mt-0.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-amber-300">Klout Score Required</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  You need a Klout score to participate in the referral program. Your score measures your X/Twitter influence and also <span className="text-zinc-200">unlocks access to exclusive, higher-paying campaigns</span>.
+                </p>
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  Once you have your score, you&apos;ll get a personal referral link. When people you refer earn from campaigns, you&apos;ll automatically receive a share of the platform fee — every time they get paid.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/my-score"
+              className="inline-block rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-black hover:bg-accent-hover transition-colors"
+            >
+              Get Your Klout Score
+            </a>
           </div>
         ) : dashboard?.code ? (
           <div className="flex items-center gap-3 flex-wrap">

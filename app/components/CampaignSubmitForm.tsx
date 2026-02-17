@@ -21,6 +21,7 @@ interface Props {
   minComments?: number
   collateralLink?: string | null
   xLinked: boolean
+  hasKloutScore: boolean
   onSubmitted: () => void
   paymentToken?: PaymentTokenType
   customTokenMint?: string | null
@@ -28,7 +29,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, collateralLink, xLinked, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -139,6 +140,30 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         <p className="text-sm text-amber-300">
           You need to link your X account before submitting to campaigns. Go to the profile dropdown and click &quot;Link X Account&quot;.
         </p>
+      </div>
+    )
+  }
+
+  if (!hasKloutScore) {
+    return (
+      <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-5 space-y-3">
+        <div className="flex items-start gap-3">
+          <svg className="h-5 w-5 mt-0.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <div className="space-y-1.5">
+            <p className="text-sm font-semibold text-amber-300">Klout Score Required</p>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              You need a Klout score to submit to campaigns. Your score measures your X/Twitter influence and unlocks access to <span className="text-zinc-200">exclusive, higher-paying campaigns</span>.
+            </p>
+          </div>
+        </div>
+        <a
+          href="/my-score"
+          className="inline-block rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-black hover:bg-accent-hover transition-colors"
+        >
+          Get Your Klout Score
+        </a>
       </div>
     )
   }
