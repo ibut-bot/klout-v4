@@ -221,10 +221,6 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             </h3>
             <p className="line-clamp-2 text-sm text-zinc-300/80 mb-3">{heading || description}</p>
 
-            {budgetExhausted && (
-              <div className="mb-3 text-xs font-semibold text-red-400">Budget Used</div>
-            )}
-
             {/* Budget Progress Bar */}
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between text-xs">
