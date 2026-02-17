@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { getConnection } from '@/lib/solana/connection'
 import { createNotification } from '@/lib/notifications'
+import { getReferralInfoForUser, calculateReferralSplit, recordReferralEarning } from '@/lib/referral'
 
 /** POST /api/tasks/:id/bids/:bidId/approve-payment
  *  Task creator records that they approved + executed the on-chain vault tx.
@@ -42,6 +43,7 @@ export async function POST(
   const task = await prisma.task.findUnique({
     where: { id },
     include: { winningBid: true },
+    // paymentToken & customTokenMint are on Task model already
   })
 
   if (!task) {
@@ -110,6 +112,32 @@ export async function POST(
       data: { status: 'COMPLETED' },
     }),
   ])
+
+  // Record referral earning if the bidder was referred
+  try {
+    const refInfo = await getReferralInfoForUser(task.winningBid.bidderId)
+    if (refInfo) {
+      const payoutAmount = Number(task.winningBid.amountLamports)
+      const split = calculateReferralSplit(payoutAmount, refInfo.referrerFeePct)
+      if (split.referrerAmount > 0) {
+        await recordReferralEarning({
+          referralId: refInfo.referralId,
+          referrerId: refInfo.referrerId,
+          referredUserId: task.winningBid.bidderId,
+          taskId: id,
+          bidId,
+          tokenType: (task.paymentToken || 'SOL') as 'SOL' | 'USDC' | 'CUSTOM',
+          tokenMint: task.customTokenMint || undefined,
+          totalAmount: task.winningBid.amountLamports as unknown as bigint,
+          referrerAmount: BigInt(split.referrerAmount),
+          platformAmount: BigInt(split.platformAmount),
+          txSignature: effectiveExecuteSig,
+        })
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
 
   // Notify bidder that payment has been approved
   createNotification({

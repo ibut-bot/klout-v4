@@ -133,14 +133,35 @@ export async function createMultisigVault(
   return { multisigPda, vaultPda, signature }
 }
 
-/** Platform fee: 10% to platform, 90% to recipient */
+/** Platform fee: 10% to platform, 90% to recipient. Supports optional referrer split. */
 const PLATFORM_FEE_BPS = 1000 // 10% = 1000 basis points
 
-export function splitPayment(totalLamports: number, platformWallet?: PublicKey): { recipientAmount: number; platformAmount: number } {
-  if (!platformWallet) return { recipientAmount: totalLamports, platformAmount: 0 }
-  const platformAmount = Math.floor(totalLamports * PLATFORM_FEE_BPS / 10000)
-  const recipientAmount = totalLamports - platformAmount
-  return { recipientAmount, platformAmount }
+export interface PaymentSplit {
+  recipientAmount: number
+  platformAmount: number
+  referrerAmount: number
+}
+
+/**
+ * Calculate payment split. When referrerFeePct > 0, the 10% platform fee is
+ * further split between referrer and platform (e.g. 70% of 10% to referrer).
+ */
+export function splitPayment(
+  totalLamports: number,
+  platformWallet?: PublicKey,
+  referrerFeePct: number = 0,
+): PaymentSplit {
+  if (!platformWallet) return { recipientAmount: totalLamports, platformAmount: 0, referrerAmount: 0 }
+  const totalPlatformFee = Math.floor(totalLamports * PLATFORM_FEE_BPS / 10000)
+  const recipientAmount = totalLamports - totalPlatformFee
+
+  if (referrerFeePct > 0 && referrerFeePct <= 100) {
+    const referrerAmount = Math.floor(totalPlatformFee * referrerFeePct / 100)
+    const platformAmount = totalPlatformFee - referrerAmount
+    return { recipientAmount, platformAmount, referrerAmount }
+  }
+
+  return { recipientAmount, platformAmount: totalPlatformFee, referrerAmount: 0 }
 }
 
 export async function createTransferProposal(
@@ -150,13 +171,15 @@ export async function createTransferProposal(
   recipient: PublicKey,
   lamports: number,
   memo?: string,
-  platformWallet?: PublicKey
+  platformWallet?: PublicKey,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
 
-  const { recipientAmount, platformAmount } = splitPayment(lamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(lamports, platformWallet, referrerFeePct)
 
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
@@ -164,6 +187,11 @@ export async function createTransferProposal(
   if (platformWallet && platformAmount > 0) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerWallet && referrerAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -414,6 +442,8 @@ export async function createMultisigVaultAndProposalWA(
   lamports: number,
   memo?: string,
   platformWallet?: PublicKey,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{
   multisigPda: PublicKey
   vaultPda: PublicKey
@@ -427,13 +457,11 @@ export async function createMultisigVaultAndProposalWA(
   const programConfigPda = getProgramConfigPda()
   const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
 
-  // For a brand-new multisig the first transaction index is always 1
   const transactionIndex = BigInt(1)
 
-  const { recipientAmount, platformAmount } = splitPayment(lamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(lamports, platformWallet, referrerFeePct)
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
 
-  // 1. Create multisig
   const createMultisigIx = multisig.instructions.multisigCreateV2({
     createKey: createKey.publicKey,
     creator: wallet.publicKey,
@@ -446,13 +474,17 @@ export async function createMultisigVaultAndProposalWA(
     rentCollector: null,
   })
 
-  // 2. Inner transfer instructions
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
   ]
   if (platformWallet && platformAmount > 0) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerWallet && referrerAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -515,6 +547,8 @@ export async function createMultisigVaultAndProposal(
   lamports: number,
   memo?: string,
   platformWallet?: PublicKey,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{
   multisigPda: PublicKey
   vaultPda: PublicKey
@@ -529,7 +563,7 @@ export async function createMultisigVaultAndProposal(
   const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
 
   const transactionIndex = BigInt(1)
-  const { recipientAmount, platformAmount } = splitPayment(lamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(lamports, platformWallet, referrerFeePct)
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
 
   const createMultisigIx = multisig.instructions.multisigCreateV2({
@@ -550,6 +584,11 @@ export async function createMultisigVaultAndProposal(
   if (platformWallet && platformAmount > 0) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerWallet && referrerAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -593,7 +632,7 @@ export async function createMultisigVaultAndProposal(
   return { multisigPda, vaultPda, transactionIndex, signature }
 }
 
-/** Create a SOL transfer proposal + auto-approve using wallet adapter (90/10 split) */
+/** Create a SOL transfer proposal + auto-approve using wallet adapter (supports referrer split) */
 export async function createTransferProposalWA(
   connection: Connection,
   wallet: WalletSigner,
@@ -601,13 +640,15 @@ export async function createTransferProposalWA(
   recipient: PublicKey,
   lamports: number,
   memo?: string,
-  platformWallet?: PublicKey
+  platformWallet?: PublicKey,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
 
-  const { recipientAmount, platformAmount } = splitPayment(lamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(lamports, platformWallet, referrerFeePct)
 
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
@@ -615,6 +656,11 @@ export async function createTransferProposalWA(
   if (platformWallet && platformAmount > 0) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerWallet && referrerAmount > 0) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -857,12 +903,14 @@ export async function createProposalApproveExecuteWA(
   totalLamports: number,
   platformWallet?: PublicKey,
   memo?: string,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
 
-  const { recipientAmount, platformAmount } = splitPayment(totalLamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(totalLamports, platformWallet, referrerFeePct)
 
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
@@ -870,6 +918,11 @@ export async function createProposalApproveExecuteWA(
   if (platformAmount > 0 && platformWallet) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerAmount > 0 && referrerWallet) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -881,7 +934,6 @@ export async function createProposalApproveExecuteWA(
     instructions: transferInstructions,
   })
 
-  // 1. Create vault transaction
   const createVaultTxIx = multisig.instructions.vaultTransactionCreate({
     multisigPda,
     transactionIndex,
@@ -892,35 +944,30 @@ export async function createProposalApproveExecuteWA(
     memo,
   })
 
-  // 2. Create proposal
   const createProposalIx = multisig.instructions.proposalCreate({
     multisigPda,
     transactionIndex,
     creator: wallet.publicKey,
   })
 
-  // 3. Approve (meets 1/1 threshold)
   const approveIx = multisig.instructions.proposalApprove({
     multisigPda,
     transactionIndex,
     member: wallet.publicKey,
   })
 
-  // 4. Execute — built synchronously since we know the inner message accounts
   const [transactionPda] = multisig.getTransactionPda({ multisigPda, index: transactionIndex })
   const [proposalPda] = multisig.getProposalPda({ multisigPda, transactionIndex })
 
-  // Remaining accounts mirror the compiled inner message account keys:
-  //   vaultPda (writable signer in inner msg, but PDA signing handled by program → isSigner: false)
-  //   recipient (writable non-signer)
-  //   platformWallet (writable non-signer) — if present
-  //   SystemProgram (read-only non-signer)
   const anchorRemainingAccounts: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] = [
     { pubkey: vaultPda, isSigner: false, isWritable: true },
     { pubkey: recipient, isSigner: false, isWritable: true },
   ]
   if (platformAmount > 0 && platformWallet) {
     anchorRemainingAccounts.push({ pubkey: platformWallet, isSigner: false, isWritable: true })
+  }
+  if (referrerAmount > 0 && referrerWallet) {
+    anchorRemainingAccounts.push({ pubkey: referrerWallet, isSigner: false, isWritable: true })
   }
   anchorRemainingAccounts.push({ pubkey: SystemProgram.programId, isSigner: false, isWritable: false })
 
@@ -957,12 +1004,14 @@ export async function createProposalApproveExecute(
   totalLamports: number,
   platformWallet: PublicKey,
   memo?: string,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
 
-  const { recipientAmount, platformAmount } = splitPayment(totalLamports, platformWallet)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(totalLamports, platformWallet, referrerFeePct)
 
   const transferInstructions = [
     SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: recipient, lamports: recipientAmount }),
@@ -970,6 +1019,11 @@ export async function createProposalApproveExecute(
   if (platformAmount > 0) {
     transferInstructions.push(
       SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: platformWallet, lamports: platformAmount })
+    )
+  }
+  if (referrerAmount > 0 && referrerWallet) {
+    transferInstructions.push(
+      SystemProgram.transfer({ fromPubkey: vaultPda, toPubkey: referrerWallet, lamports: referrerAmount })
     )
   }
 
@@ -1003,7 +1057,6 @@ export async function createProposalApproveExecute(
     member: creator.publicKey,
   })
 
-  // Execute — built synchronously since we know the inner message accounts
   const [transactionPda] = multisig.getTransactionPda({ multisigPda, index: transactionIndex })
   const [proposalPda] = multisig.getProposalPda({ multisigPda, transactionIndex })
 
@@ -1013,6 +1066,9 @@ export async function createProposalApproveExecute(
   ]
   if (platformAmount > 0) {
     anchorRemainingAccounts.push({ pubkey: platformWallet, isSigner: false, isWritable: true })
+  }
+  if (referrerAmount > 0 && referrerWallet) {
+    anchorRemainingAccounts.push({ pubkey: referrerWallet, isSigner: false, isWritable: true })
   }
   anchorRemainingAccounts.push({ pubkey: SystemProgram.programId, isSigner: false, isWritable: false })
 

@@ -36,7 +36,9 @@ interface CampaignSubmission {
   contentCheckPassed: boolean | null
   contentCheckExplanation: string | null
   paymentTxSig: string | null
+  submitterId: string
   submitter: {
+    id: string
     walletAddress: string
     username: string | null
     xUsername: string | null
@@ -359,6 +361,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 customTokenMint={customTokenMint}
                                 customTokenSymbol={customTokenSymbol}
                                 customTokenDecimals={customTokenDecimals}
+                                submitterId={s.submitterId}
                               />
                               <button
                                 onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}

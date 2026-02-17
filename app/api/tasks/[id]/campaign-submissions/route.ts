@@ -61,7 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       skip: (page - 1) * limit,
       take: limit,
       include: {
-        submitter: { select: { walletAddress: true, username: true, xUsername: true, profilePicUrl: true } },
+        submitter: { select: { id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true } },
       },
     }),
     prisma.campaignSubmission.count({ where }),
@@ -81,7 +81,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       contentCheckPassed: s.contentCheckPassed,
       contentCheckExplanation: s.contentCheckExplanation,
       paymentTxSig: s.paymentTxSig,
+      submitterId: s.submitterId,
       submitter: {
+        id: s.submitter.id,
         walletAddress: s.submitter.walletAddress,
         username: s.submitter.username,
         xUsername: s.submitter.xUsername,

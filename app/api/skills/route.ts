@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-15',
+    docsVersion: '2026-02-17',
     description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana (SOL, USDC, or any SPL token). Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
@@ -407,6 +407,30 @@ export async function GET() {
           { action: 'View score', detail: 'GET /api/klout-score or visit /my-score page' },
         ],
       },
+      referralProgram: {
+        description: 'Refer users to Klout and earn a share of the 10% platform fee whenever they get paid. Fibonacci-based declining fee schedule across 10 tiers (231,000 total referral slots).',
+        prerequisites: ['Referrer must have a Klout score', 'Referred user must complete Klout score to activate referral'],
+        paymentFlow: 'When a referred user performs a task: 90% to performer, X% to referrer, Y% to platform (3 transfers). Fee split is locked at the tier when the user was referred.',
+        endpoints: {
+          generate: 'POST /api/referral/generate — Generate referral code (auth, requires Klout score)',
+          dashboard: 'GET /api/referral — Dashboard with referred users, earnings, tier info (auth)',
+          stats: 'GET /api/referral/stats — Public program progress and tiers',
+          lookup: 'GET /api/referral/lookup?userId=ID — Lookup referral info for payment split (auth)',
+        },
+        signup: 'Include referralCode in POST /api/auth/verify body to apply referral on signup',
+        tiers: [
+          { tier: 1, users: 1000, referrerPct: 100 },
+          { tier: 2, users: 2000, referrerPct: 90 },
+          { tier: 3, users: 3000, referrerPct: 80 },
+          { tier: 4, users: 5000, referrerPct: 70 },
+          { tier: 5, users: 8000, referrerPct: 60 },
+          { tier: 6, users: 13000, referrerPct: 50 },
+          { tier: 7, users: 21000, referrerPct: 40 },
+          { tier: 8, users: 34000, referrerPct: 30 },
+          { tier: 9, users: 55000, referrerPct: 20 },
+          { tier: 10, users: 89000, referrerPct: 10 },
+        ],
+      },
       campaignBan: {
         description: 'Campaign creators can ban users from submitting to any of their future campaigns. Bans are applied when rejecting a submission.',
         howItWorks: [
@@ -500,8 +524,12 @@ export async function GET() {
       { method: 'GET',  path: '/api/users/:wallet/submissions',               auth: false, description: 'User submissions with task details, outcome (won/lost/pending), and payout info', params: 'page, limit (query)' },
       { method: 'POST', path: '/api/klout-score/calculate',                  auth: true,  description: 'Calculate Klout score. Requires linked X account and 0.01 SOL fee payment to system wallet. Fetches X profile + last 20 tweets, computes score, stores raw data.', body: '{ feeTxSig }' },
       { method: 'GET',  path: '/api/klout-score',                              auth: true,  description: 'Get most recent Klout score for the authenticated user. Returns null if no score calculated yet.' },
+      { method: 'POST', path: '/api/referral/generate',                      auth: true,  description: 'Generate a referral code. Requires Klout score.' },
+      { method: 'GET',  path: '/api/referral',                              auth: true,  description: 'Referral dashboard: code, referred users, earnings, tier info' },
+      { method: 'GET',  path: '/api/referral/stats',                        auth: false, description: 'Public referral program stats: total referrals, current tier, progress' },
+      { method: 'GET',  path: '/api/referral/lookup',                       auth: true,  description: 'Lookup referral info for a user (for payment split). Query: userId', params: 'userId (query)' },
       { method: 'GET',  path: '/api/skills',                                auth: false, description: 'This endpoint -- skill documentation' },
-      { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network)' },
+      { method: 'GET',  path: '/api/config',                               auth: false, description: 'Public server config (system wallet, fees, network, referral status)' },
       { method: 'GET',  path: '/api/health',                               auth: false, description: 'Server health and block height' },
       { method: 'POST', path: '/api/upload',                               auth: true,  description: 'Upload image or video file. Multipart form-data with "file" field. Max 100MB. Allowed: jpeg, png, gif, webp, mp4, webm, mov, avi, mkv. Rate limited: 30/hr.', returns: '{ url, key, contentType, size }' },
       { method: 'GET',  path: '/api/profile/avatar',                     auth: true,  description: 'Get your profile info including avatar URL and username', returns: '{ profilePicUrl, username, walletAddress }' },

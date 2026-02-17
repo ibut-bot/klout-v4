@@ -142,7 +142,22 @@ export async function POST(request: NextRequest) {
     console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
   }
 
-  // 9. Store in database
+  // 9. Mark referral as completed (user now has a Klout score)
+  try {
+    const pendingReferral = await prisma.referral.findUnique({
+      where: { referredUserId: userId },
+    })
+    if (pendingReferral && !pendingReferral.completedAt) {
+      await prisma.referral.update({
+        where: { id: pendingReferral.id },
+        data: { completedAt: new Date() },
+      })
+    }
+  } catch {
+    // Non-fatal: don't block score calculation
+  }
+
+  // 10. Store in database
   const scoreData = await prisma.xScoreData.create({
     data: {
       userId,

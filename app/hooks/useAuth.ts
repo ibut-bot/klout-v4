@@ -69,10 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const signatureBytes = await sign(messageBytes)
       const signature = bs58.encode(signatureBytes)
 
+      // Include referral code if stored (from ?ref= URL param)
+      const referralCode = localStorage.getItem('klout_referral_code') || undefined
+
       const verifyRes = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: walletAddr, signature, nonce: nonceData.nonce }),
+        body: JSON.stringify({ wallet: walletAddr, signature, nonce: nonceData.nonce, referralCode }),
       })
       const verifyData = await verifyRes.json()
       if (!verifyData.success) throw new Error(verifyData.message)

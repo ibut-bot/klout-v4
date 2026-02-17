@@ -204,12 +204,14 @@ export async function createProposalApproveExecuteSplWA(
   platformWallet?: PublicKey,
   memo?: string,
   mint: PublicKey = USDC_MINT,
+  referrerWallet?: PublicKey,
+  referrerFeePct: number = 0,
 ): Promise<{ transactionIndex: bigint; signature: string }> {
   const multisigAccount = await multisig.accounts.Multisig.fromAccountAddress(connection, multisigPda)
   const transactionIndex = BigInt(Number(multisigAccount.transactionIndex) + 1)
   const [vaultPda] = multisig.getVaultPda({ multisigPda, index: 0 })
 
-  const { recipientAmount, platformAmount } = splitPayment(totalBaseUnits, platformWallet ? platformWallet : undefined)
+  const { recipientAmount, platformAmount, referrerAmount } = splitPayment(totalBaseUnits, platformWallet ? platformWallet : undefined, referrerFeePct)
 
   const vaultAta = getAta(vaultPda, mint)
   const recipientAta = getAta(recipient, mint)
@@ -230,6 +232,15 @@ export async function createProposalApproveExecuteSplWA(
     }
   }
 
+  let referrerAta: PublicKey | null = null
+  if (referrerWallet && referrerAmount > 0) {
+    referrerAta = getAta(referrerWallet, mint)
+    const referrerAtaInfo = await createAtaIfNeeded(connection, wallet.publicKey, referrerWallet, mint)
+    if (referrerAtaInfo.instruction) {
+      preInstructions.push(referrerAtaInfo.instruction)
+    }
+  }
+
   const innerInstructions = [
     createTransferInstruction(vaultAta, recipientAta, vaultPda, recipientAmount),
   ]
@@ -237,6 +248,12 @@ export async function createProposalApproveExecuteSplWA(
   if (platformAta && platformAmount > 0) {
     innerInstructions.push(
       createTransferInstruction(vaultAta, platformAta, vaultPda, platformAmount),
+    )
+  }
+
+  if (referrerAta && referrerAmount > 0) {
+    innerInstructions.push(
+      createTransferInstruction(vaultAta, referrerAta, vaultPda, referrerAmount),
     )
   }
 
@@ -280,6 +297,9 @@ export async function createProposalApproveExecuteSplWA(
   ]
   if (platformAta && platformAmount > 0) {
     anchorRemainingAccounts.push({ pubkey: platformAta, isSigner: false, isWritable: true })
+  }
+  if (referrerAta && referrerAmount > 0) {
+    anchorRemainingAccounts.push({ pubkey: referrerAta, isSigner: false, isWritable: true })
   }
   anchorRemainingAccounts.push({ pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false })
 
@@ -435,7 +455,8 @@ export const createMultisigVaultAndFundUsdc = (
 export const createProposalApproveExecuteUsdcWA = (
   connection: Connection, wallet: WalletSigner, multisigPda: PublicKey,
   recipient: PublicKey, totalBaseUnits: number, platformWallet?: PublicKey, memo?: string,
-) => createProposalApproveExecuteSplWA(connection, wallet, multisigPda, recipient, totalBaseUnits, platformWallet, memo, USDC_MINT)
+  referrerWallet?: PublicKey, referrerFeePct: number = 0,
+) => createProposalApproveExecuteSplWA(connection, wallet, multisigPda, recipient, totalBaseUnits, platformWallet, memo, USDC_MINT, referrerWallet, referrerFeePct)
 
 export const getVaultUsdcBalance = (
   connection: Connection, multisigPda: PublicKey,

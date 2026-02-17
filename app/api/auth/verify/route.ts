@@ -2,6 +2,11 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyWalletSignature, issueToken } from '@/lib/auth'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import {
+  getTotalReferralCount,
+  getCurrentTier,
+  isReferralProgramActive,
+} from '@/lib/referral'
 
 export async function POST(request: NextRequest) {
   let body: any
@@ -14,7 +19,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { wallet, signature, nonce } = body
+  const { wallet, signature, nonce, referralCode } = body
   if (!wallet || !signature || !nonce) {
     return Response.json(
       { success: false, error: 'MISSING_FIELDS', message: 'Required: wallet, signature, nonce' },
@@ -55,6 +60,10 @@ export async function POST(request: NextRequest) {
   // Consume nonce
   await prisma.authNonce.delete({ where: { id: nonceRecord.id } })
 
+  // Check if this is a brand-new user (for referral tracking)
+  const existingUser = await prisma.user.findUnique({ where: { walletAddress: wallet } })
+  const isNewUser = !existingUser
+
   // Upsert user (handle race condition on concurrent requests)
   try {
     await prisma.user.upsert({
@@ -63,8 +72,52 @@ export async function POST(request: NextRequest) {
       create: { walletAddress: wallet },
     })
   } catch (e: any) {
-    // P2002 = unique constraint violation (concurrent insert race)
     if (e.code !== 'P2002') throw e
+  }
+
+  // Process referral code for new users
+  let referralApplied = false
+  if (isNewUser && referralCode && typeof referralCode === 'string') {
+    try {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: referralCode.toLowerCase() },
+        include: { xScores: { take: 1, orderBy: { createdAt: 'desc' } } },
+      })
+
+      if (referrer && referrer.xScores.length > 0) {
+        // Referrer must have a Klout score
+        const newUser = await prisma.user.findUnique({ where: { walletAddress: wallet } })
+        if (newUser && referrer.id !== newUser.id) {
+          // Check program is still active
+          const totalReferrals = await getTotalReferralCount()
+          if (isReferralProgramActive(totalReferrals)) {
+            const position = totalReferrals + 1
+            const tier = getCurrentTier(totalReferrals)
+            if (tier) {
+              // Check user isn't already referred
+              const existingReferral = await prisma.referral.findUnique({
+                where: { referredUserId: newUser.id },
+              })
+              if (!existingReferral) {
+                await prisma.referral.create({
+                  data: {
+                    referrerId: referrer.id,
+                    referredUserId: newUser.id,
+                    referralCode: referralCode.toLowerCase(),
+                    tierNumber: tier.tier,
+                    referrerFeePct: tier.referrerFeePct,
+                    globalPosition: position,
+                  },
+                })
+                referralApplied = true
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Referral processing failure should not block auth
+    }
   }
 
   // Issue JWT
@@ -75,5 +128,6 @@ export async function POST(request: NextRequest) {
     token,
     expiresAt,
     wallet,
+    referralApplied,
   })
 }

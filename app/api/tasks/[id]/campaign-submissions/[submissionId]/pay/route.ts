@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
+import { getReferralInfoForUser, calculateReferralSplit, recordReferralEarning } from '@/lib/referral'
 
 interface RouteContext {
   params: Promise<{ id: string; submissionId: string }>
@@ -124,6 +125,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
       paymentProposalIndex: proposalIndex ? BigInt(proposalIndex) : null,
     },
   })
+
+  // Record referral earning if the submitter was referred
+  try {
+    const refInfo = await getReferralInfoForUser(submission.submitterId)
+    if (refInfo) {
+      const payoutAmount = Number(submission.payoutLamports || 0)
+      const split = calculateReferralSplit(payoutAmount, refInfo.referrerFeePct)
+      if (split.referrerAmount > 0) {
+        await recordReferralEarning({
+          referralId: refInfo.referralId,
+          referrerId: refInfo.referrerId,
+          referredUserId: submission.submitterId,
+          taskId,
+          submissionId,
+          tokenType: (task.paymentToken || 'SOL') as 'SOL' | 'USDC' | 'CUSTOM',
+          tokenMint: task.customTokenMint || undefined,
+          totalAmount: BigInt(payoutAmount),
+          referrerAmount: BigInt(split.referrerAmount),
+          platformAmount: BigInt(split.platformAmount),
+          txSignature: paymentTxSig,
+        })
+      }
+    }
+  } catch {
+    // Non-fatal: don't block payment recording
+  }
 
   // Notify the submitter
   const pt = (task.paymentToken || 'SOL') as PaymentTokenType
