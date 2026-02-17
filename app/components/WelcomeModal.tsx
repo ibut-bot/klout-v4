@@ -1,30 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import Link from 'next/link'
 
-const STORAGE_KEY = 'klout_welcome_shown'
-
 export default function WelcomeModal() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, authFetch } = useAuth()
   const [show, setShow] = useState(false)
   const [referrer, setReferrer] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) return
-    if (localStorage.getItem(STORAGE_KEY)) return
-    setShow(true)
-    const code = localStorage.getItem('klout_referral_code')
-    if (code) setReferrer(code)
-  }, [isAuthenticated])
+
+    authFetch('/api/me/welcome')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && !data.welcomeShown) {
+          setShow(true)
+          const code = localStorage.getItem('klout_referral_code')
+          if (code) setReferrer(code)
+        }
+      })
+      .catch(() => {})
+  }, [isAuthenticated, authFetch])
+
+  const dismiss = useCallback(() => {
+    setShow(false)
+    authFetch('/api/me/welcome', { method: 'POST' }).catch(() => {})
+  }, [authFetch])
 
   if (!show) return null
-
-  const dismiss = () => {
-    localStorage.setItem(STORAGE_KEY, 'true')
-    setShow(false)
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
