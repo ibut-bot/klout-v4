@@ -202,7 +202,9 @@ export default function MyScorePage() {
       const blob = await generateShareCard(scoreResult)
       if (!blob) return
 
-      const tweetText = 'My Klout score just got #ENHANCED. Get yours at @kloutgg'
+      const referralPath = xUsername ? `/${xUsername.toLowerCase()}` : ''
+      const shareUrl = `${window.location.origin}${referralPath}`
+      const tweetText = `My Klout score just got #ENHANCED. Get yours at ${shareUrl}`
 
       // Copy image to clipboard so user can paste into the tweet
       try {

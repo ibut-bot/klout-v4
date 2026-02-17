@@ -188,19 +188,15 @@ export default function ReferralPage() {
           
           {stats.currentTier ? (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-zinc-800/50 p-3">
                   <p className="text-xs text-zinc-500">Current Epoch</p>
                   <p className="text-lg font-semibold text-white">Tier {stats.currentTier.tier}</p>
                 </div>
                 <div className="rounded-lg bg-zinc-800/50 p-3">
-                  <p className="text-xs text-zinc-500">Referrer Fee</p>
+                  <p className="text-xs text-zinc-500">Your Referrer Fee</p>
                   <p className="text-lg font-semibold text-accent">{stats.currentTier.referrerFeePct}%</p>
                   <p className="text-xs text-zinc-500">of 10% platform fee</p>
-                </div>
-                <div className="rounded-lg bg-zinc-800/50 p-3">
-                  <p className="text-xs text-zinc-500">Total Referrals</p>
-                  <p className="text-lg font-semibold text-white">{stats.totalReferrals.toLocaleString()}</p>
                 </div>
                 <div className="rounded-lg bg-zinc-800/50 p-3">
                   <p className="text-xs text-zinc-500">Remaining in Tier</p>
@@ -208,33 +204,36 @@ export default function ReferralPage() {
                 </div>
               </div>
 
-              {/* Tier Progress Bar */}
-              <div>
-                <div className="mb-1 flex justify-between text-xs text-zinc-500">
-                  <span>Tier {stats.currentTier.tier} — {stats.currentTier.usersFilledInTier.toLocaleString()} / {stats.currentTier.usersInTier.toLocaleString()}</span>
-                  <span>{((stats.currentTier.usersFilledInTier / stats.currentTier.usersInTier) * 100).toFixed(1)}%</span>
-                </div>
-                <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-700">
-                  <div
-                    className="h-full rounded-full bg-accent transition-all"
-                    style={{ width: `${(stats.currentTier.usersFilledInTier / stats.currentTier.usersInTier) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Global Progress Bar */}
-              <div>
-                <div className="mb-1 flex justify-between text-xs text-zinc-500">
-                  <span>Overall: {stats.totalReferrals.toLocaleString()} / {stats.maxReferrals.toLocaleString()}</span>
-                  <span>{((stats.totalReferrals / stats.maxReferrals) * 100).toFixed(2)}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
-                  <div
-                    className="h-full rounded-full bg-purple-500 transition-all"
-                    style={{ width: `${(stats.totalReferrals / stats.maxReferrals) * 100}%` }}
-                  />
-                </div>
-              </div>
+              {/* Tier Progress Bar with next-tier preview */}
+              {(() => {
+                const pct = (stats.currentTier!.usersFilledInTier / stats.currentTier!.usersInTier) * 100
+                const nextTier = stats.tiers.find(t => t.tier === stats.currentTier!.tier + 1)
+                return (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-zinc-500">
+                      <span>Tier {stats.currentTier!.tier} — {stats.currentTier!.referrerFeePct}% referrer fee</span>
+                      <span>{stats.currentTier!.remainingInTier.toLocaleString()} slots left</span>
+                    </div>
+                    <div className="relative h-4 w-full overflow-hidden rounded-full bg-zinc-700">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    {nextTier && (
+                      <div className="mt-1.5 flex items-center justify-between text-xs">
+                        <span className="text-zinc-500">
+                          Next: <span className="text-zinc-300 font-medium">Tier {nextTier.tier}</span> — referrer fee drops to <span className="text-amber-400 font-medium">{nextTier.referrerFeePct}%</span>
+                        </span>
+                        <span className="text-zinc-600">{nextTier.usersInTier.toLocaleString()} slots</span>
+                      </div>
+                    )}
+                    {!nextTier && (
+                      <p className="mt-1.5 text-xs text-zinc-500">This is the final tier of the referral program.</p>
+                    )}
+                  </div>
+                )
+              })()}
             </>
           ) : (
             <p className="text-sm text-zinc-400">
@@ -371,8 +370,7 @@ export default function ReferralPage() {
             You were referred by{' '}
             <span className="text-zinc-200">
               {dashboard.referredBy.xUsername ? `@${dashboard.referredBy.xUsername}` : dashboard.referredBy.username || `${dashboard.referredBy.wallet.slice(0, 8)}...`}
-            </span>{' '}
-            (Tier {dashboard.referredBy.tierNumber}, {dashboard.referredBy.referrerFeePct}% fee split)
+            </span>
             {!dashboard.referredBy.completed && (
               <span className="text-amber-400"> — Complete your Klout score to activate the referral.</span>
             )}
