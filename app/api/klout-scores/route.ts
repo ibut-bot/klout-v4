@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { authenticateRequest } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -22,6 +23,36 @@ export async function GET(req: NextRequest) {
 
     const hasMore = offset + users.length < total;
 
+    // Optional auth: try to find current user's leaderboard entry
+    let currentUser = null;
+    try {
+      const wallet = await authenticateRequest(req);
+      if (wallet) {
+        const user = await prisma.user.findUnique({
+          where: { walletAddress: wallet },
+          select: { xUserId: true },
+        });
+        if (user?.xUserId) {
+          const entry = await prisma.kloutScore.findFirst({
+            where: { twitterId: user.xUserId },
+          });
+          if (entry) {
+            currentUser = {
+              id: entry.id,
+              name: entry.name,
+              username: entry.username,
+              image: entry.image,
+              twitterId: entry.twitterId,
+              score: entry.score,
+              rank: entry.rank,
+            };
+          }
+        }
+      }
+    } catch {
+      // Auth is optional — ignore failures
+    }
+
     return NextResponse.json({
       success: true,
       users: users.map((u) => ({
@@ -33,6 +64,7 @@ export async function GET(req: NextRequest) {
         score: u.score,
         rank: u.rank,
       })),
+      currentUser,
       pagination: {
         page,
         pageSize,

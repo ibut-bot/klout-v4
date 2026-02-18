@@ -700,49 +700,59 @@ function MyScoreTab() {
 // --- Tab: Klout Scores ---
 
 function ScoresTab() {
-  const [users, setUsers] = useState<KloutUser[]>([]);
-  const [pagination, setPagination] = useState<LeaderboardPagination | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, authFetch } = useAuth()
+  const [users, setUsers] = useState<KloutUser[]>([])
+  const [currentUser, setCurrentUser] = useState<KloutUser | null>(null)
+  const [pagination, setPagination] = useState<LeaderboardPagination | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchPage = useCallback(async (page: number, append: boolean) => {
     try {
-      const res = await fetch(
-        `/api/klout-scores?page=${page}&pageSize=${PAGE_SIZE}`,
-      );
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Failed to load");
-      setUsers((prev) => (append ? [...prev, ...data.users] : data.users));
-      setPagination(data.pagination);
+      const fetcher = isAuthenticated ? authFetch : fetch
+      const res = await fetcher(`/api/klout-scores?page=${page}&pageSize=${PAGE_SIZE}`)
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Failed to load')
+      setUsers((prev) => (append ? [...prev, ...data.users] : data.users))
+      setPagination(data.pagination)
+      if (page === 1 && data.currentUser) {
+        setCurrentUser(data.currentUser)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     }
-  }, []);
+  }, [isAuthenticated, authFetch])
 
   useEffect(() => {
-    setLoading(true);
-    fetchPage(1, false).finally(() => setLoading(false));
-  }, [fetchPage]);
+    setLoading(true)
+    fetchPage(1, false).finally(() => setLoading(false))
+  }, [fetchPage])
 
   const handleLoadMore = async () => {
-    if (!pagination?.hasMore || loadingMore) return;
-    setLoadingMore(true);
-    await fetchPage(pagination.nextPage!, true);
-    setLoadingMore(false);
-  };
+    if (!pagination?.hasMore || loadingMore) return
+    setLoadingMore(true)
+    await fetchPage(pagination.nextPage!, true)
+    setLoadingMore(false)
+  }
 
   return (
     <>
       <div className="mb-6 text-center">
         <p className="text-sm text-zinc-500">
-          {pagination
-            ? `${formatNumber(pagination.total)} users ranked`
-            : "Loading..."}
+          {pagination ? `${formatNumber(pagination.total)} users ranked` : 'Loading...'}
         </p>
       </div>
+
+      {/* Current user's rank pinned at top */}
+      {currentUser && !loading && (
+        <div className="mb-3 overflow-hidden rounded-2xl border border-accent/30 bg-accent/5">
+          <div className="px-4 py-1.5 border-b border-accent/20">
+            <span className="text-xs font-semibold text-accent">Your Rank</span>
+          </div>
+          <ScoreRow user={currentUser} />
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-k-border bg-surface">
         {loading ? (
@@ -762,11 +772,11 @@ function ScoresTab() {
           disabled={loadingMore}
           className="mt-6 w-full rounded-xl bg-surface py-3 text-sm font-semibold text-accent border border-k-border transition-colors hover:bg-surface-hover hover:border-k-border-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loadingMore ? "Loading..." : "Load more"}
+          {loadingMore ? 'Loading...' : 'Load more'}
         </button>
       )}
     </>
-  );
+  )
 }
 
 // --- Main Page ---

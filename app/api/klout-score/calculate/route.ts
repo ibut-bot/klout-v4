@@ -211,6 +211,49 @@ export async function POST(request: NextRequest) {
     },
   })
 
+  // 11. Upsert into leaderboard and recalculate ranks
+  try {
+    const existingEntry = await prisma.kloutScore.findFirst({
+      where: { twitterId: profile.id },
+    })
+
+    if (existingEntry) {
+      await prisma.kloutScore.update({
+        where: { id: existingEntry.id },
+        data: {
+          score: scoreBreakdown.totalScore,
+          name: profile.name,
+          username: profile.username,
+          image: profile.profileImageUrl,
+        },
+      })
+    } else {
+      await prisma.kloutScore.create({
+        data: {
+          id: userId,
+          name: profile.name,
+          username: profile.username,
+          image: profile.profileImageUrl,
+          twitterId: profile.id,
+          score: scoreBreakdown.totalScore,
+          rank: 0,
+        },
+      })
+    }
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE "slopwork"."KloutScore" k
+      SET rank = r.new_rank
+      FROM (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC) as new_rank
+        FROM "slopwork"."KloutScore"
+      ) r
+      WHERE k.id = r.id
+    `)
+  } catch (err) {
+    console.error('[klout-score] Leaderboard update failed (non-fatal):', err)
+  }
+
   return Response.json({
     success: true,
     score: {
