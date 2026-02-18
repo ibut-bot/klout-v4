@@ -3,41 +3,69 @@ import type { XUserProfileFull, XTweetMetrics } from './x-api'
 // ── Score Components ──
 
 export interface ScoreBreakdown {
-  reachScore: number        // 0–1
-  ratioScore: number        // 0–0.15
-  engagementScore: number   // 0–1
-  verificationScore: number // 0–0.10
-  geoMultiplier: number     // 0.15–1.0
+  reachScore: number        // 0–1 (64.95% weight)
+  ratioScore: number        // 0–1 (10% weight, scaled by reach)
+  engagementScore: number   // 0–1 (25% weight, scaled by reach)
+  verificationScore: number // 0–1 (0.01% weight)
+  geoMultiplier: number     // 0–1 (0.04% weight)
   geoTier: number | null    // 1–4 or null
   geoRegion: string | null
-  qualityScore: number      // reach * engagement + ratio + verification
-  totalScore: number        // qualityScore * geoMultiplier * 100 (capped at 100)
+  qualityScore: number      // totalScore / 10000
+  totalScore: number        // weighted sum × 10000, capped at 10,000
 }
 
-// ── Reach Score (0–1) based on follower count ──
+// ── Reach Score (0–1) — steep power-law curve rewarding large audiences ──
 
 function computeReachScore(followers: number): number {
-  if (followers >= 100_000) return 1.0
-  if (followers >= 25_000) return 0.85
-  if (followers >= 5_000) return 0.65
-  if (followers >= 1_000) return 0.45
-  if (followers >= 500) return 0.25
-  return 0.10
+  if (followers >= 1_000_000) return 1.0
+  if (followers >= 500_000) return 0.75
+  if (followers >= 250_000) return 0.55
+  if (followers >= 100_000) return 0.38
+  if (followers >= 50_000) return 0.24
+  if (followers >= 25_000) return 0.14
+  if (followers >= 10_000) return 0.08
+  if (followers >= 5_000) return 0.04
+  if (followers >= 2_500) return 0.02
+  if (followers >= 1_000) return 0.01
+  if (followers >= 500) return 0.005
+  if (followers >= 250) return 0.002
+  if (followers >= 100) return 0.001
+  return 0.0003
 }
 
-// ── Follower/Following Ratio Score (0–0.15) ──
+// ── Follower/Following Ratio Score (0–1) — ratio quality × reach scale ──
 
 function computeRatioScore(followers: number, following: number): number {
-  if (following === 0) return 0.15 // Infinite ratio = strong signal
-  const ratio = followers / following
-  if (ratio >= 5) return 0.15
-  if (ratio >= 2) return 0.10
-  if (ratio >= 1) return 0.06
-  if (ratio >= 0.5) return 0.03
-  return 0
+  const safeFollowing = following === 0 ? 1 : following
+  const ratio = followers / safeFollowing
+
+  // Base ratio quality (0–1)
+  let baseRatio: number
+  if (ratio >= 10) baseRatio = 1.0
+  else if (ratio >= 5) baseRatio = 0.80
+  else if (ratio >= 2) baseRatio = 0.55
+  else if (ratio >= 1) baseRatio = 0.30
+  else if (ratio >= 0.5) baseRatio = 0.10
+  else baseRatio = 0
+
+  // Reach scale — matches the steep reach curve
+  let reachFactor: number
+  if (followers >= 1_000_000) reachFactor = 1.0
+  else if (followers >= 500_000) reachFactor = 0.75
+  else if (followers >= 250_000) reachFactor = 0.55
+  else if (followers >= 100_000) reachFactor = 0.38
+  else if (followers >= 50_000) reachFactor = 0.24
+  else if (followers >= 25_000) reachFactor = 0.14
+  else if (followers >= 10_000) reachFactor = 0.08
+  else if (followers >= 5_000) reachFactor = 0.04
+  else if (followers >= 1_000) reachFactor = 0.01
+  else if (followers >= 500) reachFactor = 0.005
+  else reachFactor = 0.001
+
+  return baseRatio * reachFactor
 }
 
-// ── Engagement Score (0–1) based on engagement rate ──
+// ── Engagement Score (0–1) — scaled by reach so same rate means more at scale ──
 
 function computeEngagementScore(
   avgLikes: number,
@@ -45,21 +73,40 @@ function computeEngagementScore(
   avgReplies: number,
   followers: number
 ): number {
-  if (followers === 0) return 0.10
+  if (followers === 0) return 0
+
   const engagementRate = ((avgLikes + avgRetweets + avgReplies) / followers) * 100
-  if (engagementRate >= 6) return 1.0
-  if (engagementRate >= 3) return 0.80
-  if (engagementRate >= 1) return 0.55
-  if (engagementRate >= 0.5) return 0.30
-  return 0.10
+
+  // Base engagement from rate
+  let base: number
+  if (engagementRate >= 6) base = 1.0
+  else if (engagementRate >= 3) base = 0.80
+  else if (engagementRate >= 1) base = 0.55
+  else if (engagementRate >= 0.5) base = 0.30
+  else base = 0.10
+
+  // Reach scale — matches the steep reach curve
+  let reachFactor: number
+  if (followers >= 1_000_000) reachFactor = 1.0
+  else if (followers >= 500_000) reachFactor = 0.75
+  else if (followers >= 250_000) reachFactor = 0.55
+  else if (followers >= 100_000) reachFactor = 0.38
+  else if (followers >= 50_000) reachFactor = 0.24
+  else if (followers >= 25_000) reachFactor = 0.14
+  else if (followers >= 10_000) reachFactor = 0.08
+  else if (followers >= 5_000) reachFactor = 0.04
+  else if (followers >= 1_000) reachFactor = 0.01
+  else if (followers >= 500) reachFactor = 0.005
+  else reachFactor = 0.001
+
+  return base * reachFactor
 }
 
-// ── Verification Score (0–0.10) ──
+// ── Verification Score (0–1) ──
 
 function computeVerificationScore(verifiedType: string | null): number {
   if (!verifiedType) return 0
-  if (verifiedType === 'business' || verifiedType === 'government') return 0.10
-  if (verifiedType === 'blue') return 0.05
+  if (verifiedType === 'blue') return 1.0
   return 0
 }
 
@@ -69,7 +116,7 @@ const TIER_1_MULTIPLIER = 1.0
 const TIER_2_MULTIPLIER = 0.75
 const TIER_3_MULTIPLIER = 0.45
 const TIER_4_MULTIPLIER = 0.15
-const UNKNOWN_MULTIPLIER = 0.35
+const UNKNOWN_MULTIPLIER = 0.25
 
 // Country codes → tiers
 const TIER_1_COUNTRIES = new Set([
@@ -237,12 +284,15 @@ export function calculateKloutScore(
   // Parse geo
   const geo = parseGeoFromLocation(profile.location)
 
-  // Composite: multiplicative core + additive bonuses
-  const influenceCore = reachScore * engagementScore  // 0 – 1
-  const qualityScore = influenceCore + ratioScore + verificationScore  // 0 – 1.25
-
-  // Final: quality × geo × 100, capped at 100
-  const totalScore = Math.min(100, Math.round(qualityScore * geo.multiplier * 100 * 10) / 10)
+  // Weighted sum: reach 64.95%, engagement 25%, ratio 10%, verification 0.01%, geo 0.04%
+  const totalScore = Math.min(10_000, Math.round(
+    (reachScore * 0.6495 +
+     engagementScore * 0.25 +
+     ratioScore * 0.10 +
+     verificationScore * 0.0001 +
+     geo.multiplier * 0.0004) * 10_000
+  ))
+  const qualityScore = totalScore / 10_000
 
   return {
     reachScore,

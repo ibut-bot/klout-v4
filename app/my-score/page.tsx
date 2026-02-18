@@ -95,14 +95,14 @@ function AnimatedScore({ target }: { target: number }) {
     function tick(now: number) {
       const progress = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(eased * target * 10) / 10);
+      setValue(Math.round(eased * target));
       if (progress < 1) requestAnimationFrame(tick);
     }
 
     requestAnimationFrame(tick);
   }, [target]);
 
-  return <>{value}</>;
+  return <>{formatNumber(value)}</>;
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
@@ -170,10 +170,10 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
   ctx.drawImage(kloutLogo, 50, H - 260, kloutW, kloutH);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 140px system-ui, -apple-system, sans-serif";
+  ctx.font = "bold 110px system-ui, -apple-system, sans-serif";
   ctx.textBaseline = "bottom";
   ctx.textAlign = "left";
-  ctx.fillText(String(score.totalScore), 50 + kloutW + 10, H - 130);
+  ctx.fillText(formatNumber(score.totalScore), 50 + kloutW + 10, H - 130);
 
   ctx.fillStyle = "#eab308";
   ctx.font = "bold 36px system-ui, -apple-system, sans-serif";
@@ -548,7 +548,7 @@ function MyScoreTab() {
               <div>
                 <div className="flex items-center gap-2">
                   <img src="/Klout.png" alt="Klout" className="h-10" />
-                  <p className="text-5xl font-black text-white leading-none">
+                  <p className="text-4xl font-black text-white leading-none">
                     <AnimatedScore target={scoreResult.totalScore} />
                   </p>
                 </div>
@@ -592,43 +592,56 @@ function MyScoreTab() {
                 : "Share on X (image copied to clipboard)"}
             </button>
 
-            <div className="rounded-xl border border-k-border bg-zinc-900/50 p-4">
-              <h3 className="text-sm font-semibold text-zinc-300 mb-2">
-                Score Breakdown
-              </h3>
+            {(() => {
+              const r = scoreResult.breakdown.reach.score
+              const e = scoreResult.breakdown.engagement.score
+              const rat = scoreResult.breakdown.ratio.score
+              const v = scoreResult.breakdown.verification.score
+              const geoM = scoreResult.breakdown.geo.multiplier
+              const reachPts = Math.round(r * 0.6495 * 10_000)
+              const engPts = Math.round(e * 0.25 * 10_000)
+              const ratioPts = Math.round(rat * 0.10 * 10_000)
+              const verPts = Math.round(v * 0.0001 * 10_000)
+              const geoPts = Math.round(geoM * 0.0004 * 10_000)
 
-              <BreakdownRow
-                label="Reach"
-                value={`${(scoreResult.breakdown.reach.score * 100).toFixed(0)}%`}
-                detail={`${scoreResult.breakdown.reach.followers.toLocaleString()} followers`}
-              />
-              <BreakdownRow
-                label="Engagement"
-                value={`${(scoreResult.breakdown.engagement.score * 100).toFixed(0)}%`}
-              />
-              <BreakdownRow
-                label="Follower Ratio"
-                value={`+${(scoreResult.breakdown.ratio.score * 100).toFixed(0)}%`}
-                detail={`${scoreResult.breakdown.ratio.followers.toLocaleString()} followers / ${scoreResult.breakdown.ratio.following.toLocaleString()} following`}
-              />
-              <BreakdownRow
-                label="Verification"
-                value={`+${(scoreResult.breakdown.verification.score * 100).toFixed(0)}%`}
-                detail={
-                  scoreResult.breakdown.verification.type || "Not verified"
-                }
-              />
-              <BreakdownRow
-                label="Location"
-                value={scoreResult.breakdown.geo.location || "Planet Earth"}
-              />
+              return (
+                <div className="rounded-xl border border-k-border bg-zinc-900/50 p-4">
+                  <h3 className="text-sm font-semibold text-zinc-300 mb-2">Score Breakdown</h3>
 
-              <div className="mt-3 pt-3 border-t border-k-border flex justify-end">
-                <span className="text-sm font-bold text-accent">
-                  {scoreResult.totalScore}/100
-                </span>
-              </div>
-            </div>
+                  <BreakdownRow
+                    label="Reach (65%)"
+                    value={`+${formatNumber(reachPts)}`}
+                    detail={`${scoreResult.breakdown.reach.followers.toLocaleString()} followers`}
+                  />
+                  <BreakdownRow
+                    label="Engagement (25%)"
+                    value={`+${formatNumber(engPts)}`}
+                    detail={`rate ${((scoreResult.breakdown.engagement.avgLikes + scoreResult.breakdown.engagement.avgRetweets + scoreResult.breakdown.engagement.avgReplies) / Math.max(scoreResult.breakdown.reach.followers, 1) * 100).toFixed(2)}% · ${scoreResult.breakdown.engagement.tweetsAnalyzed} tweets`}
+                  />
+                  <BreakdownRow
+                    label="Follower Ratio (10%)"
+                    value={`+${formatNumber(ratioPts)}`}
+                    detail={`${scoreResult.breakdown.ratio.followers.toLocaleString()} / ${scoreResult.breakdown.ratio.following.toLocaleString()} (${scoreResult.breakdown.ratio.following > 0 ? (scoreResult.breakdown.ratio.followers / scoreResult.breakdown.ratio.following).toFixed(1) : '∞'}:1)`}
+                  />
+                  <BreakdownRow
+                    label="Verification"
+                    value={`+${formatNumber(verPts)}`}
+                    detail={scoreResult.breakdown.verification.type || 'Not verified'}
+                  />
+                  <BreakdownRow
+                    label="Location"
+                    value={`+${formatNumber(geoPts)}`}
+                    detail={`${scoreResult.breakdown.geo.location || 'Unknown'} · ${scoreResult.breakdown.geo.tierLabel}`}
+                  />
+
+                  <div className="mt-3 pt-3 border-t border-k-border flex justify-end">
+                    <span className="text-sm font-bold text-accent">
+                      {formatNumber(scoreResult.totalScore)}/10,000
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

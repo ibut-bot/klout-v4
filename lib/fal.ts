@@ -7,9 +7,9 @@ fal.config({
   credentials: process.env.FAL_API_KEY || '',
 })
 
-/** Score-based buffness prompt tiers — muscular athletic is the floor, max stays the same */
+/** Score-based buffness prompt tiers (0–10,000 scale) */
 function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
-  if (score <= 20) {
+  if (score <= 2000) {
     return {
       prompt:
         'Transform this person into a muscular athletic physique. ' +
@@ -18,7 +18,7 @@ function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
       guidance: 3.0,
     }
   }
-  if (score <= 35) {
+  if (score <= 3500) {
     return {
       prompt:
         'Transform this person into a very muscular and ripped physique. ' +
@@ -27,7 +27,7 @@ function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
       guidance: 3.5,
     }
   }
-  if (score <= 50) {
+  if (score <= 5000) {
     return {
       prompt:
         'Transform this person into an extremely muscular and jacked bodybuilder physique. ' +
@@ -36,7 +36,7 @@ function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
       guidance: 3.5,
     }
   }
-  if (score <= 65) {
+  if (score <= 6500) {
     return {
       prompt:
         'Transform this person into an insanely jacked superhuman bodybuilder. ' +
@@ -46,7 +46,7 @@ function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
       guidance: 4.0,
     }
   }
-  // 66-100: godlike max
+  // 6501-10000: godlike max
   return {
     prompt:
       'Transform this person into a godlike impossibly gigantic ultra-muscular titan. ' +
@@ -59,19 +59,19 @@ function getBuffedPrompt(score: number): { prompt: string; guidance: number } {
 }
 
 function getGenericBuffedPrompt(score: number): string {
-  if (score <= 20) {
+  if (score <= 2000) {
     return 'A muscular ripped Pepe the frog bodybuilder flexing big biceps, wearing gold chain and sunglasses, strong crypto bro aesthetic, digital art, vibrant colors'
   }
-  if (score <= 35) {
+  if (score <= 3500) {
     return 'A jacked massive Pepe the frog professional bodybuilder, huge muscles, veins popping, wearing a diamond chain, crypto king vibes, dramatic lighting, digital art'
   }
-  if (score <= 50) {
+  if (score <= 5000) {
     return 'An insanely jacked superhuman Pepe the frog with impossibly huge muscles, veins everywhere, glowing eyes, wearing a crown, crypto god tier, epic dramatic lighting, digital art'
   }
-  if (score <= 65) {
+  if (score <= 6500) {
     return 'A godlike gigantic ultra-muscular Pepe the frog titan with muscles on muscles, golden glowing aura, wearing a diamond crown and cape, absolute crypto deity, world-bending energy, epic golden dramatic lighting, digital art masterpiece'
   }
-  // 66-100: godlike max
+  // 6501-10000: godlike max
   return 'A godlike gigantic ultra-muscular Pepe the frog titan with muscles on muscles, golden glowing aura, wearing a diamond crown and cape, absolute crypto deity, world-bending energy, epic golden dramatic lighting, digital art masterpiece'
 }
 

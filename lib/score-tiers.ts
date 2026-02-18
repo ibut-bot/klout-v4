@@ -7,7 +7,7 @@ export interface ScoreTier {
 
 export const SCORE_TIERS: ScoreTier[] = [
   {
-    min: 0, max: 10, title: 'NPC Energy',
+    min: 0, max: 1000, title: 'NPC Energy',
     quotes: [
       'I can mass DM 500 people and get left on seen by all of them',
       'I can tweet into the void and the void doesn\'t even bother echoing back',
@@ -20,7 +20,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 11, max: 20, title: 'Background Character',
+    min: 1001, max: 2000, title: 'Background Character',
     quotes: [
       'I can convince my mom to like my tweets — if I remind her twice',
       'I can get engagement... from my own alt accounts',
@@ -34,7 +34,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 21, max: 35, title: 'Side Character With Lines',
+    min: 2001, max: 3500, title: 'Side Character With Lines',
     quotes: [
       'I can get strangers on the internet to argue about something I made up',
       'I can convince my friends to try a restaurant that\'s mid',
@@ -49,7 +49,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 36, max: 50, title: 'Main Character Warming Up',
+    min: 3501, max: 5000, title: 'Main Character Warming Up',
     quotes: [
       'I can make a crypto bro question his own bags',
       'I can get a New Yorker to hold a door open',
@@ -65,7 +65,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 51, max: 65, title: 'The Closer',
+    min: 5001, max: 6500, title: 'The Closer',
     quotes: [
       'I can sell oat milk to a cattle rancher',
       'I can get a Parisian to compliment my coffee',
@@ -82,7 +82,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 66, max: 80, title: 'Dangerously Persuasive',
+    min: 6501, max: 8000, title: 'Dangerously Persuasive',
     quotes: [
       'I can convince an Italian that pineapple pizza slaps — and they\'d order it again',
       'I can get a conspiracy theorist to trust the algorithm',
@@ -99,7 +99,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 81, max: 90, title: 'Reality Distortion Field',
+    min: 8001, max: 9000, title: 'Reality Distortion Field',
     quotes: [
       'I can convince Elon to delete a tweet and thank me for the feedback',
       'I can make a flat-earther buy a globe — as home decor',
@@ -116,7 +116,7 @@ export const SCORE_TIERS: ScoreTier[] = [
     ],
   },
   {
-    min: 91, max: 100, title: 'World Bender',
+    min: 9001, max: 10000, title: 'World Bender',
     quotes: [
       'I can sell snow to Eskimos and they\'d leave a five-star review',
       'I can convince the ocean it\'s not wet',
