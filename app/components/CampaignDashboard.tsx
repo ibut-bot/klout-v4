@@ -298,6 +298,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
+                  <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Date</th>
                   {isCreator && <th className="pb-2 font-medium text-zinc-500">Action</th>}
@@ -330,6 +331,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
                       {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo)} ${sym}` : '-'}
+                    </td>
+                    <td className="py-3 pr-4 text-zinc-300">
+                      {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo)} ${sym}` : '-'}
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>

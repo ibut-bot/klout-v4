@@ -159,6 +159,14 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
   ctx.fillStyle = grad;
   ctx.fillRect(0, H * 0.6, W, H * 0.4);
 
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 110px system-ui, -apple-system, sans-serif";
+  ctx.textBaseline = "bottom";
+  ctx.textAlign = "left";
+  const scoreText = formatNumber(score.totalScore);
+  ctx.fillText(scoreText, 50, H - 130);
+  const scoreTextWidth = ctx.measureText(scoreText).width;
+
   const kloutLogo = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -167,13 +175,7 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
   });
   const kloutH = 140;
   const kloutW = (kloutLogo.width / kloutLogo.height) * kloutH;
-  ctx.drawImage(kloutLogo, 50, H - 260, kloutW, kloutH);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 110px system-ui, -apple-system, sans-serif";
-  ctx.textBaseline = "bottom";
-  ctx.textAlign = "left";
-  ctx.fillText(formatNumber(score.totalScore), 50 + kloutW + 10, H - 130);
+  ctx.drawImage(kloutLogo, 50 + scoreTextWidth + 10, H - 260, kloutW, kloutH);
 
   ctx.fillStyle = "#eab308";
   ctx.font = "bold 36px system-ui, -apple-system, sans-serif";
