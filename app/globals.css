@@ -76,6 +76,18 @@ body {
   border-color: #facc15 !important;
 }
 
+/* Gentle pulse for share button */
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.animate-pulse-gentle {
+  animation: pulse-gentle 2s ease-in-out infinite;
+}
+.animate-pulse-gentle:hover {
+  animation: none;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

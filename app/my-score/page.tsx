@@ -226,26 +226,6 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
   );
 }
 
-function BreakdownRow({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-k-border last:border-b-0">
-      <div>
-        <span className="text-sm font-medium text-zinc-300">{label}</span>
-        {detail && <p className="text-xs text-zinc-500">{detail}</p>}
-      </div>
-      <span className="text-sm font-semibold text-accent">{value}</span>
-    </div>
-  );
-}
-
 // --- Leaderboard Components ---
 
 function FallbackAvatar({ name }: { name: string }) {
@@ -595,7 +575,7 @@ function MyScoreTab() {
             <button
               onClick={handleShare}
               disabled={sharing}
-              className="mb-4 w-full flex items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-50 animate-pulse-gentle"
             >
               {sharing ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -612,57 +592,6 @@ function MyScoreTab() {
                 ? "Generating..."
                 : "Share on X (image copied to clipboard)"}
             </button>
-
-            {(() => {
-              const r = scoreResult.breakdown.reach.score
-              const e = scoreResult.breakdown.engagement.score
-              const rat = scoreResult.breakdown.ratio.score
-              const v = scoreResult.breakdown.verification.score
-              const geoM = scoreResult.breakdown.geo.multiplier
-              const reachPts = Math.round(r * 0.6495 * 10_000)
-              const engPts = Math.round(e * 0.25 * 10_000)
-              const ratioPts = Math.round(rat * 0.10 * 10_000)
-              const verPts = Math.round(v * 0.0001 * 10_000)
-              const geoPts = Math.round(geoM * 0.0004 * 10_000)
-
-              return (
-                <div className="rounded-xl border border-k-border bg-zinc-900/50 p-4">
-                  <h3 className="text-sm font-semibold text-zinc-300 mb-2">Score Breakdown</h3>
-
-                  <BreakdownRow
-                    label="Reach (65%)"
-                    value={`+${formatNumber(reachPts)}`}
-                    detail={`${scoreResult.breakdown.reach.followers.toLocaleString()} followers`}
-                  />
-                  <BreakdownRow
-                    label="Engagement (25%)"
-                    value={`+${formatNumber(engPts)}`}
-                    detail={`rate ${((scoreResult.breakdown.engagement.avgLikes + scoreResult.breakdown.engagement.avgRetweets + scoreResult.breakdown.engagement.avgReplies) / Math.max(scoreResult.breakdown.reach.followers, 1) * 100).toFixed(2)}% · ${scoreResult.breakdown.engagement.tweetsAnalyzed} tweets`}
-                  />
-                  <BreakdownRow
-                    label="Follower Ratio (10%)"
-                    value={`+${formatNumber(ratioPts)}`}
-                    detail={`${scoreResult.breakdown.ratio.followers.toLocaleString()} / ${scoreResult.breakdown.ratio.following.toLocaleString()} (${scoreResult.breakdown.ratio.following > 0 ? (scoreResult.breakdown.ratio.followers / scoreResult.breakdown.ratio.following).toFixed(1) : '∞'}:1)`}
-                  />
-                  <BreakdownRow
-                    label="Verification"
-                    value={`+${formatNumber(verPts)}`}
-                    detail={scoreResult.breakdown.verification.type || 'Not verified'}
-                  />
-                  <BreakdownRow
-                    label="Location"
-                    value={`+${formatNumber(geoPts)}`}
-                    detail={`${scoreResult.breakdown.geo.location || 'Unknown'} · ${scoreResult.breakdown.geo.tierLabel}`}
-                  />
-
-                  <div className="mt-3 pt-3 border-t border-k-border flex justify-end">
-                    <span className="text-sm font-bold text-accent">
-                      {formatNumber(scoreResult.totalScore)}/10,000
-                    </span>
-                  </div>
-                </div>
-              )
-            })()}
           </div>
         </div>
       )}
@@ -706,11 +635,16 @@ function MyScoreTab() {
                   "Approve the transaction in your wallet..."}
                 {step === "confirming" && "Confirming payment on Solana..."}
                 {step === "calculating" &&
-                  "Reading your X profile & tweets and computing score..."}
+                  "Analyzing your X profile & tweets..."}
                 {step === "generating_image" &&
                   "Generating your buffed profile image..."}
                 {step === "checking_x" && "Checking X account..."}
               </p>
+              {step === "calculating" && (
+                <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
+                  Evaluating reach · engagement rate · follower ratio · verification status · location
+                </p>
+              )}
               <p className="mt-1 text-xs text-zinc-500">
                 This may take a few seconds
               </p>
