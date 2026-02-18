@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
 
-  const returnTo = new URL(request.url).searchParams.get('returnTo') || '/dashboard'
+  const returnTo = new URL(request.url).searchParams.get('returnTo') || '/my-score'
 
   // Revoke any existing X token so X shows the account picker
   const user = await prisma.user.findUnique({

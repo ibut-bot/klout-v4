@@ -154,22 +154,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!t) throw new Error('Not authenticated')
       }
 
-      // Don't set Content-Type for FormData - browser sets it with boundary
       const isFormData = options.body instanceof FormData
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${t}`,
-      }
-      if (!isFormData) {
-        headers['Content-Type'] = 'application/json'
+      const buildHeaders = (token: string) => {
+        const h: Record<string, string> = { Authorization: `Bearer ${token}` }
+        if (!isFormData) h['Content-Type'] = 'application/json'
+        return h
       }
 
-      return fetch(url, {
+      const res = await fetch(url, {
         ...options,
-        headers: {
-          ...headers,
-          ...(options.headers as Record<string, string>),
-        },
+        headers: { ...buildHeaders(t), ...(options.headers as Record<string, string>) },
       })
+
+      if (res.status === 401) {
+        const refreshed = await authenticate()
+        if (!refreshed) throw new Error('Not authenticated')
+        return fetch(url, {
+          ...options,
+          headers: { ...buildHeaders(refreshed), ...(options.headers as Record<string, string>) },
+        })
+      }
+
+      return res
     },
     [authenticate]
   )

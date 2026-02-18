@@ -335,6 +335,7 @@ function MyScoreTab() {
   const { isAuthenticated, authFetch } = useAuth();
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
+  const searchParams = useSearchParams();
 
   const [xLinked, setXLinked] = useState<boolean | null>(null);
   const [xUsername, setXUsername] = useState<string | null>(null);
@@ -344,6 +345,20 @@ function MyScoreTab() {
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [sharing, setSharing] = useState(false);
+  const [hasFollowed, setHasFollowed] = useState(false);
+
+  useEffect(() => {
+    setHasFollowed(localStorage.getItem('klout_has_followed') === 'true');
+  }, []);
+
+  useEffect(() => {
+    const xLink = searchParams.get('x_link');
+    const xUser = searchParams.get('x_username');
+    if (xLink === 'success' && xUser) {
+      setXLinked(true);
+      setXUsername(xUser);
+    }
+  }, [searchParams]);
 
   const handleShare = useCallback(async () => {
     if (!scoreResult) return;
@@ -494,8 +509,8 @@ function MyScoreTab() {
         </div>
       )}
 
-      {/* Follow @kloutgg Prompt */}
-      {xLinked && !scoreResult && (
+      {/* Follow @kloutgg Prompt — only when X is linked, no score yet, and hasn't followed */}
+      {xLinked && !scoreResult && !hasFollowed && (
         <div className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-5 space-y-3 text-center">
           <div className="flex items-start gap-3">
             <svg
@@ -520,6 +535,10 @@ function MyScoreTab() {
             href="https://x.com/intent/follow?screen_name=kloutgg"
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              localStorage.setItem('klout_has_followed', 'true');
+              setHasFollowed(true);
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-black hover:bg-accent-hover transition-colors"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
@@ -646,8 +665,8 @@ function MyScoreTab() {
         </div>
       )}
 
-      {/* Calculate / Recalculate Button */}
-      {xLinked && (
+      {/* Calculate / Recalculate Button — disabled until user has followed @kloutgg */}
+      {xLinked && (hasFollowed || scoreResult) && (
         <div className="rounded-2xl border border-k-border bg-surface p-6 text-center">
           {step === "idle" || step === "done" || step === "error" ? (
             <>

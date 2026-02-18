@@ -15,50 +15,59 @@ export async function GET(request: NextRequest) {
   const error = url.searchParams.get('error')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const defaultRedirect = '/my-score'
+
+  function buildRedirectUrl(basePath: string, params: string) {
+    return `${appUrl}${basePath}${basePath.includes('?') ? '&' : '?'}${params}`
+  }
+
+  // Try to extract returnTo from cookie early for error redirects
+  let returnTo = defaultRedirect
+  const cookieValue = request.cookies.get('x_oauth_state')?.value
+  if (cookieValue) {
+    try {
+      const parsed = JSON.parse(Buffer.from(cookieValue, 'base64').toString())
+      if (parsed.returnTo) returnTo = parsed.returnTo
+    } catch {}
+  }
 
   if (error) {
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=${error}`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, `x_link=error&reason=${error}`))
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=missing_params`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=missing_params'))
   }
 
-  // Read and validate state cookie
-  const cookieValue = request.cookies.get('x_oauth_state')?.value
   if (!cookieValue) {
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=expired_session`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=expired_session'))
   }
 
   let cookieData: { state: string; verifier: string; userId: string; returnTo?: string }
   try {
     cookieData = JSON.parse(Buffer.from(cookieValue, 'base64').toString())
+    if (cookieData.returnTo) returnTo = cookieData.returnTo
   } catch {
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=invalid_session`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=invalid_session'))
   }
 
   if (cookieData.state !== state) {
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=state_mismatch`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=state_mismatch'))
   }
 
   try {
-    // Exchange code for tokens
     const tokens = await exchangeCodeForTokens(code, cookieData.verifier)
-
-    // Fetch X user profile
     const xProfile = await getXUserProfile(tokens.accessToken)
 
-    // Check if this X account is already linked to another user
     const existingLink = await prisma.user.findUnique({
       where: { xUserId: xProfile.id },
       select: { id: true },
     })
 
     if (existingLink && existingLink.id !== cookieData.userId) {
-      return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=already_linked`)
+      return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=already_linked'))
     }
 
-    // Link X account to the user
     await prisma.user.update({
       where: { id: cookieData.userId },
       data: {
@@ -70,13 +79,11 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const redirectTo = cookieData.returnTo || '/dashboard'
-    const response = NextResponse.redirect(`${appUrl}${redirectTo}${redirectTo.includes('?') ? '&' : '?'}x_link=success&x_username=${xProfile.username}`)
-    // Clear the OAuth state cookie
+    const response = NextResponse.redirect(buildRedirectUrl(returnTo, `x_link=success&x_username=${xProfile.username}`))
     response.cookies.delete('x_oauth_state')
     return response
   } catch (err) {
     console.error('X OAuth callback error:', err)
-    return NextResponse.redirect(`${appUrl}/dashboard?x_link=error&reason=token_exchange_failed`)
+    return NextResponse.redirect(buildRedirectUrl(returnTo, 'x_link=error&reason=token_exchange_failed'))
   }
 }
