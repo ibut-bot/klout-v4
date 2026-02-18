@@ -129,8 +129,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return { error: 'BUDGET_EXHAUSTED' }
     }
 
-    // Cap payouts to fit within remaining budget
-    // Walk through submissions, include full payouts until budget runs out, cap the last one
+    // Determine per-user cap: maxBudgetPerUserPercent of total budget minus already-paid amounts
+    const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+    const maxPerUser = totalBudget
+      ? BigInt(Math.floor(Number(totalBudget.budgetLamports) * (freshConfig.maxBudgetPerUserPercent / 100)))
+      : BigInt(0)
+
+    // Sum what this user has already been paid or has pending payment for
+    const priorSubmissions = await tx.campaignSubmission.findMany({
+      where: {
+        taskId,
+        submitterId: userId,
+        status: { in: ['PAYMENT_REQUESTED', 'PAID'] },
+      },
+      select: { payoutLamports: true },
+    })
+    const priorPaid = priorSubmissions.reduce((sum, s) => sum + (s.payoutLamports || BigInt(0)), BigInt(0))
+    const userBudgetLeft = maxPerUser > BigInt(0) ? maxPerUser - priorPaid : BigInt(0)
+
+    if (maxPerUser > BigInt(0) && userBudgetLeft <= BigInt(0)) {
+      return { error: 'USER_CAP_REACHED' }
+    }
+
+    // Cap payouts to fit within remaining budget AND per-user cap
+    let effectiveCeiling = budgetRemaining
+    if (maxPerUser > BigInt(0) && userBudgetLeft < effectiveCeiling) {
+      effectiveCeiling = userBudgetLeft
+    }
+
     let totalCapped = BigInt(0)
     const includedIds: string[] = []
     const cappedPayouts: { id: string; payout: bigint }[] = []
@@ -139,7 +165,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const payout = s.payoutLamports || BigInt(0)
       if (payout <= BigInt(0)) continue
 
-      const remaining = budgetRemaining - totalCapped
+      const remaining = effectiveCeiling - totalCapped
       if (remaining <= BigInt(0)) break
 
       const capped = payout > remaining ? remaining : payout
@@ -147,7 +173,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       cappedPayouts.push({ id: s.id, payout: capped })
       totalCapped += capped
 
-      // If we had to cap this one, update its payout amount
       if (capped < payout) {
         await tx.campaignSubmission.update({
           where: { id: s.id },
@@ -192,6 +217,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       BELOW_THRESHOLD: 'Your cumulative payout is below the minimum payout threshold.',
       NO_APPROVED: 'No approved submissions found.',
       CONFIG_MISSING: 'Campaign configuration not found.',
+      USER_CAP_REACHED: 'You have reached the maximum payout allowed per user for this campaign.',
     }
     return Response.json(
       { success: false, error: result.error, message: messages[result.error as string] || 'Payment request failed. Please try again.' },

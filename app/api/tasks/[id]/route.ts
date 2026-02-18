@@ -85,6 +85,8 @@ export async function GET(
             minRetweets: task.campaignConfig.minRetweets,
             minComments: task.campaignConfig.minComments,
             minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
+            maxBudgetPerUserPercent: task.campaignConfig.maxBudgetPerUserPercent,
+            maxBudgetPerPostPercent: task.campaignConfig.maxBudgetPerPostPercent,
             collateralLink: task.campaignConfig.collateralLink,
           }
         : null,
@@ -157,7 +159,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, collateralLink } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, collateralLink } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -325,7 +327,7 @@ export async function PATCH(
   }
 
   // Check if there are campaign config updates
-  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || budgetIncrease !== null || collateralLink !== undefined
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || budgetIncrease !== null || collateralLink !== undefined
 
   // Use transaction for campaign config updates
   if (isCampaign && hasCampaignConfigUpdates) {
@@ -348,6 +350,8 @@ export async function PATCH(
       if (minLikes !== undefined) configUpdate.minLikes = Math.max(0, parseInt(minLikes) || 0)
       if (minRetweets !== undefined) configUpdate.minRetweets = Math.max(0, parseInt(minRetweets) || 0)
       if (minComments !== undefined) configUpdate.minComments = Math.max(0, parseInt(minComments) || 0)
+      if (maxBudgetPerUserPercent !== undefined) configUpdate.maxBudgetPerUserPercent = Math.max(1, Math.min(100, Number(maxBudgetPerUserPercent) || 10))
+      if (maxBudgetPerPostPercent !== undefined) configUpdate.maxBudgetPerPostPercent = Math.max(0.1, Math.min(100, Number(maxBudgetPerPostPercent) || 1))
       if (budgetIncrease !== null && task.campaignConfig) {
         configUpdate.budgetRemainingLamports = task.campaignConfig.budgetRemainingLamports + budgetIncrease
       }

@@ -44,6 +44,8 @@ interface Task {
     minRetweets: number
     minComments: number
     minPayoutLamports: string
+    maxBudgetPerUserPercent?: number
+    maxBudgetPerPostPercent?: number
     collateralLink?: string | null
   } | null
   winningBid?: {
@@ -141,6 +143,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editCpm, setEditCpm] = useState(task.campaignConfig ? String(Number(task.campaignConfig.cpmLamports) / mult) : '')
   const [editMinPayout, setEditMinPayout] = useState(task.campaignConfig && Number(task.campaignConfig.minPayoutLamports) > 0 ? String(Number(task.campaignConfig.minPayoutLamports) / mult) : '')
   const [editCollateralLink, setEditCollateralLink] = useState(task.campaignConfig?.collateralLink || '')
+  const [editMaxBudgetPerUser, setEditMaxBudgetPerUser] = useState(String(task.campaignConfig?.maxBudgetPerUserPercent ?? 10))
+  const [editMaxBudgetPerPost, setEditMaxBudgetPerPost] = useState(String(task.campaignConfig?.maxBudgetPerPostPercent ?? 1))
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
@@ -275,6 +279,12 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       if (newMinRetweets !== (task.campaignConfig?.minRetweets ?? 0)) updates.minRetweets = newMinRetweets
       if (newMinComments !== (task.campaignConfig?.minComments ?? 0)) updates.minComments = newMinComments
 
+      // Budget caps
+      const newMaxPerUser = parseFloat(editMaxBudgetPerUser) || 10
+      const newMaxPerPost = parseFloat(editMaxBudgetPerPost) || 1
+      if (newMaxPerUser !== (task.campaignConfig?.maxBudgetPerUserPercent ?? 10)) updates.maxBudgetPerUserPercent = newMaxPerUser
+      if (newMaxPerPost !== (task.campaignConfig?.maxBudgetPerPostPercent ?? 1)) updates.maxBudgetPerPostPercent = newMaxPerPost
+
       // Deadline
       if (editDeadline) {
         const newDeadline = new Date(editDeadline).toISOString()
@@ -372,7 +382,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
@@ -384,6 +394,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           ...(updates.minLikes !== undefined ? { minLikes: updates.minLikes } : {}),
           ...(updates.minRetweets !== undefined ? { minRetweets: updates.minRetweets } : {}),
           ...(updates.minComments !== undefined ? { minComments: updates.minComments } : {}),
+          ...(updates.maxBudgetPerUserPercent !== undefined ? { maxBudgetPerUserPercent: updates.maxBudgetPerUserPercent } : {}),
+          ...(updates.maxBudgetPerPostPercent !== undefined ? { maxBudgetPerPostPercent: updates.maxBudgetPerPostPercent } : {}),
         }
       }
 
@@ -595,6 +607,23 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                 <div>
                   <label className="mb-0.5 block text-[10px] text-zinc-500">Comments</label>
                   <input type="number" min="0" step="1" value={editMinComments} onChange={(e) => setEditMinComments(e.target.value)} placeholder="0"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Budget Caps</label>
+              <p className="mb-2 text-[10px] text-zinc-600">Limit how much of the total budget a single user or post can consume.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Max per user (%)</label>
+                  <input type="number" min="1" max="100" step="0.1" value={editMaxBudgetPerUser} onChange={(e) => setEditMaxBudgetPerUser(e.target.value)} placeholder="10"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Max per post (%)</label>
+                  <input type="number" min="0.1" max="100" step="0.1" value={editMaxBudgetPerPost} onChange={(e) => setEditMaxBudgetPerPost(e.target.value)} placeholder="1"
                     className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
                 </div>
               </div>

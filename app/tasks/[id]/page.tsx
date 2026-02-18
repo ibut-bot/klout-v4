@@ -139,7 +139,7 @@ export default function TaskDetailPage() {
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
-    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; collateralLink?: string | null
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; collateralLink?: string | null
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
@@ -684,6 +684,8 @@ export default function TaskDetailPage() {
               minLikes={campaignConfig.minLikes}
               minRetweets={campaignConfig.minRetweets}
               minComments={campaignConfig.minComments}
+              maxBudgetPerUserPercent={campaignConfig.maxBudgetPerUserPercent}
+              maxBudgetPerPostPercent={campaignConfig.maxBudgetPerPostPercent}
               collateralLink={campaignConfig.collateralLink}
               xLinked={xLinked}
               hasKloutScore={hasKloutScore}
@@ -725,6 +727,12 @@ export default function TaskDetailPage() {
                   <p>Budget remaining: {formatTokenAmount(campaignConfig.budgetRemainingLamports, tInfo, 2)} {tInfo.symbol}</p>
                   {Number(campaignConfig.minPayoutLamports) > 0 && (
                     <p>Min payout threshold: {formatTokenAmount(campaignConfig.minPayoutLamports, tInfo, 2)} {tInfo.symbol}</p>
+                  )}
+                  {campaignConfig.maxBudgetPerUserPercent != null && (
+                    <p>Max per user: {campaignConfig.maxBudgetPerUserPercent}% of budget</p>
+                  )}
+                  {campaignConfig.maxBudgetPerPostPercent != null && (
+                    <p>Max per post: {campaignConfig.maxBudgetPerPostPercent}% of budget</p>
                   )}
                   {task.paymentToken === 'CUSTOM' && task.customTokenMint && (
                     <p>Token: <span className="font-semibold text-accent">{tInfo.symbol}</span> <code className="text-xs text-zinc-500 font-mono">({task.customTokenMint.slice(0, 8)}...)</code></p>

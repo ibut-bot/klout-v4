@@ -117,6 +117,8 @@ export default function TaskForm() {
   const [minRetweets, setMinRetweets] = useState('0')
   const [minComments, setMinComments] = useState('0')
   const [minPayout, setMinPayout] = useState('')
+  const [maxBudgetPerUser, setMaxBudgetPerUser] = useState('10')
+  const [maxBudgetPerPost, setMaxBudgetPerPost] = useState('1')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
   const [collateralLink, setCollateralLink] = useState('')
@@ -250,6 +252,8 @@ export default function TaskForm() {
         minRetweets: parseInt(minRetweets) || 0,
         minComments: parseInt(minComments) || 0,
         ...(minPayout ? { minPayoutLamports: Math.round(parseFloat(minPayout) * multiplier) } : {}),
+        maxBudgetPerUserPercent: parseFloat(maxBudgetPerUser) || 10,
+        maxBudgetPerPostPercent: parseFloat(maxBudgetPerPost) || 1,
         ...(collateralLink.trim() ? { collateralLink: collateralLink.trim() } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
@@ -559,6 +563,41 @@ export default function TaskForm() {
               className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <p className="mt-1 text-xs text-zinc-500">Participants must accumulate at least this much in approved payouts before they can request payment. Leave empty or 0 for no minimum.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Budget Caps</label>
+            <p className="mb-3 text-xs text-zinc-500">Limit how much of the total budget a single user or post can consume.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Max per user (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="100"
+                  value={maxBudgetPerUser}
+                  onChange={(e) => setMaxBudgetPerUser(e.target.value)}
+                  placeholder="10"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
+                />
+                <p className="mt-0.5 text-[10px] text-zinc-600">Max % of total budget one user can earn</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Max per post (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="100"
+                  value={maxBudgetPerPost}
+                  onChange={(e) => setMaxBudgetPerPost(e.target.value)}
+                  placeholder="1"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
+                />
+                <p className="mt-0.5 text-[10px] text-zinc-600">Max % of total budget one post can earn</p>
+              </div>
+            </div>
           </div>
 
           <div>

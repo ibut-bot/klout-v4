@@ -378,7 +378,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 11. Calculate payout (budget is NOT deducted here — only at payment request time)
-  const payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * Number(config.cpmLamports)))
+  let payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * Number(config.cpmLamports)))
+
+  // Cap payout to maxBudgetPerPostPercent of total budget
+  const maxPerPost = BigInt(Math.floor(Number(task.budgetLamports) * (config.maxBudgetPerPostPercent / 100)))
+  if (maxPerPost > BigInt(0) && payoutLamports > maxPerPost) {
+    payoutLamports = maxPerPost
+  }
 
   if (payoutLamports <= BigInt(0)) {
     await prisma.campaignSubmission.update({
