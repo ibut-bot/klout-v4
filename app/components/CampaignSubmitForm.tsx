@@ -44,6 +44,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     payoutLamports?: string
     explanation?: string
     error?: string
+    resubmittable?: boolean
   } | null>(null)
 
   const budgetExhausted = BigInt(budgetRemainingLamports) <= BigInt(0)
@@ -114,6 +115,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           error: data.message,
           explanation: data.explanation,
           viewCount: data.viewCount,
+          resubmittable: data.resubmittable,
         })
         setStep('form')
       }
@@ -288,6 +290,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
                 )}
                 {result.viewCount !== undefined && (
                   <p className="mt-1 text-red-500">Views: {result.viewCount}</p>
+                )}
+                {result.resubmittable && (
+                  <p className="mt-2 text-amber-400">You can resubmit this post once it meets the minimum thresholds.</p>
                 )}
               </div>
             )}

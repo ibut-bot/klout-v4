@@ -14,6 +14,8 @@ export const maxDuration = 60
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000) // ~10c SOL
 
+const THRESHOLD_REJECTION_RE = /^Post has \d+ (views|likes|retweets|comments), minimum required is \d+\.$/
+
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -161,10 +163,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   if (existing) {
-    // If a previous attempt got stuck in a processing state (e.g. timeout) on THIS task,
-    // delete it so the user can retry
     const processingStates = ['READING_VIEWS', 'CHECKING_CONTENT']
-    if (existing.taskId === taskId && processingStates.includes(existing.status)) {
+    const isStuckProcessing = existing.taskId === taskId && processingStates.includes(existing.status)
+    const isThresholdRejection = existing.taskId === taskId
+      && existing.status === 'REJECTED'
+      && THRESHOLD_REJECTION_RE.test(existing.rejectionReason || '')
+
+    if (isStuckProcessing || isThresholdRejection) {
       await prisma.campaignSubmission.delete({ where: { id: existing.id } })
     } else {
       return Response.json(
@@ -277,6 +282,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       success: false, error: 'INSUFFICIENT_VIEWS',
       message: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}`,
       viewCount: postMetrics.viewCount, minViews: config.minViews,
+      resubmittable: true,
     }, { status: 400 })
   }
 
@@ -288,6 +294,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return Response.json({
       success: false, error: 'INSUFFICIENT_LIKES',
       message: `Post has ${postMetrics.likeCount} likes, minimum required is ${config.minLikes}`,
+      resubmittable: true,
     }, { status: 400 })
   }
 
@@ -299,6 +306,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return Response.json({
       success: false, error: 'INSUFFICIENT_RETWEETS',
       message: `Post has ${postMetrics.retweetCount} retweets, minimum required is ${config.minRetweets}`,
+      resubmittable: true,
     }, { status: 400 })
   }
 
@@ -310,6 +318,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return Response.json({
       success: false, error: 'INSUFFICIENT_COMMENTS',
       message: `Post has ${postMetrics.commentCount} comments, minimum required is ${config.minComments}`,
+      resubmittable: true,
     }, { status: 400 })
   }
 
