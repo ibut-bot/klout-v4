@@ -19,8 +19,6 @@ const pages: Record<string, string> = {
   escrow: 'Escrow & Payments',
   referrals: 'Referral Program',
   'referral-tiers': 'Referral Tiers',
-  'api-overview': 'API Overview',
-  'api-campaigns': 'Campaign Endpoints',
   faq: 'FAQ',
   changelog: 'Changelog',
 }
@@ -31,7 +29,6 @@ const sections = [
   { label: 'For Creators', items: ['browse-campaigns', 'join-campaign', 'cpm-payouts', 'wallet'] },
   { label: 'For Brands', items: ['launch', 'campaign-fields', 'managing-submissions', 'escrow'] },
   { label: 'Referrals', items: ['referrals', 'referral-tiers'] },
-  { label: 'API Reference', items: ['api-overview', 'api-campaigns'] },
   { label: 'Resources', items: ['faq', 'changelog'] },
 ]
 
@@ -41,7 +38,7 @@ const sectionIcons: Record<string, string> = {
   'browse-campaigns': '📋', 'join-campaign': '🚀', 'cpm-payouts': '💸', wallet: '👛',
   launch: '📣', 'campaign-fields': '📝', 'managing-submissions': '✅', escrow: '🔐',
   referrals: '🔗', 'referral-tiers': '📈',
-  'api-overview': '🔌', 'api-campaigns': '📡',
+  
   faq: '❓', changelog: '📝',
 }
 
@@ -86,18 +83,6 @@ function InfoCard({ icon, title, children }: { icon: string; title: string; chil
   )
 }
 
-function Endpoint({ method, path, children }: { method: 'GET' | 'POST' | 'DELETE'; path: string; children: React.ReactNode }) {
-  const methodColors = { GET: 'bg-green-500/15 text-green-400', POST: 'bg-accent/15 text-accent', DELETE: 'bg-red-500/15 text-red-400' }
-  return (
-    <div className="rounded-xl border border-k-border bg-surface overflow-hidden my-5">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-k-border bg-surface-hover">
-        <span className={`font-mono text-[11px] font-medium px-2 py-0.5 rounded ${methodColors[method]}`}>{method}</span>
-        <span className="font-mono text-[13px] text-zinc-100">{path}</span>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  )
-}
 
 function Badge({ color, children }: { color: 'yellow' | 'green' | 'gray' | 'red' | 'blue'; children: React.ReactNode }) {
   const styles = {
@@ -121,7 +106,6 @@ function IntroPage({ go }: { go: (id: string) => void }) {
         <p className="text-[17px] text-zinc-400 max-w-xl leading-relaxed mb-7">Klout connects X (Twitter) creators with brands — earn SOL based on the real views your posts generate. Your Klout Score determines eligibility and future earning power.</p>
         <div className="flex gap-2.5 flex-wrap">
           <button onClick={() => go('quickstart')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-accent text-black hover:bg-accent-hover transition">⚡ Get Started</button>
-          <button onClick={() => go('api-overview')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-k-border text-zinc-400 hover:border-k-border-hover hover:text-zinc-200 transition">🔌 API Reference</button>
         </div>
       </div>
 
@@ -641,86 +625,6 @@ function ReferralTiersPage() {
   )
 }
 
-function ApiOverviewPage() {
-  return (
-    <>
-      <PageTitle icon="🔌" title="API Overview" sub="Integrate Klout into your own tools via the REST API." />
-      <H2 first>Base URL</H2>
-      <Pre>https://klout.gg/api</Pre>
-
-      <H2>Authentication</H2>
-      <P>All requests require a Bearer token. Retrieve your API key from <strong className="text-zinc-100 font-medium">My Klout → Settings → API Keys</strong>.</P>
-      <Pre>{'Authorization: Bearer <your_api_key>'}</Pre>
-
-      <H2>Response Format</H2>
-      <P>All responses return JSON. Errors use a consistent shape:</P>
-      <Pre label="JSON">{`{
-  "error": {
-    "code": "SCORE_BELOW_MINIMUM",
-    "message": "Your Klout Score does not meet this campaign's requirement.",
-    "status": 403
-  }
-}`}</Pre>
-
-      <H2>Rate Limits</H2>
-      <Table heads={['Plan', 'Requests / min', 'Requests / day']} rows={[
-        ['Free', '30', '1,000'],
-        ['Pro', '120', '20,000'],
-        ['Enterprise', 'Unlimited', 'Unlimited'],
-      ]} />
-      <P>Every response includes <code className="text-accent text-[13px] font-mono bg-surface-hover border border-k-border px-1.5 py-0.5 rounded">X-RateLimit-Remaining</code> and <code className="text-accent text-[13px] font-mono bg-surface-hover border border-k-border px-1.5 py-0.5 rounded">X-RateLimit-Reset</code> headers.</P>
-    </>
-  )
-}
-
-function ApiCampaignsPage() {
-  return (
-    <>
-      <PageTitle icon="📡" title="Campaign Endpoints" sub="Create and manage campaigns programmatically." />
-      <Endpoint method="GET" path="/api/campaigns">
-        <p className="text-[13px] text-zinc-400">List campaigns. Filter by status: <code className="text-accent text-[13px] font-mono bg-surface-hover border border-k-border px-1.5 py-0.5 rounded">?status=open</code> or <code className="text-accent text-[13px] font-mono bg-surface-hover border border-k-border px-1.5 py-0.5 rounded">?status=completed</code>.</p>
-      </Endpoint>
-      <Endpoint method="POST" path="/api/campaigns">
-        <p className="text-[13px] text-zinc-400 mb-3">Create a new campaign draft.</p>
-        <Pre label="Request Body">{`{
-  "title": "Quote our launch tweet",
-  "card_heading": "Earn SOL for every 1,000 views",
-  "details": "Quote post this tweet: https://x.com/kloutgg/...",
-  "token": "SOL",
-  "budget": 1.0,
-  "cpm": 0.03,
-  "thresholds": {
-    "min_views": 500,
-    "min_likes": 2,
-    "min_retweets": 2,
-    "min_comments": 2
-  },
-  "min_payout_threshold": 0.01,
-  "budget_caps": {
-    "max_per_user_pct": 10,
-    "max_per_post_pct": 1
-  },
-  "guidelines_do": ["Mention @kloutgg", "Use #Klout"],
-  "guidelines_dont": ["Do not edit the quote post text"],
-  "duration_days": 7
-}`}</Pre>
-      </Endpoint>
-      <Endpoint method="POST" path="/api/campaigns/:id/publish">
-        <p className="text-[13px] text-zinc-400">Publish a draft — locks budget in escrow and makes campaign live immediately.</p>
-      </Endpoint>
-      <Endpoint method="GET" path="/api/campaigns/:id/submissions">
-        <p className="text-[13px] text-zinc-400">List all submissions for a campaign. Returns submitter X handle, post URL, views, calculated payout, platform fee, status, and date.</p>
-      </Endpoint>
-      <Endpoint method="POST" path="/api/campaigns/:id/submissions/:sub_id/release">
-        <p className="text-[13px] text-zinc-400">Release payment for an approved submission. Triggers an on-chain transfer from the campaign escrow vault to the creator&apos;s connected Solana wallet.</p>
-      </Endpoint>
-      <Endpoint method="POST" path="/api/campaigns/:id/submissions/:sub_id/reject">
-        <p className="text-[13px] text-zinc-400">Reject a submission manually. Include an optional <code className="text-accent text-[13px] font-mono bg-surface-hover border border-k-border px-1.5 py-0.5 rounded">reason</code> field in the body.</p>
-      </Endpoint>
-    </>
-  )
-}
-
 function FaqPage() {
   return (
     <>
@@ -911,8 +815,6 @@ export default function DocsPage() {
       case 'escrow': return <EscrowPage />
       case 'referrals': return <ReferralsPage />
       case 'referral-tiers': return <ReferralTiersPage />
-      case 'api-overview': return <ApiOverviewPage />
-      case 'api-campaigns': return <ApiCampaignsPage />
       case 'faq': return <FaqPage />
       case 'changelog': return <ChangelogPage />
       default: return <IntroPage go={go} />
