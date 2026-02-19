@@ -21,6 +21,7 @@ interface Props {
   minComments?: number
   maxBudgetPerUserPercent?: number
   maxBudgetPerPostPercent?: number
+  minKloutScore?: number | null
   collateralLink?: string | null
   xLinked: boolean
   hasKloutScore: boolean
@@ -31,7 +32,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -218,16 +219,22 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minPayoutDisplay} {sym}</p>
           </div>
         )}
-        {maxBudgetPerUserPercent !== undefined && (
+        {maxBudgetPerUserPercent != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Max per user</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{maxBudgetPerUserPercent}% of budget</p>
           </div>
         )}
-        {maxBudgetPerPostPercent !== undefined && (
+        {maxBudgetPerPostPercent != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Max per post</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{maxBudgetPerPostPercent}% of budget</p>
+          </div>
+        )}
+        {minKloutScore != null && (
+          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+            <p className="text-[11px] text-zinc-500">Min Klout score</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{minKloutScore.toLocaleString()}</p>
           </div>
         )}
       </div>

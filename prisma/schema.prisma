@@ -304,8 +304,9 @@ model CampaignConfig {
   minRetweets             Int     @default(0)
   minComments             Int     @default(0)
   minPayoutLamports       BigInt  @default(0)  // Minimum cumulative payout before user can request payment
-  maxBudgetPerUserPercent Float   @default(10) // Max % of total budget a single user can earn
-  maxBudgetPerPostPercent Float   @default(1)  // Max % of total budget a single post can earn
+  maxBudgetPerUserPercent Float?  // Max % of total budget a single user can earn (null = no limit)
+  maxBudgetPerPostPercent Float?  // Max % of total budget a single post can earn (null = no limit)
+  minKloutScore           Int?    // Minimum Klout score required to participate (null = no requirement)
   collateralLink          String?   // Optional link to Google Drive / Dropbox with campaign collateral for creators
 
   task                    Task    @relation(fields: [taskId], references: [id])

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // 1. Check user has linked X account and Klout score
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, xScores: { select: { id: true }, take: 1 } },
+    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, xScores: { select: { id: true, totalScore: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
   })
 
   if (!user?.xUserId) {
@@ -201,6 +201,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { success: false, error: 'INVALID_PAYMENT', message: feeVerification.error || 'API fee payment verification failed' },
       { status: 400 }
     )
+  }
+
+  // 6b. Check minimum Klout score requirement (after fee, before X API calls)
+  if (config.minKloutScore != null) {
+    const latestScore = await prisma.xScoreData.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { totalScore: true },
+    })
+    const userScore = latestScore?.totalScore ?? 0
+    if (userScore < config.minKloutScore) {
+      return Response.json({
+        success: false,
+        error: 'KLOUT_SCORE_TOO_LOW',
+        message: `Your Klout score (${Math.round(userScore)}) is below the minimum required (${config.minKloutScore}) for this campaign.`,
+      }, { status: 400 })
+    }
   }
 
   // Create the submission record early so we can update it through the process
@@ -380,10 +397,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // 11. Calculate payout (budget is NOT deducted here — only at payment request time)
   let payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * Number(config.cpmLamports)))
 
-  // Cap payout to maxBudgetPerPostPercent of total budget
-  const maxPerPost = BigInt(Math.floor(Number(task.budgetLamports) * (config.maxBudgetPerPostPercent / 100)))
-  if (maxPerPost > BigInt(0) && payoutLamports > maxPerPost) {
-    payoutLamports = maxPerPost
+  // Cap payout to maxBudgetPerPostPercent of total budget (if configured)
+  if (config.maxBudgetPerPostPercent != null) {
+    const maxPerPost = BigInt(Math.floor(Number(task.budgetLamports) * (config.maxBudgetPerPostPercent / 100)))
+    if (maxPerPost > BigInt(0) && payoutLamports > maxPerPost) {
+      payoutLamports = maxPerPost
+    }
   }
 
   if (payoutLamports <= BigInt(0)) {

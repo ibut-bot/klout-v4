@@ -239,7 +239,7 @@ Posts a new task to the marketplace.
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
    - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }, paymentToken: "SOL", "USDC", or "CUSTOM" (default: SOL)
    - For CUSTOM tokens: also provide `customTokenMint` (mint address), `customTokenSymbol` (e.g. "BONK"), `customTokenDecimals` (e.g. 5), and optionally `customTokenLogoUri` (token icon URL)
-   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0)
+   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0), minKloutScore (minimum Klout score required to participate, optional — not set by default), maxBudgetPerUserPercent (max % of budget one user can earn, optional), maxBudgetPerPostPercent (max % of budget one post can earn, optional)
 
 **Note**: All amounts (budgetLamports, cpmLamports, minPayoutLamports) are in the token's base units. SOL: 1e9 lamports per SOL. USDC: 1e6 base units per USDC. Custom tokens: 10^decimals base units per token (e.g. BONK with 5 decimals = 1e5 base units). The vault is funded with the chosen token (native SOL transfer or SPL token transfer). Transaction fees and post verification fees always remain in SOL.
 
@@ -247,6 +247,17 @@ Posts a new task to the marketplace.
 - Posts are checked against minimum views, likes, retweets, and comments thresholds set by the campaign creator
 - All thresholds default to 0 (disabled) except minViews which defaults to 100
 - Posts must meet ALL minimums to qualify
+
+**Campaign Klout Score Requirement**:
+- Campaign creators can optionally set a minimum Klout score (`minKloutScore`) for participation
+- If set, participants must have a Klout score >= the threshold to submit posts
+- The check happens after the submission fee is paid but before any X API or AI content checks
+- Not set by default — all users with a Klout score can participate unless the creator sets a threshold
+
+**Campaign Budget Caps** (optional):
+- `maxBudgetPerUserPercent` — Max percentage of the total campaign budget a single user can earn across all their submissions (null = no limit)
+- `maxBudgetPerPostPercent` — Max percentage of the total campaign budget a single post can earn (null = no limit)
+- Neither is set by default — campaign creators can optionally configure these
 
 **Campaign Payment Flow**:
 1. Participant submits post → auto-verified (views, likes, retweets, comments, ownership, content) → status: APPROVED (budget NOT deducted)
@@ -291,7 +302,7 @@ Edit campaign details after creation (creator only). Supports updating descripti
 
 **CLI (image only)**: `npm run skill:tasks:image -- --task "TASK_ID" --password "pass" [--image "/path/to/image.jpg" | --remove]`
 
-**CLI (full edit)**: `npm run skill:tasks:edit -- --task "TASK_ID" --password "pass" [--description "new desc"] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "a,b,c"] [--donts "x,y"] [--deadline "2026-03-01T00:00:00Z"] [--budget 3.0] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1]`
+**CLI (full edit)**: `npm run skill:tasks:edit -- --task "TASK_ID" --password "pass" [--description "new desc"] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "a,b,c"] [--donts "x,y"] [--deadline "2026-03-01T00:00:00Z"] [--budget 3.0] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1] [--min-klout 500]`
 
 ### 4. Get Task Details
 Retrieves full details of a specific task including bids, status, and task type.
@@ -552,8 +563,8 @@ Located in the `skills/` directory:
 |--------|-------------|---------|-----------|
 | `auth.ts` | `skill:auth` | Authenticate with wallet | `--password` |
 | `list-tasks.ts` | `skill:tasks:list` | List marketplace tasks | `[--status --type --limit --page]` |
-| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm amount] [--payment-token sol\|usdc\|<mint-address>] [--dos "a,b"] [--donts "a,b"] [--collateral-link URL] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N]` |
-| `edit-task.ts` | `skill:tasks:edit` | Edit campaign (description, heading, collateral link, guidelines, thresholds, deadline, budget increase) | `--task --password [--description --heading --collateral-link --dos --donts --deadline --budget --min-views --min-likes --min-retweets --min-comments]` |
+| `create-task.ts` | `skill:tasks:create` | Create a task (pays fee) | `--title --description --budget --password [--type quote\|competition\|campaign] [--duration days] [--heading "..."] [--cpm amount] [--payment-token sol\|usdc\|<mint-address>] [--dos "a,b"] [--donts "a,b"] [--collateral-link URL] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N] [--min-klout N]` |
+| `edit-task.ts` | `skill:tasks:edit` | Edit campaign (description, heading, collateral link, guidelines, thresholds, deadline, budget increase) | `--task --password [--description --heading --collateral-link --dos --donts --deadline --budget --min-views --min-likes --min-retweets --min-comments --min-klout N]` |
 | `update-task-image.ts` | `skill:tasks:image` | Update/remove campaign image | `--task --password [--image \| --remove]` |
 | `get-task.ts` | `skill:tasks:get` | Get task details | `--id` |
 | `list-bids.ts` | `skill:bids:list` | List bids for a task | `--task` |

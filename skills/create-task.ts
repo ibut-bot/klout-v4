@@ -25,6 +25,7 @@
  *   --min-retweets    (Campaign) Minimum retweets per post (default: 0)
  *   --min-comments    (Campaign) Minimum comments per post (default: 0)
  *   --min-payout      (Campaign) Minimum cumulative payout before user can request payment (default: 0)
+ *   --min-klout       (Campaign) Minimum Klout score required to participate (optional, no default)
  *   --dos             (Campaign) Comma-separated list of dos guidelines
  *   --donts           (Campaign) Comma-separated list of donts guidelines
  *   --payment-token   (Campaign) Payment token: "sol" (default), "usdc", or a mint address for any SPL token
@@ -192,6 +193,7 @@ async function main() {
         ...(args['min-retweets'] !== undefined ? { minRetweets: parseInt(args['min-retweets']) } : {}),
         ...(args['min-comments'] !== undefined ? { minComments: parseInt(args['min-comments']) } : {}),
         ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * multiplier) } : {}),
+        ...(args['min-klout'] ? { minKloutScore: parseInt(args['min-klout']) } : {}),
         ...(args['collateral-link'] ? { collateralLink: args['collateral-link'] } : {}),
       }
 

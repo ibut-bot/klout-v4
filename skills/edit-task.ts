@@ -21,6 +21,7 @@
  *   --min-likes        Minimum likes threshold (campaign only)
  *   --min-retweets     Minimum retweets threshold (campaign only)
  *   --min-comments     Minimum comments threshold (campaign only)
+ *   --min-klout        Minimum Klout score required to participate (campaign only, use "null" to remove)
  *   --deadline         New deadline (ISO date string, must be in the future; use "null" to remove)
  *   --budget           New budget in SOL or USDC (must be greater than current — increase only, token auto-detected from task)
  *   --password         Wallet password for authentication
@@ -47,11 +48,11 @@ async function main() {
     process.exit(1)
   }
 
-  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['collateral-link'] === undefined && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined) {
+  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['collateral-link'] === undefined && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined && args['min-klout'] === undefined) {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'At least one edit field required: --description, --heading, --collateral-link, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments',
+      message: 'At least one edit field required: --description, --heading, --collateral-link, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments, --min-klout',
     }))
     process.exit(1)
   }
@@ -79,6 +80,7 @@ async function main() {
     if (args['min-likes'] !== undefined) updates.minLikes = parseInt(args['min-likes'])
     if (args['min-retweets'] !== undefined) updates.minRetweets = parseInt(args['min-retweets'])
     if (args['min-comments'] !== undefined) updates.minComments = parseInt(args['min-comments'])
+    if (args['min-klout'] !== undefined) updates.minKloutScore = args['min-klout'] === 'null' ? null : parseInt(args['min-klout'])
 
     if (args.dos || args.donts) {
       const dos = args.dos ? args.dos.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined

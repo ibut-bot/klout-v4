@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -355,8 +355,9 @@ export async function POST(request: NextRequest) {
           ...(minRetweets !== undefined ? { minRetweets: Math.max(0, parseInt(minRetweets) || 0) } : {}),
           ...(minComments !== undefined ? { minComments: Math.max(0, parseInt(minComments) || 0) } : {}),
           ...(minPayoutLamports !== undefined ? { minPayoutLamports: BigInt(Math.max(0, Number(minPayoutLamports) || 0)) } : {}),
-          ...(maxBudgetPerUserPercent !== undefined ? { maxBudgetPerUserPercent: Math.max(1, Math.min(100, Number(maxBudgetPerUserPercent) || 10)) } : {}),
-          ...(maxBudgetPerPostPercent !== undefined ? { maxBudgetPerPostPercent: Math.max(0.1, Math.min(100, Number(maxBudgetPerPostPercent) || 1)) } : {}),
+          ...(maxBudgetPerUserPercent != null && Number(maxBudgetPerUserPercent) > 0 ? { maxBudgetPerUserPercent: Math.max(1, Math.min(100, Number(maxBudgetPerUserPercent))) } : {}),
+          ...(maxBudgetPerPostPercent != null && Number(maxBudgetPerPostPercent) > 0 ? { maxBudgetPerPostPercent: Math.max(0.1, Math.min(100, Number(maxBudgetPerPostPercent))) } : {}),
+          ...(minKloutScore != null && Number(minKloutScore) > 0 ? { minKloutScore: Math.max(1, Math.min(10000, Math.round(Number(minKloutScore)))) } : {}),
           ...(collateralLink ? { collateralLink: String(collateralLink).trim() } : {}),
         },
       })

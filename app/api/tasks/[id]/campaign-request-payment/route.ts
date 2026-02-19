@@ -129,32 +129,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return { error: 'BUDGET_EXHAUSTED' }
     }
 
-    // Determine per-user cap: maxBudgetPerUserPercent of total budget minus already-paid amounts
-    const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
-    const maxPerUser = totalBudget
-      ? BigInt(Math.floor(Number(totalBudget.budgetLamports) * (freshConfig.maxBudgetPerUserPercent / 100)))
-      : BigInt(0)
-
-    // Sum what this user has already been paid or has pending payment for
-    const priorSubmissions = await tx.campaignSubmission.findMany({
-      where: {
-        taskId,
-        submitterId: userId,
-        status: { in: ['PAYMENT_REQUESTED', 'PAID'] },
-      },
-      select: { payoutLamports: true },
-    })
-    const priorPaid = priorSubmissions.reduce((sum, s) => sum + (s.payoutLamports || BigInt(0)), BigInt(0))
-    const userBudgetLeft = maxPerUser > BigInt(0) ? maxPerUser - priorPaid : BigInt(0)
-
-    if (maxPerUser > BigInt(0) && userBudgetLeft <= BigInt(0)) {
-      return { error: 'USER_CAP_REACHED' }
-    }
-
-    // Cap payouts to fit within remaining budget AND per-user cap
+    // Determine per-user cap (if configured)
     let effectiveCeiling = budgetRemaining
-    if (maxPerUser > BigInt(0) && userBudgetLeft < effectiveCeiling) {
-      effectiveCeiling = userBudgetLeft
+
+    if (freshConfig.maxBudgetPerUserPercent != null) {
+      const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+      const maxPerUser = totalBudget
+        ? BigInt(Math.floor(Number(totalBudget.budgetLamports) * (freshConfig.maxBudgetPerUserPercent / 100)))
+        : BigInt(0)
+
+      if (maxPerUser > BigInt(0)) {
+        const priorSubmissions = await tx.campaignSubmission.findMany({
+          where: {
+            taskId,
+            submitterId: userId,
+            status: { in: ['PAYMENT_REQUESTED', 'PAID'] },
+          },
+          select: { payoutLamports: true },
+        })
+        const priorPaid = priorSubmissions.reduce((sum, s) => sum + (s.payoutLamports || BigInt(0)), BigInt(0))
+        const userBudgetLeft = maxPerUser - priorPaid
+
+        if (userBudgetLeft <= BigInt(0)) {
+          return { error: 'USER_CAP_REACHED' }
+        }
+
+        if (userBudgetLeft < effectiveCeiling) {
+          effectiveCeiling = userBudgetLeft
+        }
+      }
     }
 
     let totalCapped = BigInt(0)
