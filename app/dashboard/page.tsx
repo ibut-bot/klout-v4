@@ -636,13 +636,23 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-0.5 block text-[10px] text-zinc-500">Max per user (%)</label>
-                  <input type="number" min="1" max="100" step="0.1" value={editMaxBudgetPerUser} onChange={(e) => setEditMaxBudgetPerUser(e.target.value)} placeholder="No limit"
-                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                  <div className="relative">
+                    <input type="number" min="1" max="100" step="0.1" value={editMaxBudgetPerUser} onChange={(e) => setEditMaxBudgetPerUser(e.target.value)} placeholder="No limit"
+                      className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 pr-7 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                    {editMaxBudgetPerUser && (
+                      <button type="button" onClick={() => setEditMaxBudgetPerUser('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs" title="Remove limit">✕</button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-0.5 block text-[10px] text-zinc-500">Max per post (%)</label>
-                  <input type="number" min="0.1" max="100" step="0.1" value={editMaxBudgetPerPost} onChange={(e) => setEditMaxBudgetPerPost(e.target.value)} placeholder="No limit"
-                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                  <div className="relative">
+                    <input type="number" min="0.1" max="100" step="0.1" value={editMaxBudgetPerPost} onChange={(e) => setEditMaxBudgetPerPost(e.target.value)} placeholder="No limit"
+                      className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 pr-7 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                    {editMaxBudgetPerPost && (
+                      <button type="button" onClick={() => setEditMaxBudgetPerPost('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs" title="Remove limit">✕</button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
