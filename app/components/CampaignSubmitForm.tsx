@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
@@ -22,6 +22,7 @@ interface Props {
   maxBudgetPerUserPercent?: number
   maxBudgetPerPostPercent?: number
   minKloutScore?: number | null
+  requireFollowX?: string | null
   collateralLink?: string | null
   xLinked: boolean
   hasKloutScore: boolean
@@ -32,7 +33,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -49,6 +50,23 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     error?: string
     resubmittable?: boolean
   } | null>(null)
+
+  const followKey = requireFollowX ? `follow_${taskId}_${requireFollowX}` : ''
+  const [hasFollowed, setHasFollowed] = useState(false)
+
+  useEffect(() => {
+    if (followKey && typeof window !== 'undefined') {
+      setHasFollowed(localStorage.getItem(followKey) === '1')
+    }
+  }, [followKey])
+
+  const handleFollowClick = () => {
+    if (requireFollowX) {
+      window.open(`https://x.com/intent/follow?screen_name=${requireFollowX}`, '_blank')
+      localStorage.setItem(followKey, '1')
+      setHasFollowed(true)
+    }
+  }
 
   const budgetExhausted = BigInt(budgetRemainingLamports) <= BigInt(0)
 
@@ -238,6 +256,23 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           </div>
         )}
       </div>
+
+      {/* Follow requirement */}
+      {requireFollowX && !hasFollowed && (
+        <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-zinc-200">Follow <span className="text-accent">@{requireFollowX}</span> on X</p>
+            <p className="text-xs text-zinc-500 mt-0.5">The campaign creator requires participants to follow their X account.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleFollowClick}
+            className="flex-shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover transition-colors"
+          >
+            Follow
+          </button>
+        </div>
+      )}
 
       {/* Guidelines */}
       {(guidelines.dos.length > 0 || guidelines.donts.length > 0) && (

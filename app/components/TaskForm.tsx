@@ -120,6 +120,7 @@ export default function TaskForm() {
   const [maxBudgetPerUser, setMaxBudgetPerUser] = useState('')
   const [maxBudgetPerPost, setMaxBudgetPerPost] = useState('')
   const [minKloutScore, setMinKloutScore] = useState('')
+  const [requireFollowX, setRequireFollowX] = useState('')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
   const [collateralLink, setCollateralLink] = useState('')
@@ -256,6 +257,7 @@ export default function TaskForm() {
         ...(maxBudgetPerUser && parseFloat(maxBudgetPerUser) > 0 ? { maxBudgetPerUserPercent: parseFloat(maxBudgetPerUser) } : {}),
         ...(maxBudgetPerPost && parseFloat(maxBudgetPerPost) > 0 ? { maxBudgetPerPostPercent: parseFloat(maxBudgetPerPost) } : {}),
         ...(minKloutScore && parseInt(minKloutScore) > 0 ? { minKloutScore: parseInt(minKloutScore) } : {}),
+        ...(requireFollowX.trim() ? { requireFollowX: requireFollowX.trim().replace(/^@/, '') } : {}),
         ...(collateralLink.trim() ? { collateralLink: collateralLink.trim() } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
@@ -615,6 +617,18 @@ export default function TaskForm() {
               className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <p className="mt-1 text-xs text-zinc-500">Participants must have at least this Klout score to submit. Leave empty for no requirement.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Require Follow on X — optional</label>
+            <input
+              type="text"
+              value={requireFollowX}
+              onChange={(e) => setRequireFollowX(e.target.value)}
+              placeholder="@yourhandle"
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            <p className="mt-1 text-xs text-zinc-500">Participants will be prompted to follow this X account before submitting. Leave empty for no requirement.</p>
           </div>
 
           <div>

@@ -239,7 +239,7 @@ Posts a new task to the marketplace.
    - Basic fields: title, description, budgetLamports, paymentTxSignature, multisigAddress, vaultAddress
    - Campaign fields: taskType: "CAMPAIGN", cpmLamports, guidelines: { dos: [], donts: [] }, paymentToken: "SOL", "USDC", or "CUSTOM" (default: SOL)
    - For CUSTOM tokens: also provide `customTokenMint` (mint address), `customTokenSymbol` (e.g. "BONK"), `customTokenDecimals` (e.g. 5), and optionally `customTokenLogoUri` (token icon URL)
-   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0), minKloutScore (minimum Klout score required to participate, optional — not set by default), maxBudgetPerUserPercent (max % of budget one user can earn, optional), maxBudgetPerPostPercent (max % of budget one post can earn, optional)
+   - Optional: imageUrl (from upload), durationDays (1-365), heading (short text for campaign card), collateralLink (URL to Google Drive/Dropbox with assets for creators — not AI-checked), minPayoutLamports (minimum cumulative payout before user can request payment, default 0), minViews (minimum views per post, default 100), minLikes (minimum likes, default 0), minRetweets (minimum retweets, default 0), minComments (minimum comments, default 0), minKloutScore (minimum Klout score required to participate, optional — not set by default), requireFollowX (X username participants should follow, optional — not set by default), maxBudgetPerUserPercent (max % of budget one user can earn, optional), maxBudgetPerPostPercent (max % of budget one post can earn, optional)
 
 **Note**: All amounts (budgetLamports, cpmLamports, minPayoutLamports) are in the token's base units. SOL: 1e9 lamports per SOL. USDC: 1e6 base units per USDC. Custom tokens: 10^decimals base units per token (e.g. BONK with 5 decimals = 1e5 base units). The vault is funded with the chosen token (native SOL transfer or SPL token transfer). Transaction fees and post verification fees always remain in SOL.
 
@@ -253,6 +253,12 @@ Posts a new task to the marketplace.
 - If set, participants must have a Klout score >= the threshold to submit posts
 - The check happens after the submission fee is paid but before any X API or AI content checks
 - Not set by default — all users with a Klout score can participate unless the creator sets a threshold
+
+**Campaign Follow Requirement**:
+- Campaign creators can optionally require participants to follow their X account (`requireFollowX`)
+- The campaign page shows a follow button that opens an X intent to follow the specified account
+- This is a soft requirement — no enforcement is done server-side, the follow button simply disappears after being clicked
+- Not set by default
 
 **Campaign Budget Caps** (optional):
 - `maxBudgetPerUserPercent` — Max percentage of the total campaign budget a single user can earn across all their submissions (null = no limit)

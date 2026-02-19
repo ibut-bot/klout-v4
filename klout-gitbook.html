@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klout Docs — Monetize your Klout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1c1c1c;
+    --border: #2a2a2a;
+    --accent: #f5c518;
+    --text: #f0f0f0;
+    --muted: #777;
+    --sidebar-w: 268px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  aside {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    overflow-y: auto;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 15px;
+    color: #0a0a0a; flex-shrink: 0;
+  }
+  .logo-text { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; color: var(--text); }
+  .logo-text span { color: var(--muted); font-weight: 400; font-size: 12px; display: block; margin-top: -2px; }
+
+  .sidebar-search {
+    margin: 14px 14px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    color: var(--muted); font-size: 13px; cursor: pointer;
+    transition: border-color .2s;
+  }
+  .sidebar-search:hover { border-color: var(--accent); }
+
+  nav { padding: 8px 0 24px; }
+  .nav-section {
+    padding: 14px 20px 6px;
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 20px;
+    color: var(--muted); text-decoration: none; font-size: 13.5px;
+    border-left: 2px solid transparent;
+    transition: all .15s; cursor: pointer;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(245,197,24,.06); font-weight: 500; }
+  .nav-item .icon { font-size: 14px; opacity: .75; }
+
+  main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  .topbar {
+    position: sticky; top: 0;
+    background: rgba(10,10,10,.88); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 52px; z-index: 50;
+  }
+  .breadcrumb { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .breadcrumb span { color: var(--text); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all .15s; text-decoration: none; border: none;
+  }
+  .btn-primary { background: var(--accent); color: #0a0a0a; }
+  .btn-primary:hover { background: #ffd84d; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+  .content { max-width: 780px; margin: 0 auto; padding: 52px 40px 80px; width: 100%; }
+  section.page { display: none; }
+  section.page.active { display: block; }
+
+  .hero { margin-bottom: 48px; }
+  .hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(245,197,24,.1); border: 1px solid rgba(245,197,24,.25);
+    color: var(--accent); font-size: 11px; font-family: 'DM Mono', monospace;
+    letter-spacing: .08em; padding: 4px 10px; border-radius: 20px; margin-bottom: 18px;
+  }
+  h1 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 40px; line-height: 1.1; margin-bottom: 14px; letter-spacing: -.02em; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .hero-sub { font-size: 17px; color: var(--muted); max-width: 560px; line-height: 1.65; margin-bottom: 28px; }
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 28px 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px;
+    cursor: pointer; transition: all .2s; text-decoration: none; display: block;
+  }
+  .card:hover { border-color: var(--accent); background: var(--surface2); transform: translateY(-2px); }
+  .card-icon { font-size: 24px; margin-bottom: 10px; }
+  .card h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .card p { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+  h2 {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 25px;
+    letter-spacing: -.01em; margin: 44px 0 14px;
+    padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  h2:first-of-type { margin-top: 0; border-top: none; }
+  h3 { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 17px; margin: 28px 0 8px; color: var(--text); }
+
+  p { margin-bottom: 16px; color: #c0c0c0; }
+  ul, ol { padding-left: 20px; margin-bottom: 16px; color: #c0c0c0; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); font-weight: 500; }
+  a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  a:hover { text-decoration: underline; }
+
+  code {
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 2px 7px; border-radius: 4px; color: var(--accent);
+  }
+  pre {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; overflow-x: auto; margin: 20px 0; position: relative;
+  }
+  pre code { background: none; border: none; padding: 0; color: #b8e88a; font-size: 13px; line-height: 1.7; }
+  .pre-label { position: absolute; top: 10px; right: 14px; font-size: 10px; font-family: 'DM Mono', monospace; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+
+  .callout { border-radius: 10px; padding: 16px 20px; margin: 20px 0; display: flex; gap: 12px; font-size: 14px; }
+  .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { flex: 1; }
+  .callout-body strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  .callout-body p { margin: 0; font-size: 13.5px; }
+  .callout-info    { background: rgba(245,197,24,.07); border: 1px solid rgba(245,197,24,.2); }
+  .callout-tip     { background: rgba(100,200,100,.07); border: 1px solid rgba(100,200,100,.2); }
+  .callout-warning { background: rgba(255,160,0,.07);  border: 1px solid rgba(255,160,0,.2); }
+  .callout-danger  { background: rgba(255,77,77,.07);  border: 1px solid rgba(255,77,77,.2); }
+
+  .steps { margin: 24px 0; }
+  .step { display: flex; gap: 16px; margin-bottom: 28px; position: relative; }
+  .step:not(:last-child)::after {
+    content: ''; position: absolute; left: 15px; top: 36px; bottom: -14px;
+    width: 1px; background: var(--border);
+  }
+  .step-num {
+    width: 32px; height: 32px; background: var(--accent); color: #0a0a0a;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .step-content { flex: 1; padding-top: 4px; }
+  .step-content h4 { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 15px; margin-bottom: 6px; color: var(--text); }
+  .step-content p { font-size: 13.5px; margin: 0; color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13.5px; }
+  th { text-align: left; padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 12px 14px; border-bottom: 1px solid rgba(42,42,42,.7); color: #c0c0c0; vertical-align: top; }
+  tr:hover td { background: var(--surface2); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: 'DM Mono', monospace; font-weight: 500; }
+  .badge-yellow { background: rgba(245,197,24,.15); color: var(--accent); }
+  .badge-green  { background: rgba(100,200,100,.15); color: #78e08f; }
+  .badge-gray   { background: var(--surface2); color: var(--muted); }
+  .badge-red    { background: rgba(255,100,100,.15); color: #ff8080; }
+  .badge-blue   { background: rgba(100,150,255,.15); color: #88aaff; }
+
+  /* Score / info cards */
+  .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin: 24px 0; }
+  .info-card-header { background: var(--surface2); padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+  .info-card-body { padding: 20px; }
+
+  /* Stats grid */
+  .stat-grid { display: grid; gap: 12px; margin-bottom: 16px; }
+  .stat-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .stat-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .stat-box { background: var(--surface2); border-radius: 8px; padding: 14px; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
+  .stat-value.accent { color: var(--accent); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Leaderboard */
+  .lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-rank { width: 24px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); text-align: center; flex-shrink: 0; }
+  .lb-rank.top { color: var(--accent); font-weight: 700; }
+  .lb-avatar { width: 34px; height: 34px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .lb-name { flex: 1; font-size: 14px; color: var(--text); }
+  .lb-score { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--accent); font-weight: 500; }
+
+  /* Referral */
+  .tier-bar-wrap { background: var(--surface2); border-radius: 8px; overflow: hidden; height: 6px; margin: 10px 0 6px; }
+  .tier-bar-fill { height: 100%; background: var(--accent); border-radius: 8px; width: 0.5%; }
+
+  /* Form field mock */
+  .mock-form { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 24px 0; }
+  .mock-field { margin-bottom: 18px; }
+  .mock-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; letter-spacing: .04em; }
+  .mock-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 9px 12px; color: var(--muted);
+    font-size: 13px; font-family: 'DM Sans', sans-serif;
+  }
+  .mock-input.has-value { color: var(--text); }
+  .mock-hint { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  .mock-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mock-token-group { display: flex; gap: 8px; margin-bottom: 6px; }
+  .mock-token-btn { padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: default; border: 1px solid var(--border); color: var(--muted); background: var(--surface2); }
+  .mock-token-btn.active { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+
+  /* Submission table mock */
+  .sub-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+  .sub-table th { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .sub-table td { padding: 10px 10px; border-bottom: 1px solid rgba(42,42,42,.6); color: #c0c0c0; vertical-align: middle; }
+  .sub-table tr:hover td { background: var(--surface2); }
+
+  /* Progress bar */
+  .prog-wrap { background: var(--surface2); border-radius: 4px; height: 5px; margin: 8px 0; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+
+  /* API endpoint */
+  .endpoint { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 20px 0; }
+  .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 13px 18px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .method { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; }
+  .method-get    { background: rgba(100,200,100,.15); color: #78e08f; }
+  .method-post   { background: rgba(245,197,24,.15);  color: var(--accent); }
+  .method-delete { background: rgba(255,100,100,.15); color: #ff8080; }
+  .endpoint-path { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text); }
+  .endpoint-body { padding: 16px 18px; }
+  .endpoint-desc { font-size: 13px; color: var(--muted); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .content { animation: fadeInUp .3s ease both; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside>
+  <div class="sidebar-logo">
+    <div class="logo-mark">⚡</div>
+    <div class="logo-text">Klout<span>Documentation</span></div>
+  </div>
+  <div class="sidebar-search">
+    🔍 Search docs...
+    <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;">⌘K</span>
+  </div>
+  <nav>
+    <div class="nav-section">Getting Started</div>
+    <a class="nav-item active" onclick="showPage('intro')"><span class="icon">🏠</span> Introduction</a>
+    <a class="nav-item" onclick="showPage('quickstart')"><span class="icon">⚡</span> Quickstart</a>
+    <a class="nav-item" onclick="showPage('concepts')"><span class="icon">🧠</span> Core Concepts</a>
+
+    <div class="nav-section">Klout Score</div>
+    <a class="nav-item" onclick="showPage('klout-score')"><span class="icon">⚡</span> My Klout Score</a>
+    <a class="nav-item" onclick="showPage('leaderboard')"><span class="icon">🏆</span> Leaderboard</a>
+
+    <div class="nav-section">For Creators</div>
+    <a class="nav-item" onclick="showPage('browse-campaigns')"><span class="icon">📋</span> Browsing Campaigns</a>
+    <a class="nav-item" onclick="showPage('join-campaign')"><span class="icon">🚀</span> Joining a Campaign</a>
+    <a class="nav-item" onclick="showPage('cpm-payouts')"><span class="icon">💸</span> CPM & Payouts</a>
+    <a class="nav-item" onclick="showPage('wallet')"><span class="icon">👛</span> Wallet & Payments</a>
+
+    <div class="nav-section">For Brands</div>
+    <a class="nav-item" onclick="showPage('launch')"><span class="icon">📣</span> Launching a Campaign</a>
+    <a class="nav-item" onclick="showPage('campaign-fields')"><span class="icon">📝</span> Campaign Fields</a>
+    <a class="nav-item" onclick="showPage('managing-submissions')"><span class="icon">✅</span> Managing Submissions</a>
+    <a class="nav-item" onclick="showPage('escrow')"><span class="icon">🔐</span> Escrow & Payments</a>
+
+    <div class="nav-section">Referrals</div>
+    <a class="nav-item" onclick="showPage('referrals')"><span class="icon">🔗</span> Referral Program</a>
+    <a class="nav-item" onclick="showPage('referral-tiers')"><span class="icon">📈</span> Referral Tiers</a>
+
+    <div class="nav-section">API Reference</div>
+    <a class="nav-item" onclick="showPage('api-overview')"><span class="icon">🔌</span> API Overview</a>
+    <a class="nav-item" onclick="showPage('api-campaigns')"><span class="icon">📡</span> Campaign Endpoints</a>
+
+    <div class="nav-section">Resources</div>
+    <a class="nav-item" onclick="showPage('faq')"><span class="icon">❓</span> FAQ</a>
+    <a class="nav-item" onclick="showPage('changelog')"><span class="icon">📝</span> Changelog</a>
+  </nav>
+</aside>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main>
+  <div class="topbar">
+    <div class="breadcrumb">Klout Docs › <span id="breadcrumb-title">Introduction</span></div>
+    <div class="topbar-right">
+      <a class="btn btn-ghost" href="https://klout.gg/tasks" target="_blank">Browse Campaigns →</a>
+      <a class="btn btn-primary" href="https://klout.gg" target="_blank">Open Klout ↗</a>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════ INTRO ═══════════════════════════ -->
+    <section class="page active" id="page-intro">
+      <div class="hero">
+        <div class="hero-eyebrow">✦ Official Documentation</div>
+        <h1>Monetize your <em>Klout</em></h1>
+        <p class="hero-sub">Klout connects X (Twitter) creators with brands — earn SOL based on the real views your posts generate. Your Klout Score determines eligibility and future earning power.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" onclick="showPage('quickstart')">⚡ Get Started</button>
+          <button class="btn btn-ghost" onclick="showPage('api-overview')">🔌 API Reference</button>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <a class="card" onclick="showPage('klout-score')">
+          <div class="card-icon">⚡</div>
+          <h3>My Klout Score</h3>
+          <p>Your X account quality score — the key to unlocking campaigns and higher future earning rates.</p>
+        </a>
+        <a class="card" onclick="showPage('cpm-payouts')">
+          <div class="card-icon">📊</div>
+          <h3>CPM & Payouts</h3>
+          <p>Earn based on real views. Understand how CPM, engagement thresholds, and payout requests work.</p>
+        </a>
+        <a class="card" onclick="showPage('referrals')">
+          <div class="card-icon">🔗</div>
+          <h3>Referral Program</h3>
+          <p>Share your link and earn a % of platform fees on every campaign your referrals complete.</p>
+        </a>
+        <a class="card" onclick="showPage('launch')">
+          <div class="card-icon">📣</div>
+          <h3>Launch a Campaign</h3>
+          <p>Post a CPM-based campaign, set your requirements, and pay only for real engagement.</p>
+        </a>
+      </div>
+
+      <h2>What is Klout?</h2>
+      <p>Klout is a creator monetization marketplace built on <strong>Solana</strong>. Brands post campaigns on X topics — creators post, generate real views, and earn SOL based on a <strong>CPM (cost per 1,000 views)</strong> model. Budget is held in an on-chain escrow vault and released by the brand directly to each creator's connected wallet as posts are verified and approved.</p>
+      <p>The <strong>Klout Score</strong> — a measure of your X account's quality — determines which campaigns you can access and will drive tiered earning rates as the platform grows.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">⚡</div>
+        <div class="callout-body">
+          <strong>Pay for real reach, not flat fees</strong>
+          <p>Unlike fixed-payout platforms, Klout's CPM model means brands pay proportionally for the reach they actually receive, and creators are rewarded for the real impact their posts generate.</p>
+        </div>
+      </div>
+
+      <h2>Platform at a Glance</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Klout Score</strong></td><td>X account quality score — gates campaign access and will determine future earning rates</td></tr>
+          <tr><td><strong>CPM Campaigns</strong></td><td>Earn per 1,000 verified views on your X posts — paid in any Solana token the brand selects</td></tr>
+          <tr><td><strong>Escrow Budget</strong></td><td>Brand budgets are locked in escrow; brands release payments manually per submission</td></tr>
+          <tr><td><strong>AI + Manual Review</strong></td><td>Submissions auto-screened for botting; brands do final checks before releasing payment</td></tr>
+          <tr><td><strong>Leaderboard</strong></td><td>Live ranking of 15,000+ users by Klout Score</td></tr>
+          <tr><td><strong>Referrals</strong></td><td>Earn a % of platform fees on every payout your referrals receive</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════ QUICKSTART ═══════════════════════════ -->
+    <section class="page" id="page-quickstart">
+      <h1>⚡ Quickstart</h1>
+      <p class="hero-sub">Go from zero to your first CPM payout in minutes.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Connect a Solana wallet</h4>
+            <p>Visit <a href="https://klout.gg" target="_blank">klout.gg</a> and connect any Solana-supported wallet — Phantom, Backpack, Solflare, and others all work. This is where all your campaign earnings will be sent.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Connect your X account</h4>
+            <p>Sign in with X (Twitter). Klout uses your X profile and tweet history to calculate your Klout Score, which determines which campaigns you're eligible for.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Check your Klout Score</h4>
+            <p>Go to <strong>My Klout → My Klout Score</strong>. Your score is computed from your X profile metrics and tweet history. Recalculate at any time for <strong>0.01 SOL</strong> (covers X API costs) to reflect recent growth.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Browse and join a campaign</h4>
+            <p>Head to <strong>Campaigns</strong> and find an open campaign you're eligible for. Read the brief carefully — it will specify a tweet to quote post, accounts to mention, and any content requirements.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>Submit your post</h4>
+            <p>Post on X then paste your post URL into the submission field. There's a small <strong>0.0005 SOL verification fee</strong> to submit, which covers the cost of checking your post's metrics via the X API.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <h4>Accumulate views and request payment</h4>
+            <p>Once your post meets the minimum engagement thresholds and your approved earnings reach the campaign's payout threshold, you can request payment. The brand reviews and releases SOL directly to your wallet.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Earn while you sleep</strong>
+          <p>Share your referral link right away. Every time someone you referred gets paid from a campaign, you automatically receive a percentage of the platform fee — no action needed.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CONCEPTS ═══════════════════════════ -->
+    <section class="page" id="page-concepts">
+      <h1>🧠 Core Concepts</h1>
+      <p class="hero-sub">The building blocks of the Klout platform.</p>
+
+      <h2>Klout Score</h2>
+      <p>Your <strong>Klout Score</strong> is a numerical measure of your X account's quality and influence, computed from your profile metrics and historical tweet performance. It determines which campaigns you're eligible for today, and will drive tiered earning rates in future platform updates.</p>
+
+      <h2>CPM — Cost Per 1,000 Views</h2>
+      <p>Campaigns on Klout are priced on a <strong>CPM</strong> basis — brands set a rate they'll pay per 1,000 verified views on creator posts. When you submit a post, your payout is calculated as: <code>(views ÷ 1,000) × CPM rate</code>. Earning is proportional to actual reach — the more genuine views your post gets, the more you earn.</p>
+
+      <h2>Escrow Budget</h2>
+      <p>When a brand posts a campaign, their total budget is immediately locked in an <strong>on-chain escrow vault</strong>. Creators don't receive payment until the brand manually releases it, ensuring funds are always available and protected. Unused budget remains in escrow until the campaign ends.</p>
+
+      <h2>Minimum Engagement Thresholds</h2>
+      <p>Every campaign sets minimum requirements a post must meet to qualify for payout — for example, a minimum number of views, likes, retweets, or comments. Posts that don't meet all thresholds are not eligible for payment, regardless of CPM calculation.</p>
+
+      <h2>Minimum Payout Threshold</h2>
+      <p>Creators accumulate approved earnings across one or more qualifying posts. Once their total reaches the campaign's <strong>minimum payout threshold</strong>, they can request payment. This prevents micro-payouts and keeps transaction costs manageable.</p>
+
+      <h2>AI + Manual Review</h2>
+      <p>All submissions are automatically screened for artificially inflated engagement (bots, paid services, engagement pods). Posts flagged by the AI are marked and not eligible for payment. The brand then does a final manual review of remaining submissions before choosing which to release payment for.</p>
+
+      <h2>Solana Wallet</h2>
+      <p>Klout does not hold creator funds. All payments are sent directly to the Solana wallet you connect to your account — Phantom, Backpack, Solflare, and other compatible wallets all work.</p>
+    </section>
+
+    <!-- ═══════════════════════════ KLOUT SCORE ═══════════════════════════ -->
+    <section class="page" id="page-klout-score">
+      <h1>⚡ My Klout Score</h1>
+      <p class="hero-sub">Your X account quality score — the gateway to campaigns and future earning tiers on Klout.</p>
+
+      <h2>What is the Klout Score?</h2>
+      <p>The Klout Score is a numerical assessment of your X (Twitter) account's quality and influence. It's computed from your profile metrics and the historical performance of your tweets to produce a single number that reflects the real impact your voice has on X.</p>
+      <p>Your score is the central mechanic on Klout — it gates which campaigns you can join today, and as the platform evolves, it will directly determine how much you earn per campaign through tiered earning rates.</p>
+
+      <div class="info-card">
+        <div class="info-card-header"><span>⚡</span> Example Score Card</div>
+        <div class="info-card-body">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+            <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:52px;color:var(--accent);line-height:1;">28</div>
+            <div>
+              <div style="font-size:13px;color:var(--muted);">NPC Energy</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace;">≡+ ENHANCED</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--muted);font-style:italic;margin-bottom:16px;">"I can finesse free shipping on a DM deal"</div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-ghost" style="font-size:12px;padding:5px 12px;">𝕏 Share on X</button>
+            <button class="btn btn-primary" style="font-size:12px;padding:5px 12px;">Recalculate — 0.01 SOL</button>
+          </div>
+        </div>
+      </div>
+
+      <h2>What Determines Your Score?</h2>
+      <p>Your score is computed from data fetched via the X API and covers:</p>
+      <ul>
+        <li>Follower count and quality of your follower network</li>
+        <li>Engagement rate on recent and historical tweets (likes, reposts, replies)</li>
+        <li>Tweet frequency and posting consistency</li>
+        <li>Profile completeness and account age</li>
+        <li>Amplification patterns — how often your content is shared further</li>
+      </ul>
+
+      <h2>What Your Score Unlocks</h2>
+      <table>
+        <thead><tr><th>Now</th><th>Coming soon</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Campaign eligibility — score gates which campaigns you can join</td>
+            <td>Tiered earning rates — higher scores will earn more per campaign</td>
+          </tr>
+          <tr>
+            <td>Leaderboard ranking — compare yourself against 15,000+ creators</td>
+            <td>Premium brand deals exclusively available to top-ranked creators</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Recalculating Your Score</h2>
+      <p>Your score is calculated when you first join. Recalculate at any time for <strong>0.01 SOL</strong> — this covers the cost of fetching fresh data from the X API. Recalculation is instant and useful after follower growth, a viral tweet, or a stretch of unusually high engagement.</p>
+
+      <h2>Sharing Your Score</h2>
+      <p>Hit <strong>Share on X</strong> from your score card. The image is auto-copied to your clipboard. Sharing your score is a natural way to drive referral sign-ups: followers curious about their own score click your referral link, earning you passive SOL income every time they get paid.</p>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">ℹ️</div>
+        <div class="callout-body">
+          <strong>Score labels</strong>
+          <p>Every score has a descriptive label (e.g. "NPC Energy", "Enhanced") giving a human-readable sense of your tier. Higher labels signal stronger accounts to brands and unlock more campaign access.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ LEADERBOARD ═══════════════════════════ -->
+    <section class="page" id="page-leaderboard">
+      <h1>🏆 Leaderboard</h1>
+      <p class="hero-sub">See how your Klout Score stacks up against every creator on the platform.</p>
+
+      <h2>What is the Leaderboard?</h2>
+      <p>The <strong>Klout Scores</strong> tab shows a live, ranked list of every user sorted by their Klout Score. Access it from <strong>My Klout → Klout Scores</strong>. With 15,793 users currently ranked, it's the definitive signal of creator influence on Klout.</p>
+
+      <div class="info-card" style="margin:24px 0;">
+        <div class="info-card-header">🏆 Klout Scores — 15,793 users ranked</div>
+        <div class="info-card-body" style="padding:8px 20px;">
+          <div class="lb-row"><div class="lb-rank top">1</div><div class="lb-avatar">👤</div><div class="lb-name">toly us</div><div class="lb-score">⚡ 10,010</div></div>
+          <div class="lb-row"><div class="lb-rank top">2</div><div class="lb-avatar">👤</div><div class="lb-name">mert</div><div class="lb-score">⚡ 9,600</div></div>
+          <div class="lb-row"><div class="lb-rank top">3</div><div class="lb-avatar">👤</div><div class="lb-name">smolting (wassie, verse)</div><div class="lb-score">⚡ 7,930</div></div>
+          <div class="lb-row"><div class="lb-rank">4</div><div class="lb-avatar">👤</div><div class="lb-name">DeeZe</div><div class="lb-score">⚡ 7,200</div></div>
+          <div class="lb-row"><div class="lb-rank">5</div><div class="lb-avatar">👤</div><div class="lb-name">BORED</div><div class="lb-score">⚡ 5,080</div></div>
+          <div class="lb-row"><div class="lb-rank">6</div><div class="lb-avatar">👤</div><div class="lb-name">icebergy</div><div class="lb-score">⚡ 4,970</div></div>
+          <div style="text-align:center;padding:14px 0 6px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;">...and 15,787 more</div>
+        </div>
+      </div>
+
+      <h2>Why Your Rank Matters</h2>
+      <p>Your leaderboard position is a live signal of standing in the Klout ecosystem. As tiered earning rates roll out, higher-ranked creators will earn a larger multiplier per campaign. Brands also browse top creators for direct outreach and exclusive partnerships.</p>
+
+      <h2>How to Climb</h2>
+      <ul>
+        <li>Grow your X audience with genuinely engaged followers — quality beats raw count</li>
+        <li>Post consistently and drive high engagement (reposts, replies, bookmarks)</li>
+        <li>A viral tweet can spike your score significantly — recalculate after breakout moments</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════ BROWSE CAMPAIGNS ═══════════════════════════ -->
+    <section class="page" id="page-browse-campaigns">
+      <h1>📋 Browsing Campaigns</h1>
+      <p class="hero-sub">Find campaigns that match your Klout Score and start earning SOL.</p>
+
+      <h2>The Campaign Feed</h2>
+      <p>Click <strong>Campaigns</strong> in the top navigation to see all <span class="badge badge-green">Open</span> campaigns. Each campaign card shows the key details you need to decide whether to participate.</p>
+
+      <h2>What's on a Campaign Card</h2>
+      <table>
+        <thead><tr><th>Field</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Title</strong></td><td>Campaign name and short punchy headline from the brand</td></tr>
+          <tr><td><strong>Campaign image</strong></td><td>Visual set by the brand — gives context for the campaign vibe</td></tr>
+          <tr><td><strong>CPM rate</strong></td><td>Tokens you earn per 1,000 views on your qualifying post (in the campaign's chosen token)</td></tr>
+          <tr><td><strong>Budget remaining</strong></td><td>How much of the escrow budget is still available for payouts</td></tr>
+          <tr><td><strong>Min. engagement</strong></td><td>Minimum views, likes, retweets, and comments your post must hit to qualify</td></tr>
+          <tr><td><strong>Token</strong></td><td>Payout currency — SOL, USDC, or a custom SPL token</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <strong>Watch the budget bar</strong>
+          <p>Campaigns with low remaining budget may not be able to pay out even if your post qualifies. Check budget remaining before submitting, especially on older campaigns.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ JOIN CAMPAIGN ═══════════════════════════ -->
+    <section class="page" id="page-join-campaign">
+      <h1>🚀 Joining a Campaign</h1>
+      <p class="hero-sub">How to post, submit, and earn from a Klout campaign.</p>
+
+      <h2>Reading the Campaign Page</h2>
+      <p>When you open a campaign you'll see:</p>
+      <ul>
+        <li>The specific <strong>tweet or post to quote post</strong> (the campaign's seed post on X)</li>
+        <li>Accounts you <strong>must mention or follow</strong> in your post</li>
+        <li>Campaign <strong>guidelines — Do's and Don'ts</strong> set by the brand</li>
+        <li>All CPM rates, minimums, thresholds, and budget caps at a glance</li>
+      </ul>
+
+      <div class="callout callout-danger">
+        <div class="callout-icon">🚫</div>
+        <div class="callout-body">
+          <strong>Follow the brief exactly</strong>
+          <p>Posts that don't follow the campaign guidelines — missing required mentions, wrong format, off-brand content — will be rejected by the brand during manual review.</p>
+        </div>
+      </div>
+
+      <h2>Submitting Your Post</h2>
+      <p>After posting on X, paste your post URL into the <strong>Submit Your Post</strong> field and click submit. There is a small <strong>0.0005 SOL verification fee</strong> per submission, charged at the time of submission. This fee covers querying the X API to read your post's real-time metrics.</p>
+
+      <div class="callout callout-danger">
+        <div class="callout-icon">⏳</div>
+        <div class="callout-body">
+          <strong>Wait before you submit — your payout is locked at the moment of submission</strong>
+          <p>Klout reads your post's metrics at the instant you submit. If your post has 100 views but the campaign requires 500, it will be rejected — even if it reaches 500 views an hour later. <strong>Only submit once your views have had time to accumulate and growth has slowed.</strong> There is no way to re-evaluate a post after submission.</p>
+        </div>
+      </div>
+
+      <h2>After Submission</h2>
+      <p>Once submitted, Klout reads your post metrics. If your post meets all the campaign's minimum engagement thresholds, it's shown as <span class="badge badge-green">APPROVED</span> and your payout accumulates in the <strong>Your Payout</strong> panel. If it doesn't meet thresholds, it's marked as <span class="badge badge-red">REJECTED</span>.</p>
+      <p>Approved submissions still require the brand to manually release payment — see <a onclick="showPage('cpm-payouts')">CPM & Payouts</a> for how requesting payment works.</p>
+    </section>
+
+    <!-- ═══════════════════════════ CPM & PAYOUTS ═══════════════════════════ -->
+    <section class="page" id="page-cpm-payouts">
+      <h1>💸 CPM & Payouts</h1>
+      <p class="hero-sub">How your earnings are calculated and how to get paid.</p>
+
+      <h2>How CPM Works</h2>
+      <p>CPM stands for <strong>Cost Per Mille</strong> — the amount a brand pays per 1,000 verified views. Your post's payout is calculated as:</p>
+
+      <div class="info-card">
+        <div class="info-card-body" style="text-align:center;padding:24px;">
+          <div style="font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);margin-bottom:8px;">Payout = (Views ÷ 1,000) × CPM Rate</div>
+          <div style="font-size:13px;color:var(--muted);">Example: 8,000 views × 0.03 SOL CPM = <strong style="color:var(--text);">0.24 SOL</strong></div>
+        </div>
+      </div>
+
+      <h2>Minimum Engagement Thresholds</h2>
+      <p>Every campaign sets minimum requirements a post must meet across all tracked metrics before any payout is calculated. A post that misses even one threshold earns nothing, regardless of view count. Common thresholds include:</p>
+      <table>
+        <thead><tr><th>Metric</th><th>Description</th><th>Example minimum</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Views</strong></td><td>Total impressions on the post</td><td>500</td></tr>
+          <tr><td><strong>Likes</strong></td><td>Heart reactions</td><td>2</td></tr>
+          <tr><td><strong>Retweets</strong></td><td>Reposts and quote posts</td><td>2</td></tr>
+          <tr><td><strong>Comments</strong></td><td>Replies to the post</td><td>2</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Payouts Are Locked at the Point of Submission</h2>
+      <p>This is the most important mechanic to understand as a creator. When you submit your post, Klout reads your metrics <strong>at that exact moment</strong> and calculates your payout from those numbers. Your payout cannot be updated later — if your post gains more views after you submit, you do not earn more. If it doesn't yet meet thresholds, it will be rejected.</p>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⏳</div>
+        <div class="callout-body">
+          <strong>Only submit once views have peaked</strong>
+          <p>Give your post time to accumulate views organically before submitting. A good rule of thumb: wait until engagement has slowed to a trickle — typically several hours to a day after posting for most accounts. Submitting too early locks in a lower view count and a smaller payout.</p>
+        </div>
+      </div>
+
+      <h2>Budget Caps</h2>
+      <p>Campaigns set caps to prevent any single creator or post from consuming a disproportionate share of the budget:</p>
+      <ul>
+        <li><strong>Max per user (%)</strong> — the most one account can earn across all their posts, as a % of total campaign budget.</li>
+        <li><strong>Max per post (%)</strong> — the maximum a single post can earn, as a % of total campaign budget.</li>
+      </ul>
+      <p>For example, with a 1 SOL budget, a 10% per-user cap means any single creator can earn at most 0.1 SOL from that campaign regardless of view count.</p>
+
+      <h2>Minimum Payout Threshold</h2>
+      <p>Creators accumulate approved earnings across their qualifying posts. Only once the total reaches the campaign's <strong>minimum payout threshold</strong> (e.g. 0.01 SOL) can they request payment. This avoids micro-transactions and keeps on-chain fees practical.</p>
+
+      <h2>Requesting Payment</h2>
+      <p>When your approved (unpaid) earnings reach the minimum threshold, a <strong>Request Payment</strong> button appears in the <em>Your Payout</em> panel on the campaign page. Clicking it notifies the brand, who then manually reviews your submission and releases the SOL from escrow to your connected wallet.</p>
+
+      <div class="callout callout-tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Multiple posts, one payout</strong>
+          <p>If a campaign allows multiple submissions per user, all your approved post earnings accumulate together. You request one payment once your combined total hits the threshold — not separately per post.</p>
+        </div>
+      </div>
+
+      <h2>Payout Tokens</h2>
+      <p>Brands choose which token to denominate their campaign in. All payouts for that campaign use the selected token:</p>
+      <ul>
+        <li><strong>SOL</strong> — native Solana token (most common)</li>
+        <li><strong>USDC</strong> — USD-pegged stablecoin on Solana</li>
+        <li><strong>Custom SPL</strong> — any Solana SPL token (used by projects promoting their own token)</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════ WALLET ═══════════════════════════ -->
+    <section class="page" id="page-wallet">
+      <h1>👛 Wallet & Payments</h1>
+      <p class="hero-sub">Klout pays you directly — no intermediary, no internal balance to manage.</p>
+
+      <h2>Connecting Your Wallet</h2>
+      <p>Klout supports any <strong>Solana-compatible wallet</strong>. Connect yours when you sign up, or update it from <strong>My Klout → Settings</strong>. Popular options:</p>
+      <ul>
+        <li><strong>Phantom</strong> — the most widely used Solana wallet</li>
+        <li><strong>Backpack</strong> — popular in the Solana NFT and crypto community</li>
+        <li><strong>Solflare</strong> — browser and mobile wallet</li>
+        <li>Any other Solana-compatible wallet</li>
+      </ul>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">ℹ️</div>
+        <div class="callout-body">
+          <strong>Klout doesn't hold your funds</strong>
+          <p>There is no internal Klout balance. Campaign payments come directly from the brand's escrow vault to your wallet address the moment the brand releases them.</p>
+        </div>
+      </div>
+
+      <h2>The Payment Flow</h2>
+      <div class="steps" style="margin-top:16px;">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Post on X and submit your link</h4>
+            <p>Pay the 0.0005 SOL verification fee. Klout reads your post metrics via the X API.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>AI screens for artificial engagement</h4>
+            <p>Posts flagged as botted or using paid services are automatically rejected. Clean posts move to the brand's review queue.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Your payout accumulates</h4>
+            <p>Approved posts add to your <em>Approved (unpaid)</em> balance. Once you hit the min payout threshold, request payment.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Brand releases payment from escrow</h4>
+            <p>The brand reviews your request, checks for brand adherence, and releases the SOL from the campaign's escrow vault.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>SOL lands in your wallet</h4>
+            <p>Funds are sent directly to your connected Solana wallet. No withdrawal step required.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ LAUNCH ═══════════════════════════ -->
+    <section class="page" id="page-launch">
+      <h1>📣 Launching a Campaign</h1>
+      <p class="hero-sub">Create a CPM campaign, fund an escrow vault, and reach vetted X creators at scale.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Click + Post Campaign</h4>
+            <p>From the top navigation, click <strong>+ Post Campaign</strong> to open the campaign builder.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Fill in the campaign details</h4>
+            <p>Set your title, card heading, description, and upload a campaign image. Add your guidelines — what creators should and shouldn't do — and optionally a collateral link for brand assets.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Choose your token and set your budget</h4>
+            <p>Select SOL, USDC, or a custom SPL token. Enter your total campaign budget — this amount is locked in escrow when you launch. Set your CPM rate (e.g. 0.03 SOL per 1,000 views).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Configure thresholds and caps</h4>
+            <p>Set minimum engagement thresholds (views, likes, retweets, comments), a minimum payout threshold for creators, and budget caps per user and per post.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>Launch</h4>
+            <p>Review all settings and click <strong>Launch Campaign</strong>. Your budget is moved to escrow and your campaign goes live immediately, visible to all eligible creators.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">ℹ️</div>
+        <div class="callout-body">
+          <strong>You can edit after launch</strong>
+          <p>Campaign creators can update copy, swap the campaign image, extend the campaign duration, and top up the escrow budget even after a campaign is live.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ CAMPAIGN FIELDS ═══════════════════════════ -->
+    <section class="page" id="page-campaign-fields">
+      <h1>📝 Campaign Fields</h1>
+      <p class="hero-sub">A full reference for every field in the campaign creation form.</p>
+
+      <div class="mock-form">
+
+        <div class="mock-field">
+          <div class="mock-label">Title *</div>
+          <div class="mock-input has-value">What do you need done?</div>
+          <div class="mock-hint">The campaign's name — shown in the campaign feed and at the top of the campaign page.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Card Heading</div>
+          <div class="mock-input">Short punchy headline for the campaign card</div>
+          <div class="mock-hint">Optional. Shown on the campaign card in the feed instead of the description. Max 120 characters.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Campaign Details *</div>
+          <div class="mock-input" style="height:70px;padding-top:10px;">Describe the campaign in detail...</div>
+          <div class="mock-hint">Full brief for creators. Include what to post, the seed tweet to quote, accounts to mention, and any content requirements.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Campaign Image</div>
+          <div class="mock-input" style="text-align:center;padding:18px;color:var(--muted);">📷 Upload campaign image</div>
+          <div class="mock-hint">Optional. Shown on the campaign card and page. You can reposition and zoom the image. Recommended: 16:9 or wider aspect ratio.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Bounty Token *</div>
+          <div class="mock-token-group">
+            <div class="mock-token-btn active">SOL</div>
+            <div class="mock-token-btn">USDC</div>
+            <div class="mock-token-btn">Custom SPL</div>
+          </div>
+          <div class="mock-hint">Choose any Solana token for your campaign — SOL, USDC, or any custom SPL token (e.g. your own project token). All payouts, CPM rates, and platform fees are denominated in the token you select.</div>
+        </div>
+
+        <div class="mock-row">
+          <div class="mock-field">
+            <div class="mock-label">Budget *</div>
+            <div class="mock-input has-value">1</div>
+            <div class="mock-hint">Total campaign budget. Locked in an escrow vault when you launch. You control releasing payments from it.</div>
+          </div>
+          <div class="mock-field">
+            <div class="mock-label">CPM — Cost per 1,000 views *</div>
+            <div class="mock-input has-value">0.01</div>
+            <div class="mock-hint">How much you pay per 1,000 views on a qualifying promoted post.</div>
+          </div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Minimum Engagement Thresholds</div>
+          <div class="mock-hint" style="margin-bottom:10px;">Posts must meet all thresholds to qualify for payout. Set any to 0 to skip that check.</div>
+          <div class="mock-row">
+            <div>
+              <div class="mock-label">Views</div>
+              <div class="mock-input has-value">100</div>
+            </div>
+            <div>
+              <div class="mock-label">Likes</div>
+              <div class="mock-input has-value">0</div>
+            </div>
+          </div>
+          <div class="mock-row" style="margin-top:10px;">
+            <div>
+              <div class="mock-label">Retweets</div>
+              <div class="mock-input has-value">0</div>
+            </div>
+            <div>
+              <div class="mock-label">Comments</div>
+              <div class="mock-input has-value">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Minimum Payout Threshold — optional</div>
+          <div class="mock-input has-value">0 (no minimum)</div>
+          <div class="mock-hint">Creators must accumulate at least this much in approved payouts before they can request payment. Leave empty or 0 for no minimum.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Budget Caps</div>
+          <div class="mock-hint" style="margin-bottom:10px;">Limit how much of the total budget a single user or post can consume.</div>
+          <div class="mock-row">
+            <div>
+              <div class="mock-label">Max per user (%)</div>
+              <div class="mock-input has-value">10</div>
+              <div class="mock-hint">Max % of budget one user can earn.</div>
+            </div>
+            <div>
+              <div class="mock-label">Max per post (%)</div>
+              <div class="mock-input has-value">1</div>
+              <div class="mock-hint">Max % of budget one post can earn.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Guidelines — Do's</div>
+          <div class="mock-input has-value">Guideline 1</div>
+          <div class="mock-hint" style="margin-top:5px;color:var(--accent);cursor:default;">+ Add guideline</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Guidelines — Don'ts</div>
+          <div class="mock-input has-value">Don't 1</div>
+          <div class="mock-hint" style="margin-top:5px;color:var(--accent);cursor:default;">+ Add guideline</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Collateral Link — optional</div>
+          <div class="mock-input">https://drive.google.com/... or https://dropbox.com/...</div>
+          <div class="mock-hint">Link to Google Drive, Dropbox, etc. with images, logos, or other collateral creators can use. Shown to creators only; not checked by AI verification.</div>
+        </div>
+
+        <div class="mock-field">
+          <div class="mock-label">Duration (days) — optional</div>
+          <div class="mock-input">e.g. 7</div>
+          <div class="mock-hint">How many days the campaign runs. After this, no new submissions are accepted. Leave empty for no deadline.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ MANAGING SUBMISSIONS ═══════════════════════════ -->
+    <section class="page" id="page-managing-submissions">
+      <h1>✅ Managing Submissions</h1>
+      <p class="hero-sub">How to review, approve, and release payment for creator submissions from your campaign admin view.</p>
+
+      <h2>The Campaign Admin View</h2>
+      <p>As a campaign creator, your campaign page shows a full admin dashboard with real-time stats and a submissions table. This is your control center for reviewing and paying creators.</p>
+
+      <div class="info-card">
+        <div class="info-card-header">📊 Campaign Stats — Real-time overview</div>
+        <div class="info-card-body">
+          <div class="stat-grid stat-grid-4">
+            <div class="stat-box"><div class="stat-label">Total Budget</div><div class="stat-value">1.00 SOL</div></div>
+            <div class="stat-box"><div class="stat-label">Remaining</div><div class="stat-value accent">0.84 SOL</div></div>
+            <div class="stat-box"><div class="stat-label">Total Views</div><div class="stat-value">40,444</div></div>
+            <div class="stat-box"><div class="stat-label">Submissions</div><div class="stat-value">11<div class="stat-sub">3 approved, 3 paid, 5 rejected</div></div></div>
+          </div>
+          <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0;">
+            <div class="stat-box"><div class="stat-label">CPM (per 1,000 views)</div><div class="stat-value">0.0250 SOL</div></div>
+            <div class="stat-box"><div class="stat-label">Min views per post</div><div class="stat-value">500</div></div>
+            <div class="stat-box"><div class="stat-label">Min payout threshold</div><div class="stat-value">0.0100 SOL</div></div>
+          </div>
+          <div style="margin-top:16px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;">
+              <span>Budget used: 15.4%</span><span>CPM: 0.0250 SOL</span>
+            </div>
+            <div class="prog-wrap"><div class="prog-fill" style="width:15.4%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <h2>The Submissions Table</h2>
+      <p>Below the stats panel you'll see every submission with the following columns:</p>
+
+      <table>
+        <thead><tr><th>Column</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Submitter</strong></td><td>Creator's X handle</td></tr>
+          <tr><td><strong>Post</strong></td><td>Link to the live X post</td></tr>
+          <tr><td><strong>Views</strong></td><td>Verified view count at time of submission check</td></tr>
+          <tr><td><strong>Payout</strong></td><td>SOL owed based on views × CPM (after caps)</td></tr>
+          <tr><td><strong>Platform Fee (10%)</strong></td><td>Klout's fee for that submission — deducted from budget alongside the creator payout</td></tr>
+          <tr><td><strong>Status</strong></td><td>Current state of the submission — see below</td></tr>
+          <tr><td><strong>Date</strong></td><td>When the submission was made</td></tr>
+          <tr><td><strong>Action</strong></td><td>Available actions — e.g. Reject, or if awaiting payment request, confirm release</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Submission Statuses</h2>
+      <table>
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-green">PAID</span></td>
+            <td>Payment has been released from escrow to the creator's wallet.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">APPROVED</span></td>
+            <td>Post met all thresholds; creator has been notified they can request payment. Awaiting their payment request.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-red">CREATOR REJECTED</span></td>
+            <td>Submission was flagged and rejected — typically includes a reason such as <em>"botting warning"</em>. The AI auto-flagged this post for suspected artificial engagement.</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-gray">REJECTED</span></td>
+            <td>Rejected by you (the brand) during manual review, for brand adherence issues or other concerns.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>AI Screening</h2>
+      <p>Before any submission reaches you for review, Klout's AI automatically screens for signs of artificially inflated engagement — bots, paid view services, engagement pods, and other manipulation tactics. Posts flagged by the AI are marked <span class="badge badge-red">CREATOR REJECTED</span> with a reason (e.g. "botting warning") and are not eligible for payment. This means your manual review queue only contains submissions with organically verified engagement.</p>
+
+      <h2>Manual Review</h2>
+      <p>For approved submissions that pass AI screening, you do a final check for:</p>
+      <ul>
+        <li><strong>Brand adherence</strong> — does the post actually follow your Do's and Don'ts?</li>
+        <li><strong>Content quality</strong> — does it represent your brand appropriately?</li>
+        <li><strong>Any botting the AI may have missed</strong> — unusually high view counts for a small account, suspicious engagement patterns, etc.</li>
+      </ul>
+      <p>For posts you're satisfied with, release payment from the submission table. For posts that fail your review, click <strong>Reject</strong> — the submission is marked <span class="badge badge-gray">REJECTED</span> and no payment is released.</p>
+
+      <h2>Releasing Payment</h2>
+      <p>When a creator has met the minimum payout threshold and requested payment, you'll see the action to release funds. Clicking release triggers the transfer of the owed SOL (plus 10% platform fee) from the campaign's escrow vault directly to the creator's connected Solana wallet.</p>
+
+      <h2>Editing Your Campaign</h2>
+      <p>You can modify a live campaign at any time from the admin view:</p>
+      <ul>
+        <li><strong>Update copy</strong> — change the title, card heading, or campaign description</li>
+        <li><strong>Swap the image</strong> — upload a new campaign image or reposition the existing one</li>
+        <li><strong>Extend duration</strong> — push the campaign's end date forward to keep it open longer</li>
+        <li><strong>Top up budget</strong> — add more funds to the escrow vault if the budget is running low</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════ ESCROW ═══════════════════════════ -->
+    <section class="page" id="page-escrow">
+      <h1>🔐 Escrow & Payments</h1>
+      <p class="hero-sub">How campaign budgets are held, protected, and released.</p>
+
+      <h2>What is Escrow?</h2>
+      <p>When a brand launches a campaign, the full budget is immediately locked in an <strong>on-chain escrow vault</strong>. The funds are held there — not by Klout, not by the brand in a regular wallet — until the brand explicitly releases individual payments to approved creators. This protects creators from non-payment and protects brands from accidentally spending more than intended.</p>
+
+      <h2>How Escrow Works</h2>
+      <div class="steps" style="margin-top:16px;">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Brand launches campaign</h4>
+            <p>Total budget (e.g. 1 SOL) is transferred from the brand's wallet into the escrow vault. The campaign goes live.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Creators submit posts</h4>
+            <p>Earnings accumulate in approved (unpaid) balances as posts pass engagement thresholds. Budget is reserved but not yet sent.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Creator requests payment</h4>
+            <p>Once their approved earnings hit the minimum threshold, the creator requests payment. The brand is notified.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4>Brand releases from escrow</h4>
+            <p>Brand reviews the submission and releases payment. Tokens flow from the escrow vault directly to the creator's connected wallet — plus the 10% platform fee.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <h4>Campaign ends</h4>
+            <p>When the campaign closes, any remaining budget in the escrow vault is returned to the brand's wallet.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Platform Fee</h2>
+      <p>Klout charges a <strong>10% platform fee</strong> on every creator payout. This is deducted from the campaign escrow budget at the time of payment release — not from the creator's payout. For example, if a creator earns 0.1 SOL, the brand's escrow is debited 0.1 SOL (creator) + 0.01 SOL (platform fee) = 0.11 SOL total.</p>
+
+      <div class="callout callout-tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>Factor in the platform fee when budgeting</strong>
+          <p>For a 1 SOL budget, effective creator payouts are capped at ~0.91 SOL (with ~0.09 SOL going to platform fees). Plan your budget accordingly so creators can always be paid in full.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ REFERRALS ═══════════════════════════ -->
+    <section class="page" id="page-referrals">
+      <h1>🔗 Referral Program</h1>
+      <p class="hero-sub">Refer users to Klout and earn a share of the platform fee on every campaign payout they receive — automatically, forever.</p>
+
+      <h2>How It Works</h2>
+      <p>Every Klout account has a unique referral link — for example, <code>https://klout.gg/yourusername</code>. When someone signs up through your link and earns from a campaign, you automatically receive a <strong>percentage of the 10% platform fee</strong> taken from their payout. Referral earnings are sent to your connected Solana wallet automatically — nothing to claim.</p>
+
+      <h2>Finding Your Referral Link</h2>
+      <p>Your link is under <strong>Referrals</strong> in the top navigation. Share it in your X bio, posts, DMs — or include it when you share your Klout Score card.</p>
+
+      <div class="callout callout-tip">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <strong>The easiest referral move</strong>
+          <p>Post your Klout Score card to X with your referral link in the tweet. Followers curious about their own score click through, sign up, and start earning — and so do you, passively, on every campaign they complete.</p>
+        </div>
+      </div>
+
+      <h2>Program Progress</h2>
+      <div class="info-card" style="margin:24px 0;">
+        <div class="info-card-header">📈 Referral Program — Current Epoch</div>
+        <div class="info-card-body">
+          <div class="stat-grid stat-grid-3">
+            <div class="stat-box"><div class="stat-label">Current Epoch</div><div class="stat-value">Tier 1</div></div>
+            <div class="stat-box"><div class="stat-label">Your Referrer Fee</div><div class="stat-value accent">100%</div><div class="stat-sub">of 10% platform fee</div></div>
+            <div class="stat-box"><div class="stat-label">Remaining in Tier</div><div class="stat-value">995 slots</div></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;">
+            <span>Tier 1 — 100% referrer fee</span><span>995 slots left</span>
+          </div>
+          <div class="tier-bar-wrap"><div class="tier-bar-fill"></div></div>
+          <div style="font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px;">
+            <span>Next: <strong style="color:var(--accent);">Tier 2</strong> — referrer fee drops to <strong style="color:var(--accent);">90%</strong></span>
+            <span>2,000 slots</span>
+          </div>
+        </div>
+      </div>
+
+      <h2>Your Referral Stats</h2>
+      <p>Track your referral performance from <strong>Referrals → Your Referral Stats</strong>:</p>
+      <ul>
+        <li><strong>Total Referred</strong> — users who signed up via your link</li>
+        <li><strong>Completed</strong> — referrals who completed at least one campaign, triggering a fee payout to you</li>
+        <li><strong>Pending Score</strong> — referral earnings awaiting settlement</li>
+        <li><strong>Total Earned</strong> — cumulative SOL earned from the referral program</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════ REFERRAL TIERS ═══════════════════════════ -->
+    <section class="page" id="page-referral-tiers">
+      <h1>📈 Referral Tiers</h1>
+      <p class="hero-sub">Early referrers lock in the highest fee share — which decreases as tiers fill.</p>
+
+      <h2>How Tiers Work</h2>
+      <p>The referral program runs in <strong>epochs (tiers)</strong>. Each tier has a fixed slot count. Once all slots fill, the program advances to the next tier and the referrer fee drops. Your tier is locked at the moment your referral signs up, not when they earn — so earlier action means permanently better rates.</p>
+
+      <table>
+        <thead><tr><th>Tier</th><th>Slots</th><th>Referrer Fee</th><th>Effective earnings</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-yellow">Tier 1</span> <em style="color:var(--accent);font-size:11px;margin-left:4px;">Current</em></td>
+            <td>1,000</td>
+            <td style="color:var(--accent);font-weight:600;">100%</td>
+            <td>You keep the full 10% platform fee on all your referrals' payouts</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-gray">Tier 2</span></td>
+            <td>2,000</td>
+            <td>90%</td>
+            <td>You keep 9% of your referrals' platform fee</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-gray">Tier 3+</span></td>
+            <td>TBA</td>
+            <td>Decreasing</td>
+            <td>Continues to decrease with each subsequent tier</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <strong>Tier 1 is almost gone</strong>
+          <p>Fewer than 1,000 Tier 1 slots remain across 15,000+ users on the platform. The window to lock in a 100% referrer fee is closing fast.</p>
+        </div>
+      </div>
+
+      <h2>Earnings Example</h2>
+      <table>
+        <thead><tr><th>Referral earns</th><th>Platform fee (10%)</th><th>Your cut — Tier 1 (100%)</th></tr></thead>
+        <tbody>
+          <tr><td>0.1 SOL</td><td>0.01 SOL</td><td style="color:var(--accent);font-weight:500;">0.01 SOL</td></tr>
+          <tr><td>1 SOL</td><td>0.1 SOL</td><td style="color:var(--accent);font-weight:500;">0.1 SOL</td></tr>
+          <tr><td>10 SOL</td><td>1 SOL</td><td style="color:var(--accent);font-weight:500;">1 SOL</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:13px;color:var(--muted);">Referral earnings accumulate across every campaign your referrals complete, indefinitely, as long as they're active on the platform.</p>
+    </section>
+
+    <!-- ═══════════════════════════ API OVERVIEW ═══════════════════════════ -->
+    <section class="page" id="page-api-overview">
+      <h1>🔌 API Overview</h1>
+      <p class="hero-sub">Integrate Klout into your own tools via the REST API.</p>
+
+      <h2>Base URL</h2>
+      <pre><code>https://klout.gg/api</code></pre>
+
+      <h2>Authentication</h2>
+      <p>All requests require a Bearer token. Retrieve your API key from <strong>My Klout → Settings → API Keys</strong>.</p>
+      <pre><code>Authorization: Bearer &lt;your_api_key&gt;</code></pre>
+
+      <h2>Response Format</h2>
+      <p>All responses return JSON. Errors use a consistent shape:</p>
+      <pre><span class="pre-label">JSON</span><code>{
+  "error": {
+    "code": "SCORE_BELOW_MINIMUM",
+    "message": "Your Klout Score does not meet this campaign's requirement.",
+    "status": 403
+  }
+}</code></pre>
+
+      <h2>Rate Limits</h2>
+      <table>
+        <thead><tr><th>Plan</th><th>Requests / min</th><th>Requests / day</th></tr></thead>
+        <tbody>
+          <tr><td>Free</td><td>30</td><td>1,000</td></tr>
+          <tr><td>Pro</td><td>120</td><td>20,000</td></tr>
+          <tr><td>Enterprise</td><td>Unlimited</td><td>Unlimited</td></tr>
+        </tbody>
+      </table>
+      <p>Every response includes <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Reset</code> headers.</p>
+    </section>
+
+    <!-- ═══════════════════════════ API CAMPAIGNS ═══════════════════════════ -->
+    <section class="page" id="page-api-campaigns">
+      <h1>📡 Campaign Endpoints</h1>
+      <p class="hero-sub">Create and manage campaigns programmatically.</p>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-get">GET</span><span class="endpoint-path">/api/campaigns</span></div>
+        <div class="endpoint-body"><p class="endpoint-desc">List campaigns. Filter by status: <code>?status=open</code> or <code>?status=completed</code>.</p></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-post">POST</span><span class="endpoint-path">/api/campaigns</span></div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Create a new campaign draft.</p>
+          <pre><span class="pre-label">Request Body</span><code>{
+  "title": "Quote our launch tweet",
+  "card_heading": "Earn SOL for every 1,000 views",
+  "details": "Quote post this tweet: https://x.com/kloutgg/...",
+  "token": "SOL",
+  "budget": 1.0,
+  "cpm": 0.03,
+  "thresholds": {
+    "min_views": 500,
+    "min_likes": 2,
+    "min_retweets": 2,
+    "min_comments": 2
+  },
+  "min_payout_threshold": 0.01,
+  "budget_caps": {
+    "max_per_user_pct": 10,
+    "max_per_post_pct": 1
+  },
+  "guidelines_do": ["Mention @kloutgg", "Use #Klout"],
+  "guidelines_dont": ["Do not edit the quote post text"],
+  "duration_days": 7
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-post">POST</span><span class="endpoint-path">/api/campaigns/:id/publish</span></div>
+        <div class="endpoint-body"><p class="endpoint-desc">Publish a draft — locks budget in escrow and makes campaign live immediately.</p></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-get">GET</span><span class="endpoint-path">/api/campaigns/:id/submissions</span></div>
+        <div class="endpoint-body"><p class="endpoint-desc">List all submissions for a campaign. Returns submitter X handle, post URL, views, calculated payout, platform fee, status, and date.</p></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-post">POST</span><span class="endpoint-path">/api/campaigns/:id/submissions/:sub_id/release</span></div>
+        <div class="endpoint-body"><p class="endpoint-desc">Release payment for an approved submission. Triggers an on-chain transfer from the campaign escrow vault to the creator's connected Solana wallet.</p></div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header"><span class="method method-post">POST</span><span class="endpoint-path">/api/campaigns/:id/submissions/:sub_id/reject</span></div>
+        <div class="endpoint-body"><p class="endpoint-desc">Reject a submission manually. Include an optional <code>reason</code> field in the body.</p></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════ FAQ ═══════════════════════════ -->
+    <section class="page" id="page-faq">
+      <h1>❓ Frequently Asked Questions</h1>
+      <p class="hero-sub">Common questions from creators and brands.</p>
+
+      <h2>For Creators</h2>
+
+      <h3>How is my payout calculated?</h3>
+      <p>Your payout is based on the CPM rate set by the brand: <code>(views ÷ 1,000) × CPM rate</code>. For example, 8,000 views at a 0.03 SOL CPM earns you 0.24 SOL — assuming your post meets all minimum engagement thresholds and stays under budget caps.</p>
+
+      <h3>Why is there a 0.0005 SOL submission fee?</h3>
+      <p>The fee covers the cost of querying the X API to verify your post's real engagement metrics at the moment of submission. It also discourages spam and bot-farm attempts, keeping campaign quality high for everyone.</p>
+
+      <h3>My post didn't meet the view threshold — can I resubmit after it gets more views?</h3>
+      <p>No. Your payout and eligibility are determined at the exact moment of submission — Klout reads your metrics instantly and that snapshot is final. If your post doesn't meet thresholds yet, wait longer before submitting. There is no way to re-evaluate a post after it has been submitted.</p>
+
+      <h3>My post was rejected with "botting warning" — what does this mean?</h3>
+      <p>Klout's AI detected patterns consistent with artificially inflated engagement on your post — such as views or engagement from bot accounts, paid services, or engagement pods. Submissions flagged this way are not eligible for payment. Make sure all your engagement is organic.</p>
+
+      <h3>When can I request payment?</h3>
+      <p>Once your total approved (unpaid) earnings across your posts reach the campaign's minimum payout threshold, a payment request button becomes available on the campaign page.</p>
+
+      <h3>How do I receive payment?</h3>
+      <p>After you request payment and the brand approves it, the campaign's tokens are sent directly from the escrow vault to your connected Solana wallet. There is no internal Klout balance or withdrawal step.</p>
+
+      <h3>What wallet do I need?</h3>
+      <p>Any Solana-supported wallet — Phantom, Backpack, Solflare, and others. Connect your wallet from your account settings.</p>
+
+      <hr>
+
+      <h2>For Brands</h2>
+
+      <h3>How does escrow work?</h3>
+      <p>When you launch a campaign, your full budget is locked in an on-chain escrow vault. Funds sit there until you manually release individual creator payouts. You're never charged for submissions you reject, and any unused budget at campaign end is returned to your wallet.</p>
+
+      <h3>What's the 10% platform fee?</h3>
+      <p>Klout charges a 10% fee on every creator payout, deducted from the escrow budget at the time of release. If a creator earns 0.1 SOL, your escrow is debited 0.11 SOL total (0.1 creator + 0.01 fee). The platform fee is partially shared with creators' referrers through the referral program.</p>
+
+      <h3>Can I edit my campaign after launch?</h3>
+      <p>Yes. You can update the campaign copy, swap the image, extend the duration, and top up the escrow budget at any time from the campaign admin view.</p>
+
+      <h3>Does the AI catch all botting?</h3>
+      <p>The AI catches most cases automatically, but it's not infallible. You always have a final manual review step where you can reject any submissions that look suspicious — unusual view counts for the account size, inauthentic engagement patterns, or posts that violate your brand guidelines.</p>
+
+      <h3>What tokens can I use for payouts?</h3>
+      <p>SOL (native Solana), USDC (Solana), or any custom SPL token. All CPM rates, payouts, and platform fees are denominated in whichever token you select at campaign creation.</p>
+    </section>
+
+    <!-- ═══════════════════════════ CHANGELOG ═══════════════════════════ -->
+    <section class="page" id="page-changelog">
+      <h1>📝 Changelog</h1>
+      <p class="hero-sub">Recent platform updates and improvements.</p>
+
+      <h2>February 2025 — v2.1</h2>
+      <ul>
+        <li>✅ <strong>Referral Program launched</strong> — earn a % of platform fees from your referrals' campaign payouts.</li>
+        <li>✅ <strong>Referral Tiers</strong> — Tier 1 grants 100% of the platform fee share; drops as tiers fill.</li>
+        <li>✅ <strong>Leaderboard</strong> — live Klout Scores leaderboard, 15,000+ users ranked.</li>
+        <li>✅ <strong>Score card sharing</strong> — one-click share to X with auto-copied image.</li>
+        <li>✅ <strong>On-demand recalculation</strong> — refresh your score anytime for 0.01 SOL.</li>
+        <li>✅ <strong>Campaign collateral links</strong> — brands can share Drive/Dropbox assets with creators.</li>
+        <li>✅ <strong>Custom SPL token support</strong> — campaign budgets and payouts can now use any SPL token.</li>
+      </ul>
+
+      <h2>November 2024 — v2.0</h2>
+      <ul>
+        <li>✅ <strong>CPM-based campaigns</strong> — moved from flat-fee payouts to per-1,000-views pricing.</li>
+        <li>✅ <strong>Escrow vault</strong> — campaign budgets locked on-chain; brands release individual payments.</li>
+        <li>✅ <strong>AI submission screening</strong> — automatic botting and fake-engagement detection.</li>
+        <li>✅ <strong>Klout Score system</strong> — X account quality score introduced as the core eligibility mechanic.</li>
+        <li>✅ <strong>Solana wallet integration</strong> — connect any Solana wallet; payouts sent directly on release.</li>
+        <li>✅ <strong>Budget caps</strong> — max per user (%) and max per post (%) limits.</li>
+        <li>✅ <strong>Minimum engagement thresholds</strong> — views, likes, retweets, comments per post.</li>
+      </ul>
+
+      <h2>August 2024 — v1.0</h2>
+      <ul>
+        <li>✅ Initial platform launch — X sign-in, campaign browsing, and basic submission flow.</li>
+        <li>✅ Campaign creation with fixed SOL payouts.</li>
+        <li>✅ Basic campaign analytics for brands.</li>
+      </ul>
+    </section>
+
+  </div><!-- /content -->
+</main>
+
+<script>
+  const pages = {
+    'intro': 'Introduction',
+    'quickstart': 'Quickstart',
+    'concepts': 'Core Concepts',
+    'klout-score': 'My Klout Score',
+    'leaderboard': 'Leaderboard',
+    'browse-campaigns': 'Browsing Campaigns',
+    'join-campaign': 'Joining a Campaign',
+    'cpm-payouts': 'CPM & Payouts',
+    'wallet': 'Wallet & Payments',
+    'launch': 'Launching a Campaign',
+    'campaign-fields': 'Campaign Fields',
+    'managing-submissions': 'Managing Submissions',
+    'escrow': 'Escrow & Payments',
+    'referrals': 'Referral Program',
+    'referral-tiers': 'Referral Tiers',
+    'api-overview': 'API Overview',
+    'api-campaigns': 'Campaign Endpoints',
+    'faq': 'FAQ',
+    'changelog': 'Changelog',
+  };
+
+  function showPage(id) {
+    document.querySelectorAll('section.page').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(a => a.classList.remove('active'));
+
+    const page = document.getElementById('page-' + id);
+    if (page) page.classList.add('active');
+
+    document.querySelectorAll('.nav-item').forEach(a => {
+      if (a.getAttribute('onclick') === `showPage('${id}')`) a.classList.add('active');
+    });
+
+    document.getElementById('breadcrumb-title').textContent = pages[id] || id;
+    window.scrollTo(0, 0);
+
+    const content = document.querySelector('.content');
+    content.style.animation = 'none';
+    void content.offsetWidth;
+    content.style.animation = 'fadeInUp .3s ease both';
+  }
+</script>
+</body>
+</html>

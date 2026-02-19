@@ -47,6 +47,7 @@ interface Task {
     maxBudgetPerUserPercent?: number
     maxBudgetPerPostPercent?: number
     minKloutScore?: number | null
+    requireFollowX?: string | null
     collateralLink?: string | null
   } | null
   winningBid?: {
@@ -147,6 +148,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editMaxBudgetPerUser, setEditMaxBudgetPerUser] = useState(task.campaignConfig?.maxBudgetPerUserPercent != null ? String(task.campaignConfig.maxBudgetPerUserPercent) : '')
   const [editMaxBudgetPerPost, setEditMaxBudgetPerPost] = useState(task.campaignConfig?.maxBudgetPerPostPercent != null ? String(task.campaignConfig.maxBudgetPerPostPercent) : '')
   const [editMinKloutScore, setEditMinKloutScore] = useState(task.campaignConfig?.minKloutScore != null ? String(task.campaignConfig.minKloutScore) : '')
+  const [editRequireFollowX, setEditRequireFollowX] = useState(task.campaignConfig?.requireFollowX || '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
@@ -294,6 +296,11 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       const curMinKlout = task.campaignConfig?.minKloutScore ?? null
       if (newMinKlout !== curMinKlout) updates.minKloutScore = newMinKlout
 
+      // Require Follow X
+      const newFollowX = editRequireFollowX.trim().replace(/^@/, '') || null
+      const curFollowX = task.campaignConfig?.requireFollowX ?? null
+      if (newFollowX !== curFollowX) updates.requireFollowX = newFollowX
+
       // Deadline
       if (editDeadline) {
         const newDeadline = new Date(editDeadline).toISOString()
@@ -391,7 +398,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
@@ -406,6 +413,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           ...(updates.maxBudgetPerUserPercent !== undefined ? { maxBudgetPerUserPercent: updates.maxBudgetPerUserPercent } : {}),
           ...(updates.maxBudgetPerPostPercent !== undefined ? { maxBudgetPerPostPercent: updates.maxBudgetPerPostPercent } : {}),
           ...(updates.minKloutScore !== undefined ? { minKloutScore: updates.minKloutScore } : {}),
+          ...(updates.requireFollowX !== undefined ? { requireFollowX: updates.requireFollowX } : {}),
         }
       }
 
@@ -644,6 +652,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <input type="number" min="0" max="10000" step="1" value={editMinKloutScore} onChange={(e) => setEditMinKloutScore(e.target.value)} placeholder="No minimum"
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
               <p className="mt-0.5 text-[10px] text-zinc-600">Participants must have at least this Klout score. Leave empty for no requirement.</p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Require Follow on X — optional</label>
+              <input type="text" value={editRequireFollowX} onChange={(e) => setEditRequireFollowX(e.target.value)} placeholder="@yourhandle"
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+              <p className="mt-0.5 text-[10px] text-zinc-600">Participants will be prompted to follow this X account. Leave empty for no requirement.</p>
             </div>
 
             <div>

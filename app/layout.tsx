@@ -29,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <main className="px-4 py-6 sm:px-6 sm:py-8 lg:px-12">{children}</main>
           <footer className="border-t border-zinc-800 px-4 py-6 mt-12 text-center text-xs text-zinc-500">
+            <a href="/docs" className="hover:text-zinc-300 transition-colors">Docs</a>
+            <span className="mx-2">·</span>
             <a href="/skills" className="hover:text-zinc-300 transition-colors">Skills</a>
             <span className="mx-2">·</span>
             <a href="/api/skills" className="hover:text-zinc-300 transition-colors">API Docs</a>

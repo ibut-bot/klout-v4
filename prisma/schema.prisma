@@ -307,6 +307,7 @@ model CampaignConfig {
   maxBudgetPerUserPercent Float?  // Max % of total budget a single user can earn (null = no limit)
   maxBudgetPerPostPercent Float?  // Max % of total budget a single post can earn (null = no limit)
   minKloutScore           Int?    // Minimum Klout score required to participate (null = no requirement)
+  requireFollowX          String?   // X username the participant should follow (null = not required)
   collateralLink          String?   // Optional link to Google Drive / Dropbox with campaign collateral for creators
 
   task                    Task    @relation(fields: [taskId], references: [id])

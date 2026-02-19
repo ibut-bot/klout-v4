@@ -194,6 +194,7 @@ async function main() {
         ...(args['min-comments'] !== undefined ? { minComments: parseInt(args['min-comments']) } : {}),
         ...(args['min-payout'] ? { minPayoutLamports: Math.round(parseFloat(args['min-payout']) * multiplier) } : {}),
         ...(args['min-klout'] ? { minKloutScore: parseInt(args['min-klout']) } : {}),
+        ...(args['follow-x'] ? { requireFollowX: args['follow-x'].replace(/^@/, '') } : {}),
         ...(args['collateral-link'] ? { collateralLink: args['collateral-link'] } : {}),
       }
 

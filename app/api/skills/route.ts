@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     name: 'klout',
     version: '0.1.0',
-    docsVersion: '2026-02-18',
+    docsVersion: '2026-02-19',
     description: 'Monetize your Klout. Get paid to promote brands on X/Twitter with CPM-based payouts via Solana (SOL, USDC, or any SPL token). Also supports Quote and Competition task modes.',
     baseUrl: BASE_URL,
 
@@ -203,10 +203,11 @@ export async function GET() {
           minComments: 'Optional for CAMPAIGN. Minimum comments/replies per post to qualify (default: 0).',
           minPayoutLamports: 'Optional for CAMPAIGN. Minimum cumulative payout in the token\'s base units before a user can request payment (default: 0). Posts accumulate payout and user can request once threshold is met.',
           minKloutScore: 'Optional for CAMPAIGN. Minimum Klout score required to participate (not set by default). Checked after submission fee is paid.',
+          requireFollowX: 'Optional for CAMPAIGN. X username (without @) that participants should follow. Shown as a follow button on the campaign page. No server-side enforcement.',
           maxBudgetPerUserPercent: 'Optional for CAMPAIGN. Max % of total budget a single user can earn (1-100). Not set by default (no limit).',
           maxBudgetPerPostPercent: 'Optional for CAMPAIGN. Max % of total budget a single post can earn (0.1-100). Not set by default (no limit).',
         },
-        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--payment-token sol|usdc|<mint-address>] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "do1,do2"] [--donts "dont1,dont2"] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1] [--min-payout 0.05] [--min-klout 500]',
+        cliCommand: 'npm run skill:tasks:create -- --title "..." --description "..." --budget 0.5 --password "pass" [--type quote|competition|campaign] [--duration 7] [--image "/path/to/image.jpg"] [--cpm 0.01] [--payment-token sol|usdc|<mint-address>] [--heading "Card headline"] [--collateral-link "https://drive.google.com/..."] [--dos "do1,do2"] [--donts "dont1,dont2"] [--min-views 100] [--min-likes 5] [--min-retweets 2] [--min-comments 1] [--min-payout 0.05] [--min-klout 500] [--follow-x "username"]',
       },
       updateTaskImage: {
         description: 'Update or remove the campaign image (task creator only).',
@@ -504,7 +505,7 @@ export async function GET() {
       { method: 'GET',  path: '/api/me/tasks',                              auth: true,  description: 'List tasks created by you. Supports taskType filter.', params: 'status, taskType (QUOTE or COMPETITION), limit, page (query)' },
       { method: 'GET',  path: '/api/me/bids',                               auth: true,  description: 'List bids placed by you', params: 'status, limit, page (query)' },
       { method: 'GET',  path: '/api/tasks/:id',                             auth: false, description: 'Get task details (includes taskType, imageUrl, deadlineAt, budgetRemainingLamports for campaigns)' },
-      { method: 'PATCH', path: '/api/tasks/:id',                           auth: true,  description: 'Update task (creator only). Supports title, description, imageUrl, imageTransform, guidelines, collateralLink, deadlineAt, budgetLamports (increase only), heading, minViews, minLikes, minRetweets, minComments, minKloutScore, maxBudgetPerUserPercent, maxBudgetPerPostPercent.', body: '{ title?, description?, imageUrl?, imageTransform?, guidelines?, collateralLink?, deadlineAt?, budgetLamports?, budgetIncreaseTxSignature?, heading?, minViews?, minLikes?, minRetweets?, minComments?, minKloutScore?, maxBudgetPerUserPercent?, maxBudgetPerPostPercent? }' },
+      { method: 'PATCH', path: '/api/tasks/:id',                           auth: true,  description: 'Update task (creator only). Supports title, description, imageUrl, imageTransform, guidelines, collateralLink, deadlineAt, budgetLamports (increase only), heading, minViews, minLikes, minRetweets, minComments, minKloutScore, requireFollowX, maxBudgetPerUserPercent, maxBudgetPerPostPercent.', body: '{ title?, description?, imageUrl?, imageTransform?, guidelines?, collateralLink?, deadlineAt?, budgetLamports?, budgetIncreaseTxSignature?, heading?, minViews?, minLikes?, minRetweets?, minComments?, minKloutScore?, requireFollowX?, maxBudgetPerUserPercent?, maxBudgetPerPostPercent? }' },
       { method: 'GET',  path: '/api/tasks/:id/bids',                        auth: false, description: 'List bids for task. Returns bidderId, hasSubmission flag for each bid.' },
       { method: 'POST', path: '/api/tasks/:id/bids',                        auth: true,  description: 'Place a bid (quote mode). amountLamports must be in LAMPORTS (not SOL) as a valid integer. Must not exceed task budget.', body: '{ amountLamports, description, multisigAddress?, vaultAddress? }' },
       { method: 'POST', path: '/api/tasks/:id/compete',                    auth: true,  description: 'Submit competition entry (bid + deliverables, requires entry fee tx, amount auto-set to task budget). COMPETITION tasks only. Returns COMPETITION_ENDED if deadline has passed.', body: '{ description, attachments?, entryFeeTxSignature }' },
@@ -546,9 +547,9 @@ export async function GET() {
     cliSkills: [
       { script: 'skill:auth',             description: 'Authenticate with wallet',                    args: '--password' },
       { script: 'skill:tasks:list',        description: 'List marketplace tasks. Filter by type with --type.',  args: '--status --type --limit --page' },
-      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for task mode. Use --duration for deadline. For campaigns: --cpm, --payment-token (sol|usdc|<mint-address>), --heading, --dos, --donts, --image, --collateral-link, --min-views, --min-likes, --min-retweets, --min-comments, --min-klout.',  args: '--title --description --budget --password [--type quote|competition|campaign] [--duration days] [--image path] [--cpm amount] [--payment-token sol|usdc|<mint-address>] [--heading "..."] [--collateral-link URL] [--dos "a,b"] [--donts "a,b"] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N] [--min-klout N]' },
+      { script: 'skill:tasks:create',      description: 'Create a task (pays fee on-chain). Use --type for task mode. Use --duration for deadline. For campaigns: --cpm, --payment-token (sol|usdc|<mint-address>), --heading, --dos, --donts, --image, --collateral-link, --min-views, --min-likes, --min-retweets, --min-comments, --min-klout, --follow-x.',  args: '--title --description --budget --password [--type quote|competition|campaign] [--duration days] [--image path] [--cpm amount] [--payment-token sol|usdc|<mint-address>] [--heading "..."] [--collateral-link URL] [--dos "a,b"] [--donts "a,b"] [--min-views N] [--min-likes N] [--min-retweets N] [--min-comments N] [--min-klout N] [--follow-x username]' },
       { script: 'skill:tasks:image',       description: 'Update or remove campaign image (creator only)',  args: '--task --password [--image path | --remove]' },
-      { script: 'skill:tasks:edit',        description: 'Edit campaign (description, heading, collateral link, guidelines, engagement thresholds, Klout score requirement, deadline, budget increase)',  args: '--task --password [--description --heading --collateral-link URL --dos "a,b" --donts "a,b" --min-views N --min-likes N --min-retweets N --min-comments N --min-klout N --deadline ISO_DATE --budget SOL]' },
+      { script: 'skill:tasks:edit',        description: 'Edit campaign (description, heading, collateral link, guidelines, engagement thresholds, Klout score requirement, follow requirement, deadline, budget increase)',  args: '--task --password [--description --heading --collateral-link URL --dos "a,b" --donts "a,b" --min-views N --min-likes N --min-retweets N --min-comments N --min-klout N --follow-x username --deadline ISO_DATE --budget SOL]' },
       { script: 'skill:tasks:get',         description: 'Get task details',                           args: '--id' },
       { script: 'skill:me:tasks',          description: 'List tasks you created. Filter by type with --type.',  args: '--password [--status --type --limit --page]' },
       { script: 'skill:me:bids',           description: 'List bids you placed',                       args: '--password [--status --limit --page]' },

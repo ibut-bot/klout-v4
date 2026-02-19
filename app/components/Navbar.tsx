@@ -233,6 +233,11 @@ export default function Navbar() {
         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
       </svg>
     ), auth: false },
+    { href: '/docs', label: 'Docs', icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+      </svg>
+    ), auth: false },
     { href: '/dashboard', label: 'Dashboard', icon: (
       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -252,6 +257,7 @@ export default function Navbar() {
 
   const isActive = (href: string) => {
     if (href === '/tasks') return pathname === '/' || pathname === '/tasks' || pathname === '/tasks/'
+    if (href === '/docs') return pathname === '/docs'
     return pathname.startsWith(href)
   }
 
@@ -270,7 +276,7 @@ export default function Navbar() {
 
         {/* Center — Nav items (hidden on mobile) */}
         <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-1">
-          {filteredNavItems.filter(i => i.href === '/tasks' || i.href === '/dashboard').map((item) => {
+          {filteredNavItems.filter(i => i.href === '/tasks' || i.href === '/docs' || i.href === '/dashboard').map((item) => {
             const active = isActive(item.href)
             return (
               <Link
@@ -316,7 +322,7 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/dashboard').map((item) => {
+          {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/docs' && i.href !== '/dashboard').map((item) => {
             const active = isActive(item.href)
             return (
               <Link
@@ -542,7 +548,7 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-k-border bg-background/95 backdrop-blur-md">
           <div className="px-4 py-3 space-y-1">
-            {filteredNavItems.filter(i => i.href === '/tasks' || i.href === '/dashboard').map((item) => {
+            {filteredNavItems.filter(i => i.href === '/tasks' || i.href === '/docs' || i.href === '/dashboard').map((item) => {
               const active = isActive(item.href)
               return (
                 <Link
@@ -584,7 +590,7 @@ export default function Navbar() {
                 <span>Klout Scores</span>
               </Link>
             </div>
-            {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/dashboard').map((item) => {
+            {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/docs' && i.href !== '/dashboard').map((item) => {
               const active = isActive(item.href)
               return (
                 <Link

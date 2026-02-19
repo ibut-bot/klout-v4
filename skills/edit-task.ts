@@ -48,11 +48,11 @@ async function main() {
     process.exit(1)
   }
 
-  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['collateral-link'] === undefined && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined && args['min-klout'] === undefined) {
+  if (!args.description && !args.heading && !args.dos && !args.donts && !args.deadline && !args.budget && args['collateral-link'] === undefined && args['min-views'] === undefined && args['min-likes'] === undefined && args['min-retweets'] === undefined && args['min-comments'] === undefined && args['min-klout'] === undefined && args['follow-x'] === undefined) {
     console.log(JSON.stringify({
       success: false,
       error: 'MISSING_ARGS',
-      message: 'At least one edit field required: --description, --heading, --collateral-link, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments, --min-klout',
+      message: 'At least one edit field required: --description, --heading, --collateral-link, --dos, --donts, --deadline, --budget, --min-views, --min-likes, --min-retweets, --min-comments, --min-klout, --follow-x',
     }))
     process.exit(1)
   }
@@ -81,6 +81,7 @@ async function main() {
     if (args['min-retweets'] !== undefined) updates.minRetweets = parseInt(args['min-retweets'])
     if (args['min-comments'] !== undefined) updates.minComments = parseInt(args['min-comments'])
     if (args['min-klout'] !== undefined) updates.minKloutScore = args['min-klout'] === 'null' ? null : parseInt(args['min-klout'])
+    if (args['follow-x'] !== undefined) updates.requireFollowX = args['follow-x'] === 'null' ? null : args['follow-x'].replace(/^@/, '')
 
     if (args.dos || args.donts) {
       const dos = args.dos ? args.dos.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined

@@ -88,6 +88,7 @@ export async function GET(
             maxBudgetPerUserPercent: task.campaignConfig.maxBudgetPerUserPercent,
             maxBudgetPerPostPercent: task.campaignConfig.maxBudgetPerPostPercent,
             minKloutScore: task.campaignConfig.minKloutScore,
+            requireFollowX: task.campaignConfig.requireFollowX,
             collateralLink: task.campaignConfig.collateralLink,
           }
         : null,
@@ -160,7 +161,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, collateralLink } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -328,7 +329,7 @@ export async function PATCH(
   }
 
   // Check if there are campaign config updates
-  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || budgetIncrease !== null || collateralLink !== undefined
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || requireFollowX !== undefined || budgetIncrease !== null || collateralLink !== undefined
 
   // Use transaction for campaign config updates
   if (isCampaign && hasCampaignConfigUpdates) {
@@ -365,6 +366,9 @@ export async function PATCH(
         configUpdate.minKloutScore = minKloutScore === null || minKloutScore === '' || Number(minKloutScore) <= 0
           ? null
           : Math.max(1, Math.min(10000, Math.round(Number(minKloutScore))))
+      }
+      if (requireFollowX !== undefined) {
+        configUpdate.requireFollowX = requireFollowX ? String(requireFollowX).trim().replace(/^@/, '') : null
       }
       if (budgetIncrease !== null && task.campaignConfig) {
         configUpdate.budgetRemainingLamports = task.campaignConfig.budgetRemainingLamports + budgetIncrease
