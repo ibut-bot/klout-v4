@@ -59,6 +59,7 @@ interface TaskCardProps {
   submissionCount?: number
   budgetRemainingLamports?: string | null
   heading?: string | null
+  minKloutScore?: number | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
   deadlineAt?: string | null
@@ -96,7 +97,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -244,6 +245,12 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
                   </svg>
                   {participantCount}
                 </span>
+                {minKloutScore != null && (
+                  <span className="flex items-center gap-1 rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-semibold text-accent">
+                    {minKloutScore.toLocaleString()}+
+                    <img src="/Klout1.svg" alt="Klout" className="h-3.5 w-3.5" />
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-zinc-400">
                 <Link

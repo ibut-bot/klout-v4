@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       include: {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         _count: { select: { bids: true, campaignSubmissions: true } },
-        campaignConfig: { select: { budgetRemainingLamports: true, heading: true } },
+        campaignConfig: { select: { budgetRemainingLamports: true, heading: true, minKloutScore: true } },
       },
     }),
     prisma.task.count({ where }),
@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
       submissionCount: t._count.campaignSubmissions,
       budgetRemainingLamports: t.campaignConfig?.budgetRemainingLamports?.toString() || null,
       heading: t.campaignConfig?.heading || null,
+      minKloutScore: t.campaignConfig?.minKloutScore ?? null,
       imageUrl: t.imageUrl,
       imageTransform: t.imageTransform,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
