@@ -91,6 +91,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [rejectLoading, setRejectLoading] = useState(false)
   const [rejectError, setRejectError] = useState('')
   const [banSubmitter, setBanSubmitter] = useState(false)
+  const [overrideApprovingId, setOverrideApprovingId] = useState<string | null>(null)
+  const [overrideApproveLoading, setOverrideApproveLoading] = useState(false)
+  const [overrideApproveError, setOverrideApproveError] = useState('')
   const [requestingPayment, setRequestingPayment] = useState(false)
   const [requestPaymentError, setRequestPaymentError] = useState('')
   const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
@@ -140,6 +143,27 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       setRejectError('Network error')
     }
     setRejectLoading(false)
+  }
+
+  const handleOverrideApprove = async (submissionId: string) => {
+    setOverrideApproveLoading(true)
+    setOverrideApproveError('')
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions/${submissionId}/override-approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setOverrideApproveError(data.message || 'Failed to approve submission')
+      } else {
+        setOverrideApprovingId(null)
+        fetchData()
+      }
+    } catch {
+      setOverrideApproveError('Network error')
+    }
+    setOverrideApproveLoading(false)
   }
 
   const handleRequestPayment = async () => {
@@ -500,6 +524,38 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         )}
                         {s.status === 'CREATOR_REJECTED' && (
                           <span className="text-xs text-orange-400">Rejected by you</span>
+                        )}
+                        {s.status === 'REJECTED' && (
+                          <div className="flex flex-col gap-1.5">
+                            {overrideApprovingId === s.id ? (
+                              <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
+                                <p className="text-xs text-zinc-400">Override auto-rejection and approve this submission?</p>
+                                {overrideApproveError && <p className="text-xs text-red-500">{overrideApproveError}</p>}
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleOverrideApprove(s.id)}
+                                    disabled={overrideApproveLoading}
+                                    className="rounded bg-green-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                                  >
+                                    {overrideApproveLoading ? 'Approving...' : 'Confirm Approve'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setOverrideApprovingId(null); setOverrideApproveError('') }}
+                                    className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setOverrideApprovingId(s.id); setOverrideApproveError('') }}
+                                className="rounded-md border border-green-500/30 px-2 py-1 text-xs font-medium text-green-400 hover:bg-green-500/10 transition-colors"
+                              >
+                                Override &amp; Approve
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     )}
