@@ -359,7 +359,7 @@ export default function TaskDetailPage() {
                 task.customTokenDecimals,
               )
               return task.taskType === 'CAMPAIGN'
-                ? `${formatTokenAmount(task.budgetLamports, tInfo)} ${tInfo.symbol}`
+                ? `${formatTokenAmount(task.budgetLamports, tInfo, 2)} ${tInfo.symbol}`
                 : formatSol(task.budgetLamports)
             })()}
           </span>
