@@ -546,7 +546,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-k-border bg-background/95 backdrop-blur-md">
+        <div className="md:hidden border-t border-k-border bg-background/95 backdrop-blur-md max-h-[calc(100vh-3.5rem)] overflow-y-auto">
           <div className="px-4 py-3 space-y-1">
             {filteredNavItems.filter(i => i.href === '/tasks' || i.href === '/docs' || i.href === '/dashboard').map((item) => {
               const active = isActive(item.href)
