@@ -72,11 +72,11 @@ export default function WelcomeModal() {
           <p className="text-xs text-zinc-400 leading-relaxed">
             To get your score, you&apos;ll need to <span className="text-accent font-medium">follow @kloutgg on X</span> first.
           </p>
-          {referrer && (
+          {/* {referrer && (
             <p className="text-xs text-accent/80">
               Getting your score also activates your referral — so @{referrer} can start earning from your work.
             </p>
-          )}
+          )} */}
         </div>
 
         {/* Referral Program */}
