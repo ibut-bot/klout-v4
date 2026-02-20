@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import CampaignPayButton from './CampaignPayButton'
+import CampaignRejectButton from './CampaignRejectButton'
 import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
 interface CampaignStats {
@@ -85,6 +86,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [submissions, setSubmissions] = useState<CampaignSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectPreset, setRejectPreset] = useState<'Botting' | 'Quality' | 'Relevancy' | 'Other' | ''>('')
   const [rejectReason, setRejectReason] = useState('')
   const [rejectLoading, setRejectLoading] = useState(false)
   const [rejectError, setRejectError] = useState('')
@@ -107,23 +109,29 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   }, [taskId, authFetch])
 
   const handleReject = async (submissionId: string) => {
-    if (!rejectReason.trim()) {
-      setRejectError('Please provide a reason for rejection')
+    if (!rejectPreset) {
+      setRejectError('Please select a reason for rejection')
       return
     }
+    if (rejectPreset === 'Other' && !rejectReason.trim()) {
+      setRejectError('Please enter a reason')
+      return
+    }
+    const finalReason = rejectPreset === 'Other' ? rejectReason.trim() : rejectPreset
     setRejectLoading(true)
     setRejectError('')
     try {
       const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions/${submissionId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: rejectReason.trim(), banSubmitter }),
+        body: JSON.stringify({ reason: rejectPreset, ...(rejectPreset === 'Other' ? { customReason: rejectReason.trim() } : {}), banSubmitter }),
       })
       const data = await res.json()
       if (!data.success) {
         setRejectError(data.message || 'Failed to reject submission')
       } else {
         setRejectingId(null)
+        setRejectPreset('')
         setRejectReason('')
         setBanSubmitter(false)
         fetchData()
@@ -368,7 +376,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 submitterId={s.submitterId}
                               />
                               <button
-                                onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
+                                onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
                                 className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                               >
                                 Reject
@@ -376,14 +384,27 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                             </div>
                             {rejectingId === s.id && (
                               <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
-                                <textarea
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="Reason for rejection..."
-                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
-                                  rows={2}
-                                  maxLength={500}
-                                />
+                                <select
+                                  value={rejectPreset}
+                                  onChange={(e) => { setRejectPreset(e.target.value as any); setRejectError('') }}
+                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 focus:border-red-500 focus:outline-none"
+                                >
+                                  <option value="">Select reason...</option>
+                                  <option value="Botting">Botting</option>
+                                  <option value="Quality">Quality</option>
+                                  <option value="Relevancy">Relevancy</option>
+                                  <option value="Other">Other</option>
+                                </select>
+                                {rejectPreset === 'Other' && (
+                                  <input
+                                    type="text"
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    placeholder="Enter rejection reason..."
+                                    className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
+                                    maxLength={500}
+                                  />
+                                )}
                                 <label className="flex items-center gap-1.5 cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -397,13 +418,13 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     onClick={() => handleReject(s.id)}
-                                    disabled={rejectLoading}
+                                    disabled={rejectLoading || !rejectPreset || (rejectPreset === 'Other' && !rejectReason.trim())}
                                     className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                   >
                                     {rejectLoading ? (banSubmitter ? 'Rejecting & Banning...' : 'Rejecting...') : (banSubmitter ? 'Reject & Ban' : 'Confirm Reject')}
                                   </button>
                                   <button
-                                    onClick={() => { setRejectingId(null); setBanSubmitter(false) }}
+                                    onClick={() => { setRejectingId(null); setRejectPreset(''); setBanSubmitter(false) }}
                                     className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
                                   >
                                     Cancel
@@ -417,21 +438,34 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-zinc-500">Awaiting payment request</span>
                             <button
-                              onClick={() => { setRejectingId(s.id); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
+                              onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
                               className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                             >
                               Reject
                             </button>
                             {rejectingId === s.id && (
                               <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
-                                <textarea
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="Reason for rejection..."
-                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
-                                  rows={2}
-                                  maxLength={500}
-                                />
+                                <select
+                                  value={rejectPreset}
+                                  onChange={(e) => { setRejectPreset(e.target.value as any); setRejectError('') }}
+                                  className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 focus:border-red-500 focus:outline-none"
+                                >
+                                  <option value="">Select reason...</option>
+                                  <option value="Botting">Botting</option>
+                                  <option value="Quality">Quality</option>
+                                  <option value="Relevancy">Relevancy</option>
+                                  <option value="Other">Other</option>
+                                </select>
+                                {rejectPreset === 'Other' && (
+                                  <input
+                                    type="text"
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    placeholder="Enter rejection reason..."
+                                    className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
+                                    maxLength={500}
+                                  />
+                                )}
                                 <label className="flex items-center gap-1.5 cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -445,13 +479,13 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     onClick={() => handleReject(s.id)}
-                                    disabled={rejectLoading}
+                                    disabled={rejectLoading || !rejectPreset || (rejectPreset === 'Other' && !rejectReason.trim())}
                                     className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
                                   >
                                     {rejectLoading ? (banSubmitter ? 'Rejecting & Banning...' : 'Rejecting...') : (banSubmitter ? 'Reject & Ban' : 'Confirm Reject')}
                                   </button>
                                   <button
-                                    onClick={() => { setRejectingId(null); setBanSubmitter(false) }}
+                                    onClick={() => { setRejectingId(null); setRejectPreset(''); setBanSubmitter(false) }}
                                     className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
                                   >
                                     Cancel

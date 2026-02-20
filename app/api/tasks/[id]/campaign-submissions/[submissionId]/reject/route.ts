@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
 
+const VALID_REASONS = ['Botting', 'Quality', 'Relevancy', 'Other'] as const
+
 interface RouteContext {
   params: Promise<{ id: string; submissionId: string }>
 }
@@ -10,9 +12,8 @@ interface RouteContext {
 /**
  * POST /api/tasks/[id]/campaign-submissions/[submissionId]/reject
  *
- * Allows the campaign creator to reject an APPROVED or PAYMENT_REQUESTED submission.
- * - If APPROVED: no budget refund needed (budget not yet deducted).
- * - If PAYMENT_REQUESTED: budget is refunded back to the campaign.
+ * Allows the campaign creator to manually reject an approved submission.
+ * Restores the payout amount back to the campaign's remaining budget.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireAuth(request)
@@ -31,23 +32,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  const { reason, banSubmitter } = body
+  const { reason, customReason } = body
 
-  if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+  if (!reason || !VALID_REASONS.includes(reason)) {
     return Response.json(
-      { success: false, error: 'MISSING_REASON', message: 'A rejection reason is required' },
+      { success: false, error: 'INVALID_REASON', message: `reason must be one of: ${VALID_REASONS.join(', ')}` },
       { status: 400 }
     )
   }
 
-  if (reason.trim().length > 500) {
+  if (reason === 'Other' && (!customReason || typeof customReason !== 'string' || !customReason.trim())) {
     return Response.json(
-      { success: false, error: 'REASON_TOO_LONG', message: 'Rejection reason must be 500 characters or less' },
+      { success: false, error: 'MISSING_CUSTOM_REASON', message: 'customReason is required when reason is "Other"' },
       { status: 400 }
     )
   }
 
-  // Verify task exists and caller is creator
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: { id: true, creatorId: true, taskType: true },
@@ -71,102 +71,53 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // Verify submission
   const submission = await prisma.campaignSubmission.findUnique({
     where: { id: submissionId },
-    include: { submitter: { select: { id: true, xUsername: true, walletAddress: true } } },
+    select: { id: true, taskId: true, submitterId: true, status: true, payoutLamports: true },
   })
 
   if (!submission || submission.taskId !== taskId) {
-    return Response.json(
-      { success: false, error: 'NOT_FOUND', message: 'Submission not found' },
-      { status: 404 }
-    )
+    return Response.json({ success: false, error: 'NOT_FOUND', message: 'Submission not found' }, { status: 404 })
   }
 
-  const rejectableStatuses = ['APPROVED', 'PAYMENT_REQUESTED']
-  if (!rejectableStatuses.includes(submission.status)) {
+  if (submission.status !== 'APPROVED' && submission.status !== 'PAYMENT_REQUESTED') {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, expected APPROVED or PAYMENT_REQUESTED` },
+      { success: false, error: 'INVALID_STATUS', message: `Submission status is ${submission.status}, can only reject APPROVED or PAYMENT_REQUESTED submissions` },
       { status: 400 }
     )
   }
 
-  const needsBudgetRefund = submission.status === 'PAYMENT_REQUESTED'
-  const payoutToRefund = needsBudgetRefund ? (submission.payoutLamports || BigInt(0)) : BigInt(0)
+  const rejectionText = reason === 'Other' ? customReason.trim() : reason
+  const payoutToRestore = submission.payoutLamports || BigInt(0)
 
-  // Reject submission and refund budget atomically (only if PAYMENT_REQUESTED)
+  // Reject the submission and restore budget atomically
   await prisma.$transaction([
     prisma.campaignSubmission.update({
       where: { id: submissionId },
       data: {
         status: 'CREATOR_REJECTED',
-        rejectionReason: reason.trim(),
+        rejectionReason: rejectionText,
       },
     }),
-    // Refund the allocated budget back to the campaign (only for PAYMENT_REQUESTED)
-    ...(payoutToRefund > BigInt(0)
-      ? [
-          prisma.campaignConfig.update({
-            where: { taskId },
-            data: {
-              budgetRemainingLamports: { increment: payoutToRefund },
-            },
-          }),
-        ]
-      : []),
+    prisma.campaignConfig.update({
+      where: { taskId },
+      data: {
+        budgetRemainingLamports: { increment: payoutToRestore },
+      },
+    }),
   ])
 
-  // Optionally ban the submitter from all future campaigns by this creator
-  let banned = false
-  if (banSubmitter) {
-    try {
-      await prisma.campaignBan.upsert({
-        where: {
-          creatorId_bannedUserId: {
-            creatorId: userId,
-            bannedUserId: submission.submitterId,
-          },
-        },
-        update: {},
-        create: {
-          creatorId: userId,
-          bannedUserId: submission.submitterId,
-          reason: reason.trim(),
-        },
-      })
-      banned = true
-
-      // Notify the banned user
-      await createNotification({
-        userId: submission.submitterId,
-        type: 'CAMPAIGN_BANNED',
-        title: 'You have been banned from a creator\'s campaigns',
-        body: `A campaign creator has banned you from submitting to their future campaigns. Reason: ${reason.trim()}`,
-        linkUrl: `/tasks/${taskId}`,
-      })
-    } catch (e) {
-      console.error('Failed to create campaign ban:', e)
-    }
-  }
-
-  // Notify the submitter about the rejection
   await createNotification({
     userId: submission.submitterId,
     type: 'CAMPAIGN_CREATOR_REJECTED',
-    title: 'Campaign submission rejected by creator',
-    body: `The campaign creator rejected your submission. Reason: ${reason.trim()}`,
+    title: 'Campaign submission rejected',
+    body: `Your submission was rejected by the campaign creator. Reason: ${rejectionText}`,
     linkUrl: `/tasks/${taskId}`,
   })
 
   return Response.json({
     success: true,
-    message: banned ? 'Submission rejected and submitter banned' : 'Submission rejected',
-    banned,
-    submission: {
-      id: submission.id,
-      status: 'CREATOR_REJECTED',
-      rejectionReason: reason.trim(),
-    },
+    message: 'Submission rejected',
+    submission: { id: submissionId, status: 'CREATOR_REJECTED', rejectionReason: rejectionText },
   })
 }
