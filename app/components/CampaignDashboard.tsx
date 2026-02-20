@@ -85,6 +85,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [stats, setStats] = useState<CampaignStats | null>(null)
   const [submissions, setSubmissions] = useState<CampaignSubmission[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectPreset, setRejectPreset] = useState<'Botting' | 'Quality' | 'Relevancy' | 'Other' | ''>('')
   const [rejectReason, setRejectReason] = useState('')
@@ -102,14 +105,20 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     try {
       const [statsRes, subsRes] = await Promise.all([
         authFetch(`/api/tasks/${taskId}/campaign-stats`),
-        authFetch(`/api/tasks/${taskId}/campaign-submissions`),
+        authFetch(`/api/tasks/${taskId}/campaign-submissions?page=${page}&limit=50`),
       ])
       const [statsData, subsData] = await Promise.all([statsRes.json(), subsRes.json()])
       if (statsData.success) setStats(statsData.stats)
-      if (subsData.success) setSubmissions(subsData.submissions)
+      if (subsData.success) {
+        setSubmissions(subsData.submissions)
+        if (subsData.pagination) {
+          setTotalPages(subsData.pagination.pages)
+          setTotalCount(subsData.pagination.total)
+        }
+      }
     } catch {}
     setLoading(false)
-  }, [taskId, authFetch])
+  }, [taskId, authFetch, page])
 
   const handleReject = async (submissionId: string) => {
     if (!rejectPreset) {
@@ -318,10 +327,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       {/* Submissions Table */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-white">Submissions</h3>
+        <h3 className="mb-3 text-sm font-semibold text-white">Submissions ({totalCount})</h3>
         {submissions.length === 0 ? (
           <p className="text-sm text-zinc-500">No submissions yet.</p>
         ) : (
+        <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -564,6 +574,30 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-xs text-zinc-500">
+                Page {page} of {totalPages} ({totalCount} total)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="rounded-md border border-k-border px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-surface disabled:opacity-30"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="rounded-md border border-k-border px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-surface disabled:opacity-30"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
         )}
       </div>
     </div>
