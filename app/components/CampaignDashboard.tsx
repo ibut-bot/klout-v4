@@ -190,11 +190,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Budget</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.totalBudgetLamports, tInfo, 2)} {sym}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.totalBudgetLamports, tInfo, 0)} {sym}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Remaining</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.budgetRemainingLamports, tInfo, 2)} {sym}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.budgetRemainingLamports, tInfo, 0)} {sym}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Views</p>
@@ -207,7 +207,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">CPM (per 1,000 views)</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.cpmLamports, tInfo)} {sym}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.cpmLamports, tInfo, 2)} {sym}</p>
           </div>
           {stats.minViews > 0 && (
             <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
@@ -218,7 +218,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           {Number(stats.minPayoutLamports) > 0 && (
             <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
               <p className="text-xs text-zinc-500">Min payout threshold</p>
-              <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.minPayoutLamports, tInfo)} {sym}</p>
+              <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.minPayoutLamports, tInfo, 2)} {sym}</p>
             </div>
           )}
         </div>
@@ -228,7 +228,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       <div>
         <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
           <span>Budget used: {budgetPct.toFixed(1)}%</span>
-          <span>CPM: {formatTokenAmount(stats.cpmLamports, tInfo)} {sym}</span>
+          <span>CPM: {formatTokenAmount(stats.cpmLamports, tInfo, 2)} {sym}</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700 bg-surface">
           <div

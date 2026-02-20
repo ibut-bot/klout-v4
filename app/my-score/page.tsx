@@ -351,7 +351,7 @@ function MyScoreTab() {
 
       const referralPath = xUsername ? `/${xUsername.toLowerCase()}` : "";
       const shareUrl = `${window.location.origin}${referralPath}`;
-      const tweetText = `My Klout score just got #ENHANCED. Get yours at ${shareUrl}`;
+      const tweetText = `My @kloutgg score just got #ENHANCED. Get yours at ${shareUrl}`;
 
       try {
         await navigator.clipboard.write([
