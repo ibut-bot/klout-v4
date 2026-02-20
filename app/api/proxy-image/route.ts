@@ -12,9 +12,17 @@ export async function GET(request: NextRequest) {
     return new Response('Missing url param', { status: 400 })
   }
 
-  // Only allow proxying images from our S3 bucket
+  // Only allow proxying images from our S3 bucket (strict hostname check to prevent SSRF)
   const allowedHost = process.env.HETZNER_ENDPOINT_URL || 'https://hel1.your-objectstorage.com'
-  if (!url.startsWith(allowedHost)) {
+  let parsedUrl: URL
+  let parsedAllowed: URL
+  try {
+    parsedUrl = new URL(url)
+    parsedAllowed = new URL(allowedHost)
+  } catch {
+    return new Response('Invalid URL', { status: 400 })
+  }
+  if (parsedUrl.hostname !== parsedAllowed.hostname || parsedUrl.protocol !== parsedAllowed.protocol) {
     return new Response('URL not allowed', { status: 403 })
   }
 

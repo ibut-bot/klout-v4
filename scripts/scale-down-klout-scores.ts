@@ -24,9 +24,7 @@ async function main() {
     console.log(`Before — max: ${before._max.score}, min: ${before._min.score}, avg: ${before._avg.score?.toFixed(2)}`);
 
     // Divide all scores by 100 and round to 1 decimal
-    const result = await prisma.$executeRawUnsafe(
-      `UPDATE "slopwork"."KloutScore" SET score = ROUND((score / 100)::numeric, 1)`
-    );
+    const result = await prisma.$executeRaw`UPDATE "slopwork"."KloutScore" SET score = ROUND((score / 100)::numeric, 1)`;
 
     console.log(`Updated ${result} rows.`);
 

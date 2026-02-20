@@ -23,9 +23,7 @@ async function main() {
     console.log(`Found ${before._count} scores.`);
     console.log(`Before — max: ${before._max.score}, min: ${before._min.score}, avg: ${before._avg.score?.toFixed(2)}`);
 
-    const result = await prisma.$executeRawUnsafe(
-      `UPDATE "slopwork"."KloutScore" SET score = ROUND((score * 100)::numeric, 0)`
-    );
+    const result = await prisma.$executeRaw`UPDATE "slopwork"."KloutScore" SET score = ROUND((score * 100)::numeric, 0)`;
 
     console.log(`Updated ${result} rows.`);
 

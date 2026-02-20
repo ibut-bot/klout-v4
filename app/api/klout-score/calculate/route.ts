@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    await prisma.$executeRawUnsafe(`
+    await prisma.$executeRaw`
       UPDATE "slopwork"."KloutScore" k
       SET rank = r.new_rank
       FROM (
@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
         FROM "slopwork"."KloutScore"
       ) r
       WHERE k.id = r.id
-    `)
+    `
   } catch (err) {
     console.error('[klout-score] Leaderboard update failed (non-fatal):', err)
   }

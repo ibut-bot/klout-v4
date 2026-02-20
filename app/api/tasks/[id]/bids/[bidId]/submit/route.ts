@@ -12,11 +12,22 @@ export async function GET(
 ) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
+  const { userId } = auth
   const { id, bidId } = await params
 
-  const bid = await prisma.bid.findUnique({ where: { id: bidId } })
+  const bid = await prisma.bid.findUnique({
+    where: { id: bidId },
+    include: { task: { select: { creatorId: true } } },
+  })
   if (!bid || bid.taskId !== id) {
     return Response.json({ success: false, error: 'NOT_FOUND', message: 'Bid not found for this task' }, { status: 404 })
+  }
+
+  if (bid.bidderId !== userId && bid.task.creatorId !== userId) {
+    return Response.json(
+      { success: false, error: 'FORBIDDEN', message: 'Only the task creator or bidder can view submissions' },
+      { status: 403 }
+    )
   }
 
   const submissions = await prisma.submission.findMany({
