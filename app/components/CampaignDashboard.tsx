@@ -1029,9 +1029,14 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
   const fetchData = useCallback(async () => {
     try {
+      const subsParams = new URLSearchParams({ page: String(page), limit: '50' })
+      if (sortCol) {
+        subsParams.set('sortBy', sortCol)
+        subsParams.set('sortDir', sortDir)
+      }
       const [statsRes, subsRes] = await Promise.all([
         authFetch(`/api/tasks/${taskId}/campaign-stats`),
-        authFetch(`/api/tasks/${taskId}/campaign-submissions?page=${page}&limit=50`),
+        authFetch(`/api/tasks/${taskId}/campaign-submissions?${subsParams}`),
       ])
       const [statsData, subsData] = await Promise.all([statsRes.json(), subsRes.json()])
       if (statsData.success) setStats(statsData.stats)
@@ -1044,7 +1049,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       }
     } catch {}
     setLoading(false)
-  }, [taskId, authFetch, page])
+  }, [taskId, authFetch, page, sortCol, sortDir])
 
   const handleReject = async (submissionId: string) => {
     if (!rejectPreset) {
@@ -1143,6 +1148,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const canRequestPayment = !isCreator && !isSharedViewer && cappedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
 
   const toggleSort = (col: string) => {
+    setPage(1)
     if (sortCol === col) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
@@ -1150,37 +1156,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       setSortDir('desc')
     }
   }
-
-  const sortedSubmissions = (() => {
-    if (!sortCol) return submissions
-    const dir = sortDir === 'asc' ? 1 : -1
-    return [...submissions].sort((a, b) => {
-      let av: number, bv: number
-      switch (sortCol) {
-        case 'score':
-          av = a.submitter.kloutScore ?? -1
-          bv = b.submitter.kloutScore ?? -1
-          break
-        case 'views':
-          av = a.viewCount ?? -1
-          bv = b.viewCount ?? -1
-          break
-        case 'payout':
-          av = Number(a.payoutLamports || 0)
-          bv = Number(b.payoutLamports || 0)
-          break
-        case 'status':
-          return dir * (a.status.localeCompare(b.status))
-        case 'date':
-          av = new Date(a.createdAt).getTime()
-          bv = new Date(b.createdAt).getTime()
-          break
-        default:
-          return 0
-      }
-      return dir * (av - bv)
-    })
-  })()
 
   const SortHeader = ({ col, children, className = '' }: { col: string; children: React.ReactNode; className?: string }) => (
     <th
@@ -1496,7 +1471,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                 </tr>
               </thead>
               <tbody>
-                {sortedSubmissions.map((s) => (
+                {submissions.map((s) => (
                   <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">

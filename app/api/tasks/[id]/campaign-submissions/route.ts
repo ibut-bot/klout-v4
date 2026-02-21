@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 
@@ -46,6 +47,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const status = searchParams.get('status')?.toUpperCase()
   const page = Math.max(1, Number(searchParams.get('page') || 1))
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 20)))
+  const sortBy = searchParams.get('sortBy')
+  const sortDir: 'asc' | 'desc' = searchParams.get('sortDir') === 'asc' ? 'asc' : 'desc'
 
   const where: any = { taskId }
   if (status) {
@@ -55,23 +58,71 @@ export async function GET(request: NextRequest, context: RouteContext) {
     where.submitterId = auth.userId
   }
 
-  const [submissions, total] = await Promise.all([
-    prisma.campaignSubmission.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        submitter: {
-          select: {
-            id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true,
-            xScores: { orderBy: { createdAt: 'desc' }, take: 1, select: { totalScore: true } },
-          },
-        },
+  const submitterInclude = {
+    submitter: {
+      select: {
+        id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true,
+        xScores: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { totalScore: true } },
       },
-    }),
-    prisma.campaignSubmission.count({ where }),
-  ])
+    },
+  }
+
+  let submissions: any[]
+  let total: number
+
+  if (sortBy === 'score') {
+    const statusFilter = status ? Prisma.sql`AND cs."status" = ${status}` : Prisma.sql``
+    const submitterFilter = !isCreator && !isSharedViewer ? Prisma.sql`AND cs."submitterId" = ${auth.userId}` : Prisma.sql``
+    const orderClause = sortDir === 'asc'
+      ? Prisma.sql`ORDER BY xs."totalScore" ASC NULLS LAST`
+      : Prisma.sql`ORDER BY xs."totalScore" DESC NULLS LAST`
+
+    const sortedIds = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT cs."id"
+      FROM slopwork."CampaignSubmission" cs
+      LEFT JOIN LATERAL (
+        SELECT "totalScore" FROM slopwork."XScoreData"
+        WHERE "userId" = cs."submitterId"
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      ) xs ON true
+      WHERE cs."taskId" = ${taskId}
+      ${statusFilter}
+      ${submitterFilter}
+      ${orderClause}
+      LIMIT ${limit} OFFSET ${(page - 1) * limit}
+    `
+
+    const ids = sortedIds.map(r => r.id)
+    const [records, count] = await Promise.all([
+      ids.length > 0
+        ? prisma.campaignSubmission.findMany({ where: { id: { in: ids } }, include: submitterInclude })
+        : Promise.resolve([]),
+      prisma.campaignSubmission.count({ where }),
+    ])
+    const idOrder = new Map(ids.map((id, i) => [id, i]))
+    submissions = records.sort((a: any, b: any) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0))
+    total = count
+  } else {
+    let orderBy: any = { createdAt: 'desc' }
+    if (sortBy === 'views') orderBy = { viewCount: sortDir }
+    else if (sortBy === 'payout') orderBy = { payoutLamports: sortDir }
+    else if (sortBy === 'status') orderBy = { status: sortDir }
+    else if (sortBy === 'date') orderBy = { createdAt: sortDir }
+
+    const [records, count] = await Promise.all([
+      prisma.campaignSubmission.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: submitterInclude,
+      }),
+      prisma.campaignSubmission.count({ where }),
+    ])
+    submissions = records
+    total = count
+  }
 
   return Response.json({
     success: true,
