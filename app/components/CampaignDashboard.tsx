@@ -738,22 +738,30 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       y = chartAreaY + 44
 
-      // ── ANALYTICS CHARTS PAGE ──
+      // ── ANALYTICS CHARTS ──
       const paidOrApproved = subs.filter(s =>
         ['PAID', 'APPROVED', 'PAYMENT_REQUESTED'].includes(s.status) && s.payoutLamports
       )
 
-      if (paidOrApproved.length > 0) {
-        doc.addPage()
-        let cy = 14
-
+      const chartW = pw - m * 2
+      const chartImgH = 120
+      const donutSize = 50
+      const renderChartPageHeader = (title: string) => {
+        doc.setFillColor(248, 248, 250)
+        doc.rect(0, 0, pw, 18, 'F')
+        doc.setDrawColor(228, 228, 231)
+        doc.setLineWidth(0.3)
+        doc.line(0, 18, pw, 18)
+        if (logoDataUrl) doc.addImage(logoDataUrl, 'PNG', m, 4, 9, 9)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(12)
+        doc.setFontSize(13)
         doc.setTextColor(24, 24, 27)
-        doc.text('Campaign Analytics', m, cy)
-        cy += 8
+        doc.text(title, m + 13, 11)
+      }
 
-        // ── Chart 1: Payouts by Klout Score Tranche ──
+      if (paidOrApproved.length > 0) {
+
+        // ── Page: Klout Score Tranche ──
         const scoreTranches: Record<string, { total: number; count: number; color: string }> = {
           '0-500': { total: 0, count: 0, color: '#94a3b8' },
           '500-1k': { total: 0, count: 0, color: '#60a5fa' },
@@ -781,13 +789,39 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           .filter(([, v]) => v.count > 0)
           .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
 
-        const scoreChartImg = renderBarChart(scoreBars, `Payout by Klout Score Tranche (${sym})`, '')
+        const scoreChartImg = renderBarChart(scoreBars, `Payout by Klout Score Tranche (${sym})`, '', 720, 380)
         if (scoreChartImg) {
-          doc.addImage(scoreChartImg, 'PNG', m, cy, pw - m * 2, 55)
-          cy += 60
+          doc.addPage()
+          renderChartPageHeader('Analytics — Klout Score Distribution')
+          doc.addImage(scoreChartImg, 'PNG', m, 28, chartW, chartImgH)
+
+          const scoreDonutSegs = Object.entries(scoreTranches)
+            .filter(([, v]) => v.count > 0)
+            .map(([label, v]) => ({ label, value: v.count, color: v.color }))
+          const scoreDonut = renderDonutChart(scoreDonutSegs, 360)
+          if (scoreDonut) {
+            const dy = 158
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(10)
+            doc.setTextColor(63, 63, 70)
+            doc.text('Submitters by Score Tranche', m, dy)
+            doc.addImage(scoreDonut, 'PNG', m + 8, dy + 6, donutSize, donutSize)
+            let ldy = dy + 12
+            scoreDonutSegs.forEach(seg => {
+              if (seg.value === 0) return
+              const hex = seg.color
+              doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
+              doc.roundedRect(m + donutSize + 18, ldy - 2.5, 4, 4, 0.7, 0.7, 'F')
+              doc.setFont('helvetica', 'normal')
+              doc.setFontSize(8.5)
+              doc.setTextColor(63, 63, 70)
+              doc.text(`${seg.label}: ${seg.value} submitter${seg.value !== 1 ? 's' : ''}`, m + donutSize + 25, ldy + 0.5)
+              ldy += 7
+            })
+          }
         }
 
-        // ── Chart 2: Payouts by Geo Tier ──
+        // ── Page: Geographic Region ──
         const GEO_LABELS: Record<number, string> = {
           1: 'Tier 1 (US/CA)',
           2: 'Tier 2 (W.Europe)',
@@ -811,13 +845,37 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
 
-        const geoChartImg = renderBarChart(geoBars, `Payout by Geographic Region (${sym})`, '')
+        const geoChartImg = renderBarChart(geoBars, `Payout by Geographic Region (${sym})`, '', 720, 380)
         if (geoChartImg) {
-          doc.addImage(geoChartImg, 'PNG', m, cy, pw - m * 2, 55)
-          cy += 60
+          doc.addPage()
+          renderChartPageHeader('Analytics — Geographic Distribution')
+          doc.addImage(geoChartImg, 'PNG', m, 28, chartW, chartImgH)
+
+          const geoDonutSegs = Object.entries(geoData).map(([label, v]) => ({ label, value: v.count, color: v.color }))
+          const geoDonut = renderDonutChart(geoDonutSegs, 360)
+          if (geoDonut) {
+            const dy = 158
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(10)
+            doc.setTextColor(63, 63, 70)
+            doc.text('Submitters by Region', m, dy)
+            doc.addImage(geoDonut, 'PNG', m + 8, dy + 6, donutSize, donutSize)
+            let ldy = dy + 12
+            geoDonutSegs.forEach(seg => {
+              if (seg.value === 0) return
+              const hex = seg.color
+              doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
+              doc.roundedRect(m + donutSize + 18, ldy - 2.5, 4, 4, 0.7, 0.7, 'F')
+              doc.setFont('helvetica', 'normal')
+              doc.setFontSize(8.5)
+              doc.setTextColor(63, 63, 70)
+              doc.text(`${seg.label}: ${seg.value} submitter${seg.value !== 1 ? 's' : ''}`, m + donutSize + 25, ldy + 0.5)
+              ldy += 7
+            })
+          }
         }
 
-        // ── Chart 3: Payouts by Follower/Following Ratio ──
+        // ── Page: Follower/Following Ratio ──
         const ratioTranches: Record<string, { total: number; count: number; color: string }> = {
           '<0.5': { total: 0, count: 0, color: '#ef4444' },
           '0.5-1': { total: 0, count: 0, color: '#f59e0b' },
@@ -848,62 +906,34 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           .filter(([, v]) => v.count > 0)
           .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
 
-        const ratioChartImg = renderBarChart(ratioBars, `Payout by Follower/Following Ratio (${sym})`, '')
+        const ratioChartImg = renderBarChart(ratioBars, `Payout by Follower/Following Ratio (${sym})`, '', 720, 380)
         if (ratioChartImg) {
-          doc.addImage(ratioChartImg, 'PNG', m, cy, pw - m * 2, 55)
-          cy += 60
-        }
+          doc.addPage()
+          renderChartPageHeader('Analytics — Follower/Following Ratio')
+          doc.addImage(ratioChartImg, 'PNG', m, 28, chartW, chartImgH)
 
-        // Geo breakdown donut next to ratio donut (side by side)
-        if (Object.keys(geoData).length > 1 || Object.keys(ratioTranches).filter(k => ratioTranches[k].count > 0).length > 1) {
-          const halfW = (pw - m * 2 - 6) / 2
-
-          // Geo donut
-          const geoDonutSegs = Object.entries(geoData).map(([label, v]) => ({ label, value: v.count, color: v.color }))
-          const geoDonut = renderDonutChart(geoDonutSegs, 280)
-          if (geoDonut) {
-            doc.setFont('helvetica', 'bold')
-            doc.setFontSize(8)
-            doc.setTextColor(63, 63, 70)
-            doc.text('Submitters by Region', m, cy)
-            doc.addImage(geoDonut, 'PNG', m + 4, cy + 3, 30, 30)
-            let ldy = cy + 6
-            geoDonutSegs.forEach(seg => {
-              if (seg.value === 0) return
-              const hex = seg.color
-              doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
-              doc.roundedRect(m + 38, ldy - 2, 3, 3, 0.5, 0.5, 'F')
-              doc.setFont('helvetica', 'normal')
-              doc.setFontSize(7)
-              doc.setTextColor(63, 63, 70)
-              doc.text(`${seg.label}: ${seg.value}`, m + 43, ldy)
-              ldy += 5
-            })
-          }
-
-          // Ratio donut
           const ratioDonutSegs = Object.entries(ratioTranches)
             .filter(([, v]) => v.count > 0)
             .map(([label, v]) => ({ label, value: v.count, color: v.color }))
-          const ratioDonut = renderDonutChart(ratioDonutSegs, 280)
+          const ratioDonut = renderDonutChart(ratioDonutSegs, 360)
           if (ratioDonut) {
-            const rx = m + halfW + 6
+            const dy = 158
             doc.setFont('helvetica', 'bold')
-            doc.setFontSize(8)
+            doc.setFontSize(10)
             doc.setTextColor(63, 63, 70)
-            doc.text('Submitters by Ratio', rx, cy)
-            doc.addImage(ratioDonut, 'PNG', rx + 4, cy + 3, 30, 30)
-            let ldy = cy + 6
+            doc.text('Submitters by Ratio', m, dy)
+            doc.addImage(ratioDonut, 'PNG', m + 8, dy + 6, donutSize, donutSize)
+            let ldy = dy + 12
             ratioDonutSegs.forEach(seg => {
               if (seg.value === 0) return
               const hex = seg.color
               doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
-              doc.roundedRect(rx + 38, ldy - 2, 3, 3, 0.5, 0.5, 'F')
+              doc.roundedRect(m + donutSize + 18, ldy - 2.5, 4, 4, 0.7, 0.7, 'F')
               doc.setFont('helvetica', 'normal')
-              doc.setFontSize(7)
+              doc.setFontSize(8.5)
               doc.setTextColor(63, 63, 70)
-              doc.text(`${seg.label}: ${seg.value}`, rx + 43, ldy)
-              ldy += 5
+              doc.text(`${seg.label}: ${seg.value} submitter${seg.value !== 1 ? 's' : ''}`, m + donutSize + 25, ldy + 0.5)
+              ldy += 7
             })
           }
         }
