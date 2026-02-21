@@ -144,6 +144,7 @@ export default function TaskDetailPage() {
   const [xLinked, setXLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
+  const [isSharedViewer, setIsSharedViewer] = useState(false)
   // Image repositioning state
   const [editingImage, setEditingImage] = useState(false)
   const [imgTransform, setImgTransform] = useState<ImageTransform>({ scale: 1, x: 50, y: 50 })
@@ -228,12 +229,22 @@ export default function TaskDetailPage() {
     Promise.all([fetchTask(), fetchBids(), fetchSubmissions()]).finally(() => setLoading(false))
   }, [fetchTask, fetchBids, fetchSubmissions])
 
+  const fetchShareStatus = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const res = await authFetch(`/api/tasks/${id}/share/status`)
+      const data = await res.json()
+      if (data.success) setIsSharedViewer(data.isSharedViewer)
+    } catch {}
+  }, [isAuthenticated, authFetch, id])
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchXStatus()
       fetchKloutScore()
+      fetchShareStatus()
     }
-  }, [isAuthenticated, fetchXStatus, fetchKloutScore])
+  }, [isAuthenticated, fetchXStatus, fetchKloutScore, fetchShareStatus])
 
   // Fetch conversation counts for sidebar indicators
   useEffect(() => {
@@ -644,12 +655,13 @@ export default function TaskDetailPage() {
       {/* Campaign mode */}
       {isCampaign && (
         <div className="space-y-6">
-          {/* Campaign dashboard for creator */}
-          {isCreator && task.multisigAddress && (
+          {/* Campaign dashboard for creator or shared viewer */}
+          {(isCreator || isSharedViewer) && task.multisigAddress && (
             <CampaignDashboard
               taskId={task.id}
               multisigAddress={task.multisigAddress}
-              isCreator={true}
+              isCreator={isCreator}
+              isSharedViewer={!isCreator && isSharedViewer}
               refreshTrigger={dashboardRefresh}
               paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
               customTokenMint={task.customTokenMint}
@@ -672,8 +684,8 @@ export default function TaskDetailPage() {
             </div>
           )}
 
-          {/* Campaign submission form for participants */}
-          {isAuthenticated && !isCreator && campaignConfig && task.status === 'OPEN' && !isExpired && (
+          {/* Campaign submission form for participants (not shared viewers) */}
+          {isAuthenticated && !isCreator && !isSharedViewer && campaignConfig && task.status === 'OPEN' && !isExpired && (
             <CampaignSubmitForm
               taskId={task.id}
               guidelines={campaignConfig.guidelines}
@@ -699,8 +711,8 @@ export default function TaskDetailPage() {
             />
           )}
 
-          {/* Campaign dashboard for non-creators (read-only view) */}
-          {isAuthenticated && !isCreator && task.multisigAddress && (
+          {/* Campaign dashboard for non-creators (participant view, excludes shared viewers who see creator view above) */}
+          {isAuthenticated && !isCreator && !isSharedViewer && task.multisigAddress && (
             <CampaignDashboard
               taskId={task.id}
               multisigAddress={task.multisigAddress}

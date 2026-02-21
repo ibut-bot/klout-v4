@@ -32,12 +32,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // Only the task creator can view all campaign submissions
-  // Submitters can only see their own via query param filtering
   const isCreator = task.creatorId === auth.userId
+
+  let isSharedViewer = false
   if (!isCreator) {
-    // Non-creators can only see their own submissions
-    // (handled below via forced filter)
+    const share = await prisma.campaignShare.findUnique({
+      where: { taskId_sharedWithId: { taskId, sharedWithId: auth.userId } },
+    })
+    isSharedViewer = !!share
   }
 
   const { searchParams } = request.nextUrl
@@ -49,8 +51,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (status) {
     where.status = status
   }
-  // Non-creators can only see their own submissions
-  if (!isCreator) {
+  if (!isCreator && !isSharedViewer) {
     where.submitterId = auth.userId
   }
 
@@ -61,7 +62,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       skip: (page - 1) * limit,
       take: limit,
       include: {
-        submitter: { select: { id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true } },
+        submitter: {
+          select: {
+            id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true,
+            xScores: { orderBy: { createdAt: 'desc' }, take: 1, select: { totalScore: true } },
+          },
+        },
       },
     }),
     prisma.campaignSubmission.count({ where }),
@@ -88,6 +94,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         username: s.submitter.username,
         xUsername: s.submitter.xUsername,
         profilePicUrl: s.submitter.profilePicUrl,
+        kloutScore: s.submitter.xScores[0]?.totalScore ?? null,
       },
       createdAt: s.createdAt.toISOString(),
     })),

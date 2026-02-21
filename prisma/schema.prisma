@@ -129,6 +129,7 @@ model User {
   campaignSubmissions  CampaignSubmission[] @relation("CampaignSubmitter")
   bansIssued           CampaignBan[]        @relation("BanCreator")
   bansReceived         CampaignBan[]        @relation("BannedUser")
+  sharedCampaigns      CampaignShare[]      @relation("SharedCampaigns")
   xScores              XScoreData[]
   referralsMade        Referral[]           @relation("Referrer")
   referredByRecord     Referral?            @relation("ReferredUser")
@@ -179,6 +180,7 @@ model Task {
   messages            Message[]
   campaignConfig      CampaignConfig?
   campaignSubmissions CampaignSubmission[]
+  campaignShares      CampaignShare[]
 
   @@index([creatorId])
   @@index([status])
@@ -360,6 +362,21 @@ model CampaignBan {
   @@unique([creatorId, bannedUserId])
   @@index([creatorId])
   @@index([bannedUserId])
+  @@schema("slopwork")
+}
+
+model CampaignShare {
+  id            String   @id @default(cuid())
+  taskId        String
+  sharedWithId  String
+  createdAt     DateTime @default(now())
+
+  task          Task     @relation(fields: [taskId], references: [id])
+  sharedWith    User     @relation("SharedCampaigns", fields: [sharedWithId], references: [id])
+
+  @@unique([taskId, sharedWithId])
+  @@index([taskId])
+  @@index([sharedWithId])
   @@schema("slopwork")
 }
 

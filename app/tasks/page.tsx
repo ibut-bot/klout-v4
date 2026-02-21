@@ -32,7 +32,7 @@ interface Task {
 
 const STATUSES = ['all', 'open', 'completed']
 
-type ViewMode = 'all' | 'my_tasks' | 'my_bids'
+type ViewMode = 'all' | 'my_tasks' | 'my_bids' | 'shared'
 
 export default function TasksPage() {
   const { isAuthenticated, authFetch, wallet } = useAuth()
@@ -54,6 +54,11 @@ export default function TasksPage() {
         const params = new URLSearchParams({ page: String(page), limit: '20', taskType: 'CAMPAIGN' })
         if (status !== 'all') params.set('status', status)
         const res = await authFetch(`/api/me/tasks?${params}`)
+        data = await res.json()
+      } else if (viewMode === 'shared' && isAuthenticated) {
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (status !== 'all') params.set('status', status)
+        const res = await authFetch(`/api/me/shared-campaigns?${params}`)
         data = await res.json()
       } else if (viewMode === 'my_bids' && isAuthenticated) {
         // Fetch tasks user has bid on
@@ -181,6 +186,16 @@ export default function TasksPage() {
             >
               My Submissions
             </button>
+            <button
+              onClick={() => { setViewMode('shared'); setPage(1); setStatus('all') }}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                viewMode === 'shared'
+                  ? 'bg-indigo-500 text-white'
+                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
+              }`}
+            >
+              Shared with Me
+            </button>
           </div>
         )}
       </div>
@@ -214,6 +229,11 @@ export default function TasksPage() {
           Showing campaigns you&apos;ve submitted to. <Link href="/dashboard" className="underline hover:no-underline">Go to Dashboard</Link> for submission details.
         </div>
       )}
+      {viewMode === 'shared' && (
+        <div className="mb-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm text-indigo-400">
+          Campaigns shared with you by their creators. Click a campaign to view its dashboard.
+        </div>
+      )}
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -226,6 +246,7 @@ export default function TasksPage() {
           <p className="text-zinc-500 mb-4">
             {viewMode === 'my_tasks' && 'You haven\'t created any campaigns yet.'}
             {viewMode === 'my_bids' && 'You haven\'t submitted to any campaigns yet.'}
+            {viewMode === 'shared' && 'No campaigns have been shared with you yet.'}
             {viewMode === 'all' && 'No campaigns found.'}
           </p>
           {viewMode === 'my_tasks' && (

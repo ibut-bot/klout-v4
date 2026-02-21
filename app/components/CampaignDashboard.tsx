@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import CampaignPayButton from './CampaignPayButton'
 import CampaignRejectButton from './CampaignRejectButton'
 import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface CampaignStats {
   totalBudgetLamports: string
@@ -44,7 +46,17 @@ interface CampaignSubmission {
     username: string | null
     xUsername: string | null
     profilePicUrl: string | null
+    kloutScore?: number | null
   }
+  createdAt: string
+}
+
+interface SharedUser {
+  id: string
+  userId: string
+  walletAddress: string
+  username: string | null
+  profilePicUrl: string | null
   createdAt: string
 }
 
@@ -52,6 +64,7 @@ interface Props {
   taskId: string
   multisigAddress: string
   isCreator: boolean
+  isSharedViewer?: boolean
   refreshTrigger?: number
   paymentToken?: PaymentTokenType
   customTokenMint?: string | null
@@ -78,7 +91,7 @@ const STATUS_BADGE: Record<string, string> = {
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
-export default function CampaignDashboard({ taskId, multisigAddress, isCreator, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const { authFetch } = useAuth()
@@ -97,9 +110,626 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [overrideApprovingId, setOverrideApprovingId] = useState<string | null>(null)
   const [overrideApproveLoading, setOverrideApproveLoading] = useState(false)
   const [overrideApproveError, setOverrideApproveError] = useState('')
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [requestingPayment, setRequestingPayment] = useState(false)
   const [requestPaymentError, setRequestPaymentError] = useState('')
   const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareWallet, setShareWallet] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareError, setShareError] = useState('')
+  const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([])
+  const [sharedUsersLoading, setSharedUsersLoading] = useState(false)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const fetchSharedUsers = useCallback(async () => {
+    if (!isCreator) return
+    setSharedUsersLoading(true)
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/share`)
+      const data = await res.json()
+      if (data.success) setSharedUsers(data.shares)
+    } catch {}
+    setSharedUsersLoading(false)
+  }, [isCreator, taskId, authFetch])
+
+  useEffect(() => {
+    if (isCreator && shareOpen) fetchSharedUsers()
+  }, [isCreator, shareOpen, fetchSharedUsers])
+
+  const handleShare = async () => {
+    if (!shareWallet.trim()) return
+    setShareLoading(true)
+    setShareError('')
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: shareWallet.trim() }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setShareError(data.message || 'Failed to share')
+      } else {
+        setShareWallet('')
+        setSharedUsers((prev) => [data.share, ...prev])
+      }
+    } catch {
+      setShareError('Network error')
+    }
+    setShareLoading(false)
+  }
+
+  const handleUnshare = async (userId: string) => {
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/share`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSharedUsers((prev) => prev.filter((u) => u.userId !== userId))
+      }
+    } catch {}
+  }
+
+  const fetchExportData = async () => {
+    const res = await authFetch(`/api/tasks/${taskId}/campaign-export`)
+    const data = await res.json()
+    if (!data.success) throw new Error(data.message || 'Export failed')
+    return data as {
+      task: {
+        title: string; description: string; imageUrl: string | null; imageBase64: string | null
+        totalBudgetLamports: string; budgetRemainingLamports: string; cpmLamports: string
+        minViews: number; minLikes: number; minRetweets: number; minComments: number
+        minPayoutLamports: string; minKloutScore: number | null
+        maxBudgetPerUserPercent: number | null; maxBudgetPerPostPercent: number | null
+        requireFollowX: string | null
+        guidelines: { dos?: string[]; donts?: string[] } | null
+      }
+      submissions: Array<{
+        postUrl: string; viewCount: number | null; payoutLamports: string | null
+        status: string; rejectionReason: string | null; paymentTxSig: string | null
+        submitter: { walletAddress: string; username: string | null; xUsername: string | null; kloutScore: number | null }
+        createdAt: string
+      }>
+    }
+  }
+
+  const fmtToken = (v: string | number | null, decimals = 4) => v != null ? formatTokenAmount(v, tInfo, decimals) : '-'
+  const fmtBudget = (v: string | number | null) => {
+    if (v == null) return '-'
+    const num = Number(v) / tInfo.multiplier
+    if (num === 0) return '0'
+    if (Number.isInteger(num)) return num.toLocaleString()
+    return num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+  }
+
+  const exportCSV = async () => {
+    setExporting(true)
+    try {
+      const data = await fetchExportData()
+      const { task: t, submissions: subs } = data
+
+      const totalViews = subs.reduce((sum, s) => sum + (s.viewCount || 0), 0)
+      const totalPaid = subs.filter(s => s.status === 'PAID' && s.payoutLamports).reduce((sum, s) => sum + Number(s.payoutLamports), 0)
+      const approved = subs.filter(s => s.status === 'APPROVED').length
+      const paid = subs.filter(s => s.status === 'PAID').length
+      const rejected = subs.filter(s => s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED').length
+
+      const lines: string[] = []
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`
+
+      lines.push('Campaign Performance Report')
+      lines.push(`Campaign,${esc(t.title)}`)
+      lines.push(`Exported,${new Date().toLocaleString()}`)
+      lines.push('')
+      lines.push('Key Metrics')
+      lines.push(`Total Budget,${fmtBudget(t.totalBudgetLamports)} ${sym}`)
+      lines.push(`Budget Remaining,${fmtBudget(t.budgetRemainingLamports)} ${sym}`)
+      lines.push(`Budget Spent,${fmtBudget(totalPaid)} ${sym}`)
+      lines.push(`CPM,${fmtToken(t.cpmLamports, 2)} ${sym}`)
+      lines.push(`Total Views,${totalViews}`)
+      lines.push(`Total Submissions,${subs.length}`)
+      lines.push(`Approved,${approved}`)
+      lines.push(`Paid,${paid}`)
+      lines.push(`Rejected,${rejected}`)
+      lines.push('')
+      lines.push('Submissions')
+      lines.push(['Submitter', 'Wallet', 'Post URL', 'Klout Score', 'Views', `Payout (${sym})`, `Platform Fee (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date'].map(esc).join(','))
+
+      for (const s of subs) {
+        const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
+        const payout = s.payoutLamports ? fmtToken(s.payoutLamports) : '-'
+        const fee = s.payoutLamports ? fmtToken(Math.round(Number(s.payoutLamports) * 0.1)) : '-'
+        lines.push([
+          name, s.submitter.walletAddress, s.postUrl,
+          s.submitter.kloutScore != null ? String(s.submitter.kloutScore) : '-',
+          s.viewCount != null ? String(s.viewCount) : '-',
+          payout, fee, s.status.replace(/_/g, ' '),
+          s.rejectionReason || '', s.paymentTxSig || '',
+          new Date(s.createdAt).toLocaleDateString(),
+        ].map(esc).join(','))
+      }
+
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `campaign-report-${taskId.slice(0, 8)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      alert(e.message || 'Export failed')
+    }
+    setExporting(false)
+    setExportOpen(false)
+  }
+
+  const loadImageAsDataUrl = (url: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas')
+          c.width = img.naturalWidth || 400
+          c.height = img.naturalHeight || 400
+          c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+          resolve(c.toDataURL('image/png'))
+        } catch {
+          resolve(null)
+        }
+      }
+      img.onerror = () => {
+        fetch(url, { mode: 'cors' })
+          .then(r => r.blob())
+          .then(blob => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = () => resolve(null)
+            reader.readAsDataURL(blob)
+          })
+          .catch(() => resolve(null))
+      }
+      img.src = url
+    })
+  }
+
+  const renderDonutChart = (
+    segments: Array<{ value: number; color: string; label: string }>,
+    size = 320,
+  ): string | null => {
+    const active = segments.filter(s => s.value > 0)
+    if (active.length === 0) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    const cx = size / 2, cy = size / 2, outer = size / 2 - 8, inner = outer * 0.55
+    const total = active.reduce((s, seg) => s + seg.value, 0)
+    let angle = -Math.PI / 2
+    for (const seg of active) {
+      const sweep = (seg.value / total) * Math.PI * 2
+      ctx.beginPath()
+      ctx.arc(cx, cy, outer, angle, angle + sweep)
+      ctx.arc(cx, cy, inner, angle + sweep, angle, true)
+      ctx.closePath()
+      ctx.fillStyle = seg.color
+      ctx.fill()
+      angle += sweep
+    }
+    ctx.beginPath()
+    ctx.arc(cx, cy, inner - 1, 0, Math.PI * 2)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.font = `bold ${Math.round(size * 0.1)}px sans-serif`
+    ctx.fillStyle = '#18181b'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(total), cx, cy - size * 0.03)
+    ctx.font = `${Math.round(size * 0.055)}px sans-serif`
+    ctx.fillStyle = '#71717a'
+    ctx.fillText('total', cx, cy + size * 0.06)
+    return canvas.toDataURL('image/png')
+  }
+
+  const exportPDF = async () => {
+    setExporting(true)
+    try {
+      const data = await fetchExportData()
+      const { task: t, submissions: subs } = data
+
+      const [logoDataUrl, bannerDataUrl] = await Promise.all([
+        loadImageAsDataUrl('/Klout1.svg'),
+        Promise.resolve(t.imageBase64),
+      ])
+
+      const totalViews = subs.reduce((sum, s) => sum + (s.viewCount || 0), 0)
+      const totalPaid = subs.filter(s => s.status === 'PAID' && s.payoutLamports).reduce((sum, s) => sum + Number(s.payoutLamports), 0)
+      const approved = subs.filter(s => s.status === 'APPROVED').length
+      const paid = subs.filter(s => s.status === 'PAID').length
+      const rejected = subs.filter(s => s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED').length
+      const pending = subs.length - approved - paid - rejected
+      const budgetUsed = Number(t.totalBudgetLamports) > 0
+        ? (Number(t.totalBudgetLamports) - Number(t.budgetRemainingLamports)) / Number(t.totalBudgetLamports) * 100
+        : 0
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pw = 210
+      const m = 14
+
+      const addFooter = () => {
+        const pages = doc.getNumberOfPages()
+        for (let i = 1; i <= pages; i++) {
+          doc.setPage(i)
+          doc.setDrawColor(228, 228, 231)
+          doc.setLineWidth(0.3)
+          doc.line(m, 284, pw - m, 284)
+          doc.setFontSize(7)
+          doc.setTextColor(161, 161, 170)
+          doc.text('Generated by Klout', m, 290)
+          doc.text(`Page ${i} of ${pages}`, pw - m, 290, { align: 'right' })
+          if (logoDataUrl) {
+            doc.addImage(logoDataUrl, 'PNG', pw / 2 - 3, 285.5, 6, 6)
+          }
+        }
+      }
+
+      // ── CAMPAIGN IMAGE BANNER ──
+      let y = 0
+      const bannerH = 52
+      if (bannerDataUrl) {
+        try {
+          const imgFormat = bannerDataUrl.includes('image/jpeg') || bannerDataUrl.includes('image/jpg') ? 'JPEG' : 'PNG'
+          doc.addImage(bannerDataUrl, imgFormat, 0, 0, pw, bannerH, undefined, 'FAST')
+        } catch { /* skip */ }
+        y = bannerH
+      }
+
+      // ── DARK INFO BAR ──
+      const infoBarH = t.requireFollowX ? 30 : 26
+      doc.setFillColor(18, 18, 18)
+      doc.rect(0, y, pw, infoBarH, 'F')
+      doc.setFillColor(250, 204, 21)
+      doc.rect(0, y + infoBarH, pw, 1.2, 'F')
+
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, 'PNG', m, y + 4, 10, 10)
+      }
+      const tx = m + 14
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.setTextColor(255, 255, 255)
+      doc.text('Campaign Performance Report', tx, y + 9)
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(180, 180, 180)
+      const titleTrunc = t.title.length > 55 ? t.title.slice(0, 52) + '...' : t.title
+      doc.text(titleTrunc, tx, y + 16)
+
+      doc.setFontSize(7.5)
+      doc.setTextColor(130, 130, 130)
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      doc.text(`Generated ${dateStr}`, tx, y + 22)
+
+      if (t.requireFollowX) {
+        doc.setFontSize(7.5)
+        doc.setTextColor(250, 204, 21)
+        doc.text(`Required Follow: @${t.requireFollowX}`, tx, y + 27)
+      }
+
+      y += infoBarH + 6
+
+      // ── KEY METRIC CARDS (3x2 grid) ──
+      const cardW = (pw - m * 2 - 8) / 3
+      const cardH = 22
+      const gap = 4
+      const metrics = [
+        { label: 'Total Budget', value: `${fmtBudget(t.totalBudgetLamports)} ${sym}`, accent: [250, 204, 21] as const },
+        { label: 'Budget Remaining', value: `${fmtBudget(t.budgetRemainingLamports)} ${sym}`, accent: [34, 197, 94] as const },
+        { label: 'Budget Spent', value: `${fmtBudget(totalPaid)} ${sym}`, accent: [239, 68, 68] as const },
+        { label: 'Total Views', value: totalViews.toLocaleString(), accent: [59, 130, 246] as const },
+        { label: 'CPM', value: `${fmtToken(t.cpmLamports, 2)} ${sym}`, accent: [168, 85, 247] as const },
+        { label: 'Total Submissions', value: String(subs.length), accent: [236, 72, 153] as const },
+      ]
+      metrics.forEach((mt, i) => {
+        const col = i % 3, row = Math.floor(i / 3)
+        const cx = m + col * (cardW + gap)
+        const cy = y + row * (cardH + gap)
+        doc.setFillColor(248, 248, 250)
+        doc.roundedRect(cx, cy, cardW, cardH, 1.5, 1.5, 'F')
+        doc.setDrawColor(228, 228, 231)
+        doc.setLineWidth(0.3)
+        doc.roundedRect(cx, cy, cardW, cardH, 1.5, 1.5, 'S')
+        doc.setFillColor(mt.accent[0], mt.accent[1], mt.accent[2])
+        doc.roundedRect(cx, cy + 3, 1.8, cardH - 6, 0.9, 0.9, 'F')
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(113, 113, 122)
+        doc.text(mt.label, cx + 6, cy + 8)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.setTextColor(24, 24, 27)
+        doc.text(mt.value, cx + 6, cy + 17)
+      })
+      y += 2 * (cardH + gap) + 4
+
+      // ── CAMPAIGN REQUIREMENTS ──
+      const reqs: string[] = []
+      if (t.requireFollowX) reqs.push(`Follow @${t.requireFollowX} on X`)
+      if (t.minViews > 0) reqs.push(`Min ${t.minViews.toLocaleString()} views per post`)
+      if (t.minLikes > 0) reqs.push(`Min ${t.minLikes.toLocaleString()} likes per post`)
+      if (t.minRetweets > 0) reqs.push(`Min ${t.minRetweets.toLocaleString()} retweets per post`)
+      if (t.minComments > 0) reqs.push(`Min ${t.minComments.toLocaleString()} comments per post`)
+      if (t.minKloutScore) reqs.push(`Min Klout Score: ${t.minKloutScore.toLocaleString()}`)
+      if (Number(t.minPayoutLamports) > 0) reqs.push(`Min payout threshold: ${fmtBudget(t.minPayoutLamports)} ${sym}`)
+      if (t.maxBudgetPerUserPercent) reqs.push(`Max ${t.maxBudgetPerUserPercent}% of budget per user`)
+      if (t.maxBudgetPerPostPercent) reqs.push(`Max ${t.maxBudgetPerPostPercent}% of budget per post`)
+
+      const hasDos = t.guidelines?.dos && t.guidelines.dos.length > 0
+      const hasDonts = t.guidelines?.donts && t.guidelines.donts.length > 0
+
+      if (reqs.length > 0 || hasDos || hasDonts) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.setTextColor(63, 63, 70)
+        doc.text('Campaign Requirements', m, y)
+        y += 2
+
+        const reqBoxX = m, reqBoxW = pw - m * 2
+        const reqStartY = y
+
+        // Pre-calculate height
+        let measuredH = 4
+        if (reqs.length > 0) measuredH += Math.ceil(reqs.length / 2) * 5.5 + 2
+        if (hasDos) measuredH += (t.guidelines!.dos!.length + 1) * 4
+        if (hasDonts) measuredH += (t.guidelines!.donts!.length + 1) * 4
+        measuredH += 2
+
+        // Draw box first
+        doc.setFillColor(248, 248, 250)
+        doc.setDrawColor(228, 228, 231)
+        doc.setLineWidth(0.2)
+        doc.roundedRect(reqBoxX, reqStartY, reqBoxW, measuredH, 1.5, 1.5, 'FD')
+
+        // Then draw content on top
+        let innerY = reqStartY + 4
+
+        if (reqs.length > 0) {
+          const colW = (reqBoxW - 8) / 2
+          reqs.forEach((r, i) => {
+            const col = i % 2
+            const row = Math.floor(i / 2)
+            const rx = reqBoxX + 4 + col * colW
+            const ry = innerY + row * 5.5
+            doc.setFillColor(250, 204, 21)
+            doc.circle(rx + 1, ry - 1, 0.8, 'F')
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(7.5)
+            doc.setTextColor(63, 63, 70)
+            doc.text(r, rx + 4, ry)
+          })
+          innerY += Math.ceil(reqs.length / 2) * 5.5 + 2
+        }
+
+        if (hasDos) {
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(7)
+          doc.setTextColor(22, 101, 52)
+          doc.text('DO:', reqBoxX + 4, innerY)
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(7)
+          doc.setTextColor(63, 63, 70)
+          t.guidelines!.dos!.forEach((d, i) => {
+            const txt = d.length > 80 ? d.slice(0, 77) + '...' : d
+            doc.text(`+ ${txt}`, reqBoxX + 12, innerY + (i + 1) * 4)
+          })
+          innerY += (t.guidelines!.dos!.length + 1) * 4
+        }
+
+        if (hasDonts) {
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(7)
+          doc.setTextColor(153, 27, 27)
+          doc.text("DON'T:", reqBoxX + 4, innerY)
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(7)
+          doc.setTextColor(63, 63, 70)
+          t.guidelines!.donts!.forEach((d, i) => {
+            const txt = d.length > 80 ? d.slice(0, 77) + '...' : d
+            doc.text(`- ${txt}`, reqBoxX + 16, innerY + (i + 1) * 4)
+          })
+          innerY += (t.guidelines!.donts!.length + 1) * 4
+        }
+
+        y = reqStartY + measuredH + 4
+      }
+
+      // ── BUDGET UTILIZATION BAR ──
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(63, 63, 70)
+      doc.text('Budget Utilization', m, y)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(113, 113, 122)
+      doc.text(`${budgetUsed.toFixed(1)}%`, m + 42, y)
+      y += 4
+      const barW = pw - m * 2, barH = 5
+      doc.setFillColor(228, 228, 231)
+      doc.roundedRect(m, y, barW, barH, 2.5, 2.5, 'F')
+      const fillW = Math.max(0, (budgetUsed / 100) * barW)
+      if (fillW > 0) {
+        const bc: [number, number, number] = budgetUsed > 80 ? [239, 68, 68] : budgetUsed > 50 ? [245, 158, 11] : [34, 197, 94]
+        doc.setFillColor(bc[0], bc[1], bc[2])
+        doc.roundedRect(m, y, Math.max(fillW, 5), barH, 2.5, 2.5, 'F')
+      }
+      y += barH + 3
+      doc.setFontSize(6.5)
+      doc.setTextColor(161, 161, 170)
+      doc.text(`${fmtBudget(t.totalBudgetLamports)} ${sym} total  ·  ${fmtBudget(t.budgetRemainingLamports)} ${sym} remaining`, m, y)
+      y += 8
+
+      // ── SUBMISSION STATUS DONUT + LEGEND ──
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(63, 63, 70)
+      doc.text('Submission Breakdown', m, y)
+      y += 4
+
+      const statusSegments = [
+        { value: approved, color: '#22c55e', label: 'Approved' },
+        { value: paid, color: '#10b981', label: 'Paid' },
+        { value: rejected, color: '#ef4444', label: 'Rejected' },
+        { value: pending, color: '#f59e0b', label: 'Pending / Processing' },
+      ]
+      const donutImg = renderDonutChart(statusSegments, 320)
+      const chartAreaY = y
+      if (donutImg) {
+        doc.addImage(donutImg, 'PNG', m, chartAreaY, 38, 38)
+      }
+
+      const legendX = m + 44
+      let legendY = chartAreaY + 4
+      statusSegments.forEach((seg) => {
+        if (seg.value === 0) return
+        const hex = seg.color
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        doc.setFillColor(r, g, b)
+        doc.roundedRect(legendX, legendY - 2.5, 3.5, 3.5, 0.5, 0.5, 'F')
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.setTextColor(63, 63, 70)
+        doc.text(`${seg.label}:  ${seg.value}`, legendX + 6, legendY)
+        legendY += 7
+      })
+
+      const qx = m + 100
+      doc.setFillColor(248, 248, 250)
+      doc.roundedRect(qx, chartAreaY, 78, 38, 2, 2, 'F')
+      doc.setDrawColor(228, 228, 231)
+      doc.setLineWidth(0.2)
+      doc.roundedRect(qx, chartAreaY, 78, 38, 2, 2, 'S')
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(113, 113, 122)
+      doc.text('QUICK STATS', qx + 4, chartAreaY + 6)
+
+      const qStats = [
+        `Avg views/post: ${subs.length > 0 ? Math.round(totalViews / subs.length).toLocaleString() : '0'}`,
+        `Avg payout/post: ${subs.length > 0 ? fmtBudget(Math.round(totalPaid / Math.max(1, paid))) : '0'} ${sym}`,
+        `Approval rate: ${subs.length > 0 ? ((approved + paid) / subs.length * 100).toFixed(0) : '0'}%`,
+        `Cost efficiency: ${totalViews > 0 ? fmtToken(Math.round(totalPaid / totalViews * 1000), 2) : '0'} ${sym}/1k views`,
+      ]
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(63, 63, 70)
+      qStats.forEach((qs, i) => {
+        doc.text(qs, qx + 4, chartAreaY + 13 + i * 7)
+      })
+
+      y = chartAreaY + 44
+
+      // ── SUBMISSIONS TABLE ──
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(63, 63, 70)
+      doc.text(`Submissions Detail (${subs.length})`, m, y)
+      y += 2
+
+      const STATUS_COLORS: Record<string, { bg: [number, number, number]; text: [number, number, number] }> = {
+        APPROVED: { bg: [220, 252, 231], text: [22, 101, 52] },
+        PAID: { bg: [209, 250, 229], text: [6, 78, 59] },
+        PAYMENT_REQUESTED: { bg: [243, 232, 255], text: [107, 33, 168] },
+        REJECTED: { bg: [254, 226, 226], text: [153, 27, 27] },
+        CREATOR_REJECTED: { bg: [255, 237, 213], text: [154, 52, 18] },
+        READING_VIEWS: { bg: [219, 234, 254], text: [30, 64, 175] },
+        CHECKING_CONTENT: { bg: [219, 234, 254], text: [30, 64, 175] },
+        PENDING_PAYMENT: { bg: [254, 249, 195], text: [133, 77, 14] },
+        PAYMENT_FAILED: { bg: [254, 226, 226], text: [153, 27, 27] },
+      }
+
+      const tableRows = subs.map((s) => {
+        const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
+        return [
+          name,
+          s.submitter.kloutScore != null ? s.submitter.kloutScore.toLocaleString() : '-',
+          s.viewCount != null ? s.viewCount.toLocaleString() : '-',
+          s.payoutLamports ? `${fmtBudget(s.payoutLamports)} ${sym}` : '-',
+          s.payoutLamports ? `${fmtBudget(Math.round(Number(s.payoutLamports) * 0.1))} ${sym}` : '-',
+          s.status.replace(/_/g, ' '),
+          new Date(s.createdAt).toLocaleDateString(),
+        ]
+      })
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Submitter', 'Klout Score', 'Views', `Payout (${sym})`, `Fee (${sym})`, 'Status', 'Date']],
+        body: tableRows,
+        theme: 'grid',
+        margin: { left: m, right: m, bottom: 18 },
+        headStyles: {
+          fillColor: [24, 24, 27],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+          cellPadding: 3,
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 2.5,
+          lineColor: [228, 228, 231],
+          lineWidth: 0.2,
+          textColor: [63, 63, 70],
+        },
+        alternateRowStyles: { fillColor: [250, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 30 },
+          1: { halign: 'right', cellWidth: 22 },
+          2: { halign: 'right', cellWidth: 20 },
+          3: { halign: 'right', cellWidth: 26 },
+          4: { halign: 'right', cellWidth: 22 },
+          5: { cellWidth: 30 },
+          6: { cellWidth: 22 },
+        },
+        didParseCell: (hookData: any) => {
+          if (hookData.section === 'body' && hookData.column.index === 5) {
+            const raw = subs[hookData.row.index]?.status
+            const sc = STATUS_COLORS[raw]
+            if (sc) {
+              hookData.cell.styles.fillColor = sc.bg
+              hookData.cell.styles.textColor = sc.text
+              hookData.cell.styles.fontStyle = 'bold'
+            }
+          }
+        },
+      })
+
+      addFooter()
+      doc.save(`campaign-report-${taskId.slice(0, 8)}.pdf`)
+    } catch (e: any) {
+      alert(e.message || 'Export failed')
+    }
+    setExporting(false)
+    setExportOpen(false)
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -214,12 +844,191 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const budgetRemaining = Number(stats.budgetRemainingLamports || '0')
   const cappedPayout = Math.min(myApprovedPayout, budgetRemaining)
   const minPayoutThreshold = Number(stats.minPayoutLamports || '0')
-  const canRequestPayment = !isCreator && cappedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
+  const canRequestPayment = !isCreator && !isSharedViewer && cappedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
+
+  const toggleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('desc')
+    }
+  }
+
+  const sortedSubmissions = (() => {
+    if (!sortCol) return submissions
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...submissions].sort((a, b) => {
+      let av: number, bv: number
+      switch (sortCol) {
+        case 'score':
+          av = a.submitter.kloutScore ?? -1
+          bv = b.submitter.kloutScore ?? -1
+          break
+        case 'views':
+          av = a.viewCount ?? -1
+          bv = b.viewCount ?? -1
+          break
+        case 'payout':
+          av = Number(a.payoutLamports || 0)
+          bv = Number(b.payoutLamports || 0)
+          break
+        case 'status':
+          return dir * (a.status.localeCompare(b.status))
+        case 'date':
+          av = new Date(a.createdAt).getTime()
+          bv = new Date(b.createdAt).getTime()
+          break
+        default:
+          return 0
+      }
+      return dir * (av - bv)
+    })
+  })()
+
+  const SortHeader = ({ col, children, className = '' }: { col: string; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`pb-2 pr-4 font-medium text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors ${className}`}
+      onClick={() => toggleSort(col)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {sortCol === col ? (
+          <svg className="h-3 w-3 text-accent" viewBox="0 0 12 12" fill="currentColor">
+            {sortDir === 'asc'
+              ? <path d="M6 2l4 5H2z" />
+              : <path d="M6 10l4-5H2z" />}
+          </svg>
+        ) : (
+          <svg className="h-3 w-3 opacity-30" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M6 2l3 4H3zM6 10l3-4H3z" />
+          </svg>
+        )}
+      </span>
+    </th>
+  )
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards — creator only */}
-      {isCreator && (
+      {/* Shared viewer banner */}
+      {isSharedViewer && (
+        <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm text-indigo-400">
+          You have view-only access to this campaign dashboard.
+        </div>
+      )}
+
+      {/* Export + Share + Stats Cards — creator or shared viewer */}
+      {(isCreator || isSharedViewer) && (
+        <>
+        <div className="flex items-center justify-end gap-2" ref={exportRef}>
+          {isCreator && (
+            <button
+              onClick={() => setShareOpen(o => !o)}
+              className="flex items-center gap-1.5 rounded-lg border border-k-border px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-surface transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              Share ({sharedUsers.length})
+            </button>
+          )}
+          {isCreator && (
+          <div className="relative">
+            <button
+              onClick={() => setExportOpen(o => !o)}
+              disabled={exporting}
+              className="flex items-center gap-1.5 rounded-lg border border-k-border px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-surface transition-colors disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {exporting ? 'Exporting...' : 'Export Report'}
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-k-border bg-zinc-900 shadow-xl">
+                <button
+                  onClick={exportCSV}
+                  disabled={exporting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-surface transition-colors rounded-t-lg"
+                >
+                  <svg className="h-3.5 w-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export as CSV
+                </button>
+                <button
+                  onClick={exportPDF}
+                  disabled={exporting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-surface transition-colors rounded-b-lg"
+                >
+                  <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  Export as PDF
+                </button>
+              </div>
+            )}
+          </div>
+          )}
+        </div>
+
+        {/* Share panel */}
+        {isCreator && shareOpen && (
+          <div className="rounded-xl border border-k-border p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-white">Share Dashboard</h3>
+            <p className="text-xs text-zinc-400">Grant view-only access to team members by wallet address.</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={shareWallet}
+                onChange={(e) => { setShareWallet(e.target.value); setShareError('') }}
+                placeholder="Enter wallet address..."
+                className="flex-1 rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-accent focus:outline-none"
+              />
+              <button
+                onClick={handleShare}
+                disabled={shareLoading || !shareWallet.trim()}
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-black hover:bg-accent-hover disabled:opacity-50"
+              >
+                {shareLoading ? 'Sharing...' : 'Share'}
+              </button>
+            </div>
+            {shareError && <p className="text-xs text-red-400">{shareError}</p>}
+            {sharedUsersLoading ? (
+              <div className="animate-pulse h-8 rounded bg-surface" />
+            ) : sharedUsers.length > 0 ? (
+              <div className="space-y-2">
+                {sharedUsers.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between rounded-lg border border-k-border/50 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {u.profilePicUrl ? (
+                        <img src={u.profilePicUrl} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700 text-[10px] font-medium text-zinc-300 shrink-0">
+                          {u.walletAddress.slice(0, 2)}
+                        </div>
+                      )}
+                      <span className="text-sm text-zinc-300 truncate">
+                        {u.username || `${u.walletAddress.slice(0, 6)}...${u.walletAddress.slice(-4)}`}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleUnshare(u.userId)}
+                      className="shrink-0 rounded-md px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500">Not shared with anyone yet.</p>
+            )}
+          </div>
+        )}
+        </>
+      )}
+      {(isCreator || isSharedViewer) && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Budget</p>
@@ -271,8 +1080,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         </div>
       </div>
 
-      {/* Request Payment section (for non-creators) */}
-      {!isCreator && (
+      {/* Request Payment section (for non-creators, not shared viewers) */}
+      {!isCreator && !isSharedViewer && (
         <div className="rounded-xl border border-k-border p-4">
           <h3 className="mb-2 text-sm font-semibold text-white">Your Payout</h3>
           <div className="space-y-2 text-sm">
@@ -338,16 +1147,17 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                 <tr className="border-b border-k-border">
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Submitter</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
+                  <SortHeader col="score">Klout Score</SortHeader>
+                  <SortHeader col="views">Views</SortHeader>
+                  <SortHeader col="payout">Payout</SortHeader>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Date</th>
+                  <SortHeader col="status">Status</SortHeader>
+                  <SortHeader col="date">Date</SortHeader>
                   {isCreator && <th className="pb-2 font-medium text-zinc-500">Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((s) => (
+                {sortedSubmissions.map((s) => (
                   <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
@@ -369,13 +1179,23 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       </a>
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
+                      {s.submitter.kloutScore != null ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-semibold text-yellow-400">
+                          <svg className="h-3 w-3" viewBox="0 0 375 375" fill="currentColor"><path d="M255.074 48.605L158.453 47.785L125.961 193.941H174.68L135.703 318.171L267.234 141.16H195.789L255.074 48.605Z"/></svg>
+                          {s.submitter.kloutScore.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-500">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-zinc-300">
                       {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
-                      {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo)} ${sym}` : '-'}
+                      {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo, 2)} ${sym}` : '-'}
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
-                      {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo)} ${sym}` : '-'}
+                      {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo, 2)} ${sym}` : '-'}
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>

@@ -103,10 +103,10 @@ export default function CampaignPayButton({ taskId, submissionId, multisigAddres
   const platformFee = platformFeeTotal - referrerAmount
   const recipientAmount = totalLamports - platformFeeTotal
   const sym = tInfo.symbol
-  const totalDisplay = formatTokenAmount(totalLamports, tInfo)
-  const recipientDisplay = formatTokenAmount(recipientAmount, tInfo)
-  const feeDisplay = formatTokenAmount(platformFee, tInfo)
-  const referrerDisplay = referrerAmount > 0 ? formatTokenAmount(referrerAmount, tInfo) : null
+  const totalDisplay = formatTokenAmount(totalLamports, tInfo, 2)
+  const recipientDisplay = formatTokenAmount(recipientAmount, tInfo, 2)
+  const feeDisplay = formatTokenAmount(platformFee, tInfo, 2)
+  const referrerDisplay = referrerAmount > 0 ? formatTokenAmount(referrerAmount, tInfo, 2) : null
 
   const title = referrerDisplay
     ? `${recipientDisplay} ${sym} to creator + ${feeDisplay} ${sym} platform + ${referrerDisplay} ${sym} referrer`
