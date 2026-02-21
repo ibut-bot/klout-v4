@@ -196,18 +196,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     })
 
-    // Mark included submissions as PAYMENT_REQUESTED
+    // Create a payment request bundle
+    const paymentRequest = await tx.campaignPaymentRequest.create({
+      data: {
+        taskId,
+        requesterId: userId,
+        totalPayoutLamports: totalCapped,
+      },
+    })
+
+    // Mark included submissions as PAYMENT_REQUESTED and link to the bundle
     await tx.campaignSubmission.updateMany({
       where: {
         id: { in: includedIds },
       },
       data: {
         status: 'PAYMENT_REQUESTED',
+        paymentRequestId: paymentRequest.id,
       },
     })
 
     return {
       success: true,
+      paymentRequestId: paymentRequest.id,
       submissionIds: includedIds,
       totalPayoutLamports: totalCapped.toString(),
       submissionCount: includedIds.length,

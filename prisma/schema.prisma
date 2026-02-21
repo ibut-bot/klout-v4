@@ -92,6 +92,14 @@ enum CampaignSubmissionStatus {
   @@schema("slopwork")
 }
 
+enum CampaignPaymentRequestStatus {
+  PENDING
+  PAID
+  CANCELLED
+
+  @@schema("slopwork")
+}
+
 enum PaymentToken {
   SOL
   USDC
@@ -133,6 +141,7 @@ model User {
   xScores              XScoreData[]
   referralsMade        Referral[]           @relation("Referrer")
   referredByRecord     Referral?            @relation("ReferredUser")
+  paymentRequests      CampaignPaymentRequest[] @relation("PaymentRequester")
 
   @@index([walletAddress])
   @@index([username])
@@ -178,9 +187,10 @@ model Task {
   winningBid          Bid?                @relation("WinningBid", fields: [winningBidId], references: [id])
   bids                Bid[]               @relation("TaskBids")
   messages            Message[]
-  campaignConfig      CampaignConfig?
-  campaignSubmissions CampaignSubmission[]
-  campaignShares      CampaignShare[]
+  campaignConfig          CampaignConfig?
+  campaignSubmissions     CampaignSubmission[]
+  campaignPaymentRequests CampaignPaymentRequest[]
+  campaignShares          CampaignShare[]
 
   @@index([creatorId])
   @@index([status])
@@ -317,6 +327,27 @@ model CampaignConfig {
   @@schema("slopwork")
 }
 
+model CampaignPaymentRequest {
+  id                      String                          @id @default(cuid())
+  taskId                  String
+  requesterId             String
+  totalPayoutLamports     BigInt
+  status                  CampaignPaymentRequestStatus    @default(PENDING)
+  paymentTxSig            String?
+  paymentProposalIndex    BigInt?
+  createdAt               DateTime                        @default(now())
+  updatedAt               DateTime                        @updatedAt
+
+  task                    Task                            @relation(fields: [taskId], references: [id])
+  requester               User                            @relation("PaymentRequester", fields: [requesterId], references: [id])
+  submissions             CampaignSubmission[]            @relation("PaymentRequestSubmissions")
+
+  @@index([taskId])
+  @@index([requesterId])
+  @@index([status])
+  @@schema("slopwork")
+}
+
 model CampaignSubmission {
   id                      String                   @id @default(cuid())
   taskId                  String
@@ -336,16 +367,19 @@ model CampaignSubmission {
   rejectionReason         String?
   paymentTxSig            String?
   paymentProposalIndex    BigInt?
+  paymentRequestId        String?
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 
   task                    Task                     @relation(fields: [taskId], references: [id])
   submitter               User                     @relation("CampaignSubmitter", fields: [submitterId], references: [id])
+  paymentRequest          CampaignPaymentRequest?  @relation("PaymentRequestSubmissions", fields: [paymentRequestId], references: [id])
 
   @@unique([taskId, xPostId])
   @@index([taskId])
   @@index([submitterId])
   @@index([status])
+  @@index([paymentRequestId])
   @@schema("slopwork")
 }
 

@@ -87,6 +87,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       contentCheckPassed: s.contentCheckPassed,
       contentCheckExplanation: s.contentCheckExplanation,
       paymentTxSig: s.paymentTxSig,
+      paymentRequestId: s.paymentRequestId,
       submitterId: s.submitterId,
       submitter: {
         id: s.submitter.id,

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const submission = await prisma.campaignSubmission.findUnique({
     where: { id: submissionId },
-    select: { id: true, taskId: true, submitterId: true, status: true, payoutLamports: true },
+    select: { id: true, taskId: true, submitterId: true, status: true, payoutLamports: true, paymentRequestId: true },
   })
 
   if (!submission || submission.taskId !== taskId) {
@@ -91,21 +91,47 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const payoutToRestore = submission.payoutLamports || BigInt(0)
 
   // Reject the submission and restore budget atomically
-  await prisma.$transaction([
-    prisma.campaignSubmission.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.campaignSubmission.update({
       where: { id: submissionId },
       data: {
         status: 'CREATOR_REJECTED',
         rejectionReason: rejectionText,
       },
-    }),
-    prisma.campaignConfig.update({
+    })
+
+    await tx.campaignConfig.update({
       where: { taskId },
       data: {
         budgetRemainingLamports: { increment: payoutToRestore },
       },
-    }),
-  ])
+    })
+
+    // If this submission was part of a payment request bundle,
+    // update the bundle's total and cancel it if no submissions remain
+    if (submission.paymentRequestId) {
+      await tx.campaignPaymentRequest.update({
+        where: { id: submission.paymentRequestId },
+        data: {
+          totalPayoutLamports: { decrement: payoutToRestore },
+        },
+      })
+
+      const remaining = await tx.campaignSubmission.count({
+        where: {
+          paymentRequestId: submission.paymentRequestId,
+          status: 'PAYMENT_REQUESTED',
+        },
+      })
+
+      if (remaining === 0) {
+        await tx.campaignPaymentRequest.update({
+          where: { id: submission.paymentRequestId },
+          data: { status: 'CANCELLED' },
+        })
+      }
+    }
+  })
 
   await createNotification({
     userId: submission.submitterId,
