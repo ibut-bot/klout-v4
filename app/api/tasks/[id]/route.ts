@@ -133,7 +133,7 @@ export async function PATCH(
       customTokenLogoUri: true,
       budgetLamports: true,
       vaultAddress: true,
-      campaignConfig: { select: { id: true, budgetRemainingLamports: true } },
+      campaignConfig: { select: { id: true, budgetRemainingLamports: true, minPayoutLamports: true } },
     },
   })
 
@@ -161,7 +161,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -329,7 +329,19 @@ export async function PATCH(
   }
 
   // Check if there are campaign config updates
-  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || requireFollowX !== undefined || budgetIncrease !== null || collateralLink !== undefined
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || requireFollowX !== undefined || budgetIncrease !== null || collateralLink !== undefined || minPayoutLamports !== undefined
+
+  // Validate min payout can only increase
+  if (minPayoutLamports !== undefined && task.campaignConfig) {
+    const newMin = BigInt(Math.max(0, Number(minPayoutLamports) || 0))
+    const currentMin = task.campaignConfig.minPayoutLamports ?? BigInt(0)
+    if (newMin < currentMin) {
+      return Response.json(
+        { success: false, error: 'INVALID_MIN_PAYOUT', message: 'Minimum payout can only be increased, not decreased' },
+        { status: 400 }
+      )
+    }
+  }
 
   // Use transaction for campaign config updates
   if (isCampaign && hasCampaignConfigUpdates) {
@@ -372,6 +384,9 @@ export async function PATCH(
       }
       if (budgetIncrease !== null && task.campaignConfig) {
         configUpdate.budgetRemainingLamports = task.campaignConfig.budgetRemainingLamports + budgetIncrease
+      }
+      if (minPayoutLamports !== undefined && task.campaignConfig) {
+        configUpdate.minPayoutLamports = BigInt(Math.max(0, Number(minPayoutLamports) || 0))
       }
 
       if (Object.keys(configUpdate).length > 0 && task.campaignConfig) {

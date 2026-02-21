@@ -22,9 +22,16 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || 20)))
   const skip = (page - 1) * limit
 
+  const submitterUsername = searchParams.get('submitterUsername')
+
   const where: any = { creatorId: userId }
   if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
+  }
+  if (submitterUsername) {
+    where.campaignSubmissions = {
+      some: { submitter: { username: submitterUsername } },
+    }
   }
   if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
     // For CAMPAIGN tasks with COMPLETED filter, also include budget-exhausted campaigns

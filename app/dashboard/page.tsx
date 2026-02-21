@@ -283,6 +283,18 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       if (newMinRetweets !== (task.campaignConfig?.minRetweets ?? 0)) updates.minRetweets = newMinRetweets
       if (newMinComments !== (task.campaignConfig?.minComments ?? 0)) updates.minComments = newMinComments
 
+      // Min payout threshold (can only increase)
+      const newMinPayoutLamports = editMinPayout ? Math.round(parseFloat(editMinPayout) * mult) : 0
+      const curMinPayoutLamports = Number(task.campaignConfig?.minPayoutLamports ?? 0)
+      if (newMinPayoutLamports !== curMinPayoutLamports) {
+        if (newMinPayoutLamports < curMinPayoutLamports) {
+          setEditError('Minimum payout can only be increased, not decreased')
+          setSaving(false)
+          return
+        }
+        updates.minPayoutLamports = newMinPayoutLamports
+      }
+
       // Budget caps (empty string = clear / null)
       const newMaxPerUser = editMaxBudgetPerUser ? parseFloat(editMaxBudgetPerUser) : null
       const newMaxPerPost = editMaxBudgetPerPost ? parseFloat(editMaxBudgetPerPost) : null
@@ -398,7 +410,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined || updates.minPayoutLamports !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
@@ -414,6 +426,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           ...(updates.maxBudgetPerPostPercent !== undefined ? { maxBudgetPerPostPercent: updates.maxBudgetPerPostPercent } : {}),
           ...(updates.minKloutScore !== undefined ? { minKloutScore: updates.minKloutScore } : {}),
           ...(updates.requireFollowX !== undefined ? { requireFollowX: updates.requireFollowX } : {}),
+          ...(updates.minPayoutLamports !== undefined ? { minPayoutLamports: String(updates.minPayoutLamports) } : {}),
         }
       }
 
@@ -658,6 +671,18 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             </div>
 
             <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Payout Threshold ({tInfo.symbol}) — optional</label>
+              <input type="number" min="0" step="any" value={editMinPayout} onChange={(e) => {
+                const val = parseFloat(e.target.value)
+                const curMin = Number(task.campaignConfig?.minPayoutLamports ?? 0) / mult
+                if (!isNaN(val) && val < curMin) return
+                setEditMinPayout(e.target.value)
+              }} placeholder="No minimum"
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+              <p className="mt-0.5 text-[10px] text-zinc-600">Participants must accumulate at least this much before requesting payment. Can only be increased.{Number(task.campaignConfig?.minPayoutLamports ?? 0) > 0 ? ` Current: ${(Number(task.campaignConfig!.minPayoutLamports) / mult).toFixed(4)} ${tInfo.symbol}` : ''}</p>
+            </div>
+
+            <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Klout Score — optional</label>
               <input type="number" min="0" max="10000" step="1" value={editMinKloutScore} onChange={(e) => setEditMinKloutScore(e.target.value)} placeholder="No minimum"
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
@@ -787,6 +812,10 @@ export default function DashboardPage() {
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [loadingBids, setLoadingBids] = useState(true)
   const [activeTab, setActiveTab] = useState<'tasks' | 'bids'>('tasks')
+  const [submitters, setSubmitters] = useState<{ username: string; profilePicUrl: string | null }[]>([])
+  const [selectedSubmitter, setSelectedSubmitter] = useState('')
+  const [submitterDropdownOpen, setSubmitterDropdownOpen] = useState(false)
+  const submitterDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -795,6 +824,7 @@ export default function DashboardPage() {
       setLoadingTasks(true)
       try {
         const params = new URLSearchParams({ limit: '50', taskType: 'CAMPAIGN' })
+        if (selectedSubmitter) params.set('submitterUsername', selectedSubmitter)
         const res = await authFetch(`/api/me/tasks?${params}`)
         const data = await res.json()
         if (data.success) {
@@ -824,7 +854,26 @@ export default function DashboardPage() {
 
     fetchTasks()
     fetchBids()
+  }, [isAuthenticated, authFetch, selectedSubmitter])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    authFetch('/api/me/tasks/submitters')
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setSubmitters(d.submitters) })
+      .catch(() => {})
   }, [isAuthenticated, authFetch])
+
+  useEffect(() => {
+    if (!submitterDropdownOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (submitterDropdownRef.current && !submitterDropdownRef.current.contains(e.target as Node)) {
+        setSubmitterDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [submitterDropdownOpen])
 
   if (!isAuthenticated) {
     return (
@@ -874,6 +923,56 @@ export default function DashboardPage() {
           My Submissions ({myBids.length})
         </button>
       </div>
+
+      {/* Submitter Filter */}
+      {activeTab === 'tasks' && submitters.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-xs text-zinc-500">Filter by submitter:</span>
+          <div className="relative" ref={submitterDropdownRef}>
+            <button
+              onClick={() => setSubmitterDropdownOpen(!submitterDropdownOpen)}
+              className="flex items-center gap-2 rounded-lg border border-k-border bg-surface px-3 py-1.5 text-sm text-zinc-300 hover:border-accent/40 transition-colors min-w-[160px]"
+            >
+              <span className="flex-1 text-left truncate">
+                {selectedSubmitter || 'All submitters'}
+              </span>
+              <svg className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${submitterDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {submitterDropdownOpen && (
+              <div className="absolute z-20 mt-1 max-h-60 w-full min-w-[200px] overflow-y-auto rounded-lg border border-k-border bg-zinc-900 shadow-xl">
+                <button
+                  onClick={() => { setSelectedSubmitter(''); setSubmitterDropdownOpen(false) }}
+                  className={`w-full px-3 py-2 text-left text-sm hover:bg-zinc-800 transition-colors ${!selectedSubmitter ? 'text-accent font-medium' : 'text-zinc-300'}`}
+                >
+                  All submitters
+                </button>
+                {submitters.map((s) => (
+                  <button
+                    key={s.username}
+                    onClick={() => { setSelectedSubmitter(s.username); setSubmitterDropdownOpen(false) }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-800 transition-colors ${selectedSubmitter === s.username ? 'text-accent font-medium' : 'text-zinc-300'}`}
+                  >
+                    {s.profilePicUrl && (
+                      <img src={s.profilePicUrl} alt="" className="h-5 w-5 rounded-full" />
+                    )}
+                    <span className="truncate">@{s.username}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {selectedSubmitter && (
+            <button
+              onClick={() => setSelectedSubmitter('')}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* My Campaigns Tab */}
       {activeTab === 'tasks' && (
