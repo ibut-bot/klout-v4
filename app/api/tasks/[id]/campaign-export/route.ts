@@ -57,7 +57,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       submitter: {
         select: {
           id: true, walletAddress: true, username: true, xUsername: true,
-          xScores: { orderBy: { createdAt: 'desc' }, take: 1, select: { totalScore: true } },
+          xScores: {
+            orderBy: { createdAt: 'desc' }, take: 1,
+            select: { totalScore: true, followersCount: true, followingCount: true, geoTier: true, geoRegion: true },
+          },
         },
       },
     },
@@ -97,6 +100,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         username: s.submitter.username,
         xUsername: s.submitter.xUsername,
         kloutScore: s.submitter.xScores[0]?.totalScore ?? null,
+        followers: s.submitter.xScores[0]?.followersCount ?? null,
+        following: s.submitter.xScores[0]?.followingCount ?? null,
+        geoTier: s.submitter.xScores[0]?.geoTier ?? null,
+        geoRegion: s.submitter.xScores[0]?.geoRegion ?? null,
       },
       createdAt: s.createdAt.toISOString(),
     })),

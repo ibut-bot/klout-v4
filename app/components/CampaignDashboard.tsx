@@ -202,7 +202,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       submissions: Array<{
         postUrl: string; viewCount: number | null; payoutLamports: string | null
         status: string; rejectionReason: string | null; paymentTxSig: string | null
-        submitter: { walletAddress: string; username: string | null; xUsername: string | null; kloutScore: number | null }
+        submitter: {
+          walletAddress: string; username: string | null; xUsername: string | null; kloutScore: number | null
+          followers: number | null; following: number | null; geoTier: number | null; geoRegion: string | null
+        }
         createdAt: string
       }>
     }
@@ -343,6 +346,94 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     ctx.font = `${Math.round(size * 0.055)}px sans-serif`
     ctx.fillStyle = '#71717a'
     ctx.fillText('total', cx, cy + size * 0.06)
+    return canvas.toDataURL('image/png')
+  }
+
+  const renderBarChart = (
+    bars: Array<{ label: string; value: number; color: string }>,
+    title: string,
+    valueSuffix = '',
+    width = 540,
+    height = 280,
+  ): string | null => {
+    if (bars.length === 0 || bars.every(b => b.value === 0)) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    const pad = { top: 36, bottom: 48, left: 60, right: 16 }
+    const chartW = width - pad.left - pad.right
+    const chartH = height - pad.top - pad.bottom
+    const maxVal = Math.max(...bars.map(b => b.value), 1)
+
+    // Title
+    ctx.font = `bold 16px sans-serif`
+    ctx.fillStyle = '#3f3f46'
+    ctx.textAlign = 'left'
+    ctx.fillText(title, pad.left, 22)
+
+    // Y-axis gridlines + labels
+    const gridLines = 5
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'middle'
+    for (let i = 0; i <= gridLines; i++) {
+      const yPos = pad.top + chartH - (i / gridLines) * chartH
+      const val = (maxVal / gridLines) * i
+      ctx.strokeStyle = '#e4e4e7'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(pad.left, yPos)
+      ctx.lineTo(pad.left + chartW, yPos)
+      ctx.stroke()
+      ctx.font = '11px sans-serif'
+      ctx.fillStyle = '#71717a'
+      const label = val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toFixed(val < 10 ? 1 : 0)
+      ctx.fillText(label + valueSuffix, pad.left - 6, yPos)
+    }
+
+    // Bars
+    const barGap = 6
+    const barW = Math.min(48, (chartW - barGap * (bars.length + 1)) / bars.length)
+    const totalBarsW = bars.length * barW + (bars.length - 1) * barGap
+    const startX = pad.left + (chartW - totalBarsW) / 2
+
+    bars.forEach((b, i) => {
+      const bx = startX + i * (barW + barGap)
+      const bh = maxVal > 0 ? (b.value / maxVal) * chartH : 0
+      const by = pad.top + chartH - bh
+
+      // Bar with rounded top
+      const radius = Math.min(4, barW / 2)
+      ctx.fillStyle = b.color
+      ctx.beginPath()
+      ctx.moveTo(bx, pad.top + chartH)
+      ctx.lineTo(bx, by + radius)
+      ctx.quadraticCurveTo(bx, by, bx + radius, by)
+      ctx.lineTo(bx + barW - radius, by)
+      ctx.quadraticCurveTo(bx + barW, by, bx + barW, by + radius)
+      ctx.lineTo(bx + barW, pad.top + chartH)
+      ctx.closePath()
+      ctx.fill()
+
+      // Value on top
+      if (b.value > 0) {
+        ctx.font = 'bold 10px sans-serif'
+        ctx.fillStyle = '#3f3f46'
+        ctx.textAlign = 'center'
+        const vLabel = b.value >= 1000 ? `${(b.value / 1000).toFixed(1)}k` : b.value.toFixed(b.value < 10 ? 1 : 0)
+        ctx.fillText(vLabel + valueSuffix, bx + barW / 2, by - 5)
+      }
+
+      // X label (wrapped)
+      ctx.font = '10px sans-serif'
+      ctx.fillStyle = '#71717a'
+      ctx.textAlign = 'center'
+      const lines = b.label.length > 10 ? [b.label.slice(0, 10), b.label.slice(10)] : [b.label]
+      lines.forEach((line, li) => {
+        ctx.fillText(line, bx + barW / 2, pad.top + chartH + 14 + li * 12)
+      })
+    })
+
     return canvas.toDataURL('image/png')
   }
 
@@ -647,12 +738,185 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       y = chartAreaY + 44
 
+      // ── ANALYTICS CHARTS PAGE ──
+      const paidOrApproved = subs.filter(s =>
+        ['PAID', 'APPROVED', 'PAYMENT_REQUESTED'].includes(s.status) && s.payoutLamports
+      )
+
+      if (paidOrApproved.length > 0) {
+        doc.addPage()
+        let cy = 14
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(12)
+        doc.setTextColor(24, 24, 27)
+        doc.text('Campaign Analytics', m, cy)
+        cy += 8
+
+        // ── Chart 1: Payouts by Klout Score Tranche ──
+        const scoreTranches: Record<string, { total: number; count: number; color: string }> = {
+          '0-500': { total: 0, count: 0, color: '#94a3b8' },
+          '500-1k': { total: 0, count: 0, color: '#60a5fa' },
+          '1k-2k': { total: 0, count: 0, color: '#34d399' },
+          '2k-4k': { total: 0, count: 0, color: '#a78bfa' },
+          '4k-7k': { total: 0, count: 0, color: '#f59e0b' },
+          '7k-10k': { total: 0, count: 0, color: '#ef4444' },
+          'N/A': { total: 0, count: 0, color: '#d4d4d8' },
+        }
+        for (const s of paidOrApproved) {
+          const score = s.submitter.kloutScore
+          const payout = Number(s.payoutLamports) / tInfo.multiplier
+          let bucket: string
+          if (score == null) bucket = 'N/A'
+          else if (score < 500) bucket = '0-500'
+          else if (score < 1000) bucket = '500-1k'
+          else if (score < 2000) bucket = '1k-2k'
+          else if (score < 4000) bucket = '2k-4k'
+          else if (score < 7000) bucket = '4k-7k'
+          else bucket = '7k-10k'
+          scoreTranches[bucket].total += payout
+          scoreTranches[bucket].count += 1
+        }
+        const scoreBars = Object.entries(scoreTranches)
+          .filter(([, v]) => v.count > 0)
+          .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
+
+        const scoreChartImg = renderBarChart(scoreBars, `Payout by Klout Score Tranche (${sym})`, '')
+        if (scoreChartImg) {
+          doc.addImage(scoreChartImg, 'PNG', m, cy, pw - m * 2, 55)
+          cy += 60
+        }
+
+        // ── Chart 2: Payouts by Geo Tier ──
+        const GEO_LABELS: Record<number, string> = {
+          1: 'Tier 1 (US/CA)',
+          2: 'Tier 2 (W.Europe)',
+          3: 'Tier 3 (E.Eur/Asia)',
+          4: 'Tier 4 (Africa/Other)',
+        }
+        const GEO_COLORS: Record<number, string> = {
+          1: '#3b82f6', 2: '#22c55e', 3: '#f59e0b', 4: '#ef4444',
+        }
+        const geoData: Record<string, { total: number; count: number; color: string }> = {}
+        for (const s of paidOrApproved) {
+          const tier = s.submitter.geoTier
+          const payout = Number(s.payoutLamports) / tInfo.multiplier
+          const key = tier != null ? (GEO_LABELS[tier] || `Tier ${tier}`) : 'Unknown'
+          const color = tier != null ? (GEO_COLORS[tier] || '#94a3b8') : '#d4d4d8'
+          if (!geoData[key]) geoData[key] = { total: 0, count: 0, color }
+          geoData[key].total += payout
+          geoData[key].count += 1
+        }
+        const geoBars = Object.entries(geoData)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
+
+        const geoChartImg = renderBarChart(geoBars, `Payout by Geographic Region (${sym})`, '')
+        if (geoChartImg) {
+          doc.addImage(geoChartImg, 'PNG', m, cy, pw - m * 2, 55)
+          cy += 60
+        }
+
+        // ── Chart 3: Payouts by Follower/Following Ratio ──
+        const ratioTranches: Record<string, { total: number; count: number; color: string }> = {
+          '<0.5': { total: 0, count: 0, color: '#ef4444' },
+          '0.5-1': { total: 0, count: 0, color: '#f59e0b' },
+          '1-2': { total: 0, count: 0, color: '#eab308' },
+          '2-5': { total: 0, count: 0, color: '#22c55e' },
+          '5-10': { total: 0, count: 0, color: '#3b82f6' },
+          '10+': { total: 0, count: 0, color: '#8b5cf6' },
+          'N/A': { total: 0, count: 0, color: '#d4d4d8' },
+        }
+        for (const s of paidOrApproved) {
+          const { followers, following } = s.submitter
+          const payout = Number(s.payoutLamports) / tInfo.multiplier
+          let bucket: string
+          if (followers == null || following == null || following === 0) bucket = 'N/A'
+          else {
+            const ratio = followers / following
+            if (ratio < 0.5) bucket = '<0.5'
+            else if (ratio < 1) bucket = '0.5-1'
+            else if (ratio < 2) bucket = '1-2'
+            else if (ratio < 5) bucket = '2-5'
+            else if (ratio < 10) bucket = '5-10'
+            else bucket = '10+'
+          }
+          ratioTranches[bucket].total += payout
+          ratioTranches[bucket].count += 1
+        }
+        const ratioBars = Object.entries(ratioTranches)
+          .filter(([, v]) => v.count > 0)
+          .map(([label, v]) => ({ label: `${label} (${v.count})`, value: v.total, color: v.color }))
+
+        const ratioChartImg = renderBarChart(ratioBars, `Payout by Follower/Following Ratio (${sym})`, '')
+        if (ratioChartImg) {
+          doc.addImage(ratioChartImg, 'PNG', m, cy, pw - m * 2, 55)
+          cy += 60
+        }
+
+        // Geo breakdown donut next to ratio donut (side by side)
+        if (Object.keys(geoData).length > 1 || Object.keys(ratioTranches).filter(k => ratioTranches[k].count > 0).length > 1) {
+          const halfW = (pw - m * 2 - 6) / 2
+
+          // Geo donut
+          const geoDonutSegs = Object.entries(geoData).map(([label, v]) => ({ label, value: v.count, color: v.color }))
+          const geoDonut = renderDonutChart(geoDonutSegs, 280)
+          if (geoDonut) {
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(8)
+            doc.setTextColor(63, 63, 70)
+            doc.text('Submitters by Region', m, cy)
+            doc.addImage(geoDonut, 'PNG', m + 4, cy + 3, 30, 30)
+            let ldy = cy + 6
+            geoDonutSegs.forEach(seg => {
+              if (seg.value === 0) return
+              const hex = seg.color
+              doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
+              doc.roundedRect(m + 38, ldy - 2, 3, 3, 0.5, 0.5, 'F')
+              doc.setFont('helvetica', 'normal')
+              doc.setFontSize(7)
+              doc.setTextColor(63, 63, 70)
+              doc.text(`${seg.label}: ${seg.value}`, m + 43, ldy)
+              ldy += 5
+            })
+          }
+
+          // Ratio donut
+          const ratioDonutSegs = Object.entries(ratioTranches)
+            .filter(([, v]) => v.count > 0)
+            .map(([label, v]) => ({ label, value: v.count, color: v.color }))
+          const ratioDonut = renderDonutChart(ratioDonutSegs, 280)
+          if (ratioDonut) {
+            const rx = m + halfW + 6
+            doc.setFont('helvetica', 'bold')
+            doc.setFontSize(8)
+            doc.setTextColor(63, 63, 70)
+            doc.text('Submitters by Ratio', rx, cy)
+            doc.addImage(ratioDonut, 'PNG', rx + 4, cy + 3, 30, 30)
+            let ldy = cy + 6
+            ratioDonutSegs.forEach(seg => {
+              if (seg.value === 0) return
+              const hex = seg.color
+              doc.setFillColor(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16))
+              doc.roundedRect(rx + 38, ldy - 2, 3, 3, 0.5, 0.5, 'F')
+              doc.setFont('helvetica', 'normal')
+              doc.setFontSize(7)
+              doc.setTextColor(63, 63, 70)
+              doc.text(`${seg.label}: ${seg.value}`, rx + 43, ldy)
+              ldy += 5
+            })
+          }
+        }
+      }
+
       // ── SUBMISSIONS TABLE ──
+      doc.addPage()
+      y = 14
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(9)
-      doc.setTextColor(63, 63, 70)
+      doc.setFontSize(12)
+      doc.setTextColor(24, 24, 27)
       doc.text(`Submissions Detail (${subs.length})`, m, y)
-      y += 2
+      y += 4
 
       const STATUS_COLORS: Record<string, { bg: [number, number, number]; text: [number, number, number] }> = {
         APPROVED: { bg: [220, 252, 231], text: [22, 101, 52] },

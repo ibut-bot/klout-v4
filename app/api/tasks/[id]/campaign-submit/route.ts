@@ -203,14 +203,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 6b. Check minimum Klout score requirement (after fee, before X API calls)
+  // 6b. Check X verification and minimum Klout score (after fee, before X API calls)
+  const latestScoreData = await prisma.xScoreData.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { totalScore: true, verifiedType: true },
+  })
+
+  if (!latestScoreData?.verifiedType) {
+    return Response.json({
+      success: false,
+      error: 'X_NOT_VERIFIED',
+      message: 'Only verified X (blue tick) users can submit to campaigns.',
+    }, { status: 400 })
+  }
+
   if (config.minKloutScore != null) {
-    const latestScore = await prisma.xScoreData.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      select: { totalScore: true },
-    })
-    const userScore = latestScore?.totalScore ?? 0
+    const userScore = latestScoreData?.totalScore ?? 0
     if (userScore < config.minKloutScore) {
       return Response.json({
         success: false,
@@ -245,7 +254,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  let postMetrics: { viewCount: number; likeCount: number; retweetCount: number; commentCount: number; text: string; authorId: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
+  let postMetrics: { viewCount: number; likeCount: number; retweetCount: number; commentCount: number; text: string; authorId: string; createdAt: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
   try {
     postMetrics = await getPostMetrics(xPostId, accessToken)
   } catch (err: any) {
@@ -260,6 +269,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const now = new Date()
+
+  // 7b. Reject posts created before the campaign went live
+  if (postMetrics.createdAt) {
+    const postDate = new Date(postMetrics.createdAt)
+    if (postDate < task.createdAt) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.' },
+      })
+      return Response.json(
+        { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.' },
+        { status: 400 }
+      )
+    }
+  }
 
   // 8. Verify post ownership
   if (postMetrics.authorId !== user.xUserId) {

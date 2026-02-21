@@ -269,10 +269,11 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
   commentCount: number
   text: string
   authorId: string
+  createdAt: string
   media: PostMedia[]
 }> {
   const params = new URLSearchParams({
-    'tweet.fields': 'public_metrics,text,author_id,attachments',
+    'tweet.fields': 'public_metrics,text,author_id,attachments,created_at',
     'expansions': 'attachments.media_keys',
     'media.fields': 'url,preview_image_url,type',
   })
@@ -339,6 +340,7 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
     commentCount: data.public_metrics?.reply_count ?? 0,
     text: data.text,
     authorId: data.author_id,
+    createdAt: data.created_at,
     media,
   }
 }
