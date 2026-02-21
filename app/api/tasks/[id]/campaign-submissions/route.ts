@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server'
-import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 
@@ -71,13 +70,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   let total: number
 
   if (sortBy === 'score') {
-    const statusFilter = status ? Prisma.sql`AND cs."status" = ${status}` : Prisma.sql``
-    const submitterFilter = !isCreator && !isSharedViewer ? Prisma.sql`AND cs."submitterId" = ${auth.userId}` : Prisma.sql``
-    const orderClause = sortDir === 'asc'
-      ? Prisma.sql`ORDER BY xs."totalScore" ASC NULLS LAST`
-      : Prisma.sql`ORDER BY xs."totalScore" DESC NULLS LAST`
-
-    const sortedIds = await prisma.$queryRaw<{ id: string }[]>`
+    let query = `
       SELECT cs."id"
       FROM slopwork."CampaignSubmission" cs
       LEFT JOIN LATERAL (
@@ -86,12 +79,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ORDER BY "createdAt" DESC
         LIMIT 1
       ) xs ON true
-      WHERE cs."taskId" = ${taskId}
-      ${statusFilter}
-      ${submitterFilter}
-      ${orderClause}
-      LIMIT ${limit} OFFSET ${(page - 1) * limit}
-    `
+      WHERE cs."taskId" = $1`
+    const params: (string | number)[] = [taskId]
+    let idx = 2
+
+    if (status) {
+      query += ` AND cs."status" = $${idx}`
+      params.push(status)
+      idx++
+    }
+    if (!isCreator && !isSharedViewer) {
+      query += ` AND cs."submitterId" = $${idx}`
+      params.push(auth.userId)
+      idx++
+    }
+
+    query += ` ORDER BY xs."totalScore" ${sortDir === 'asc' ? 'ASC' : 'DESC'} NULLS LAST`
+    query += ` LIMIT $${idx} OFFSET $${idx + 1}`
+    params.push(limit, (page - 1) * limit)
+
+    const sortedIds = await prisma.$queryRawUnsafe<{ id: string }[]>(query, ...params)
 
     const ids = sortedIds.map(r => r.id)
     const [records, count] = await Promise.all([
@@ -105,7 +112,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     total = count
   } else {
     let orderBy: any = { createdAt: 'desc' }
-    if (sortBy === 'views') orderBy = { viewCount: sortDir }
+    if (sortBy === 'submitter') orderBy = [{ submitter: { xUsername: sortDir } }, { createdAt: 'desc' }]
+    else if (sortBy === 'views') orderBy = { viewCount: sortDir }
     else if (sortBy === 'payout') orderBy = { payoutLamports: sortDir }
     else if (sortBy === 'status') orderBy = { status: sortDir }
     else if (sortBy === 'date') orderBy = { createdAt: sortDir }

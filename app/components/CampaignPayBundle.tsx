@@ -46,6 +46,7 @@ interface Props {
   customTokenSymbol?: string | null
   customTokenDecimals?: number | null
   submitterId?: string
+  compact?: boolean
 }
 
 export default function CampaignPayBundle({
@@ -61,6 +62,7 @@ export default function CampaignPayBundle({
   customTokenSymbol,
   customTokenDecimals,
   submitterId,
+  compact = false,
 }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
@@ -149,6 +151,27 @@ export default function CampaignPayBundle({
   const submitterName = submitter?.xUsername
     ? `@${submitter.xUsername}`
     : submitter?.username || `${submitter?.walletAddress.slice(0, 6)}...`
+
+  if (compact) {
+    return (
+      <div className="inline-flex flex-col gap-0.5">
+        <button
+          onClick={handlePayBundle}
+          disabled={loading || !PLATFORM_WALLET || submissions.length === 0}
+          className="rounded-lg bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+          title={
+            referrerDisplay
+              ? `${recipientDisplay} ${sym} to creator + ${feeDisplay} ${sym} platform + ${referrerDisplay} ${sym} referrer`
+              : `${recipientDisplay} ${sym} to creator + ${feeDisplay} ${sym} platform fee`
+          }
+        >
+          {loading ? 'Paying...' : `Pay ${totalDisplay} ${sym}`}
+        </button>
+        <span className="text-[10px] text-zinc-500">{submissions.length} post{submissions.length !== 1 ? 's' : ''} in bundle</span>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">

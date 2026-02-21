@@ -1157,6 +1157,15 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     }
   }
 
+  const bundleMap = new Map<string, CampaignSubmission[]>()
+  submissions.forEach(s => {
+    if (s.status === 'PAYMENT_REQUESTED' && s.paymentRequestId) {
+      if (!bundleMap.has(s.paymentRequestId)) bundleMap.set(s.paymentRequestId, [])
+      bundleMap.get(s.paymentRequestId)!.push(s)
+    }
+  })
+  const bundleFirstIds = new Set([...bundleMap.values()].map(subs => subs[0].id))
+
   const SortHeader = ({ col, children, className = '' }: { col: string; children: React.ReactNode; className?: string }) => (
     <th
       className={`pb-2 pr-4 font-medium text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors ${className}`}
@@ -1403,51 +1412,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         </div>
       )}
 
-      {/* Pending Payment Requests (bundled) */}
-      {isCreator && (() => {
-        const paymentRequestedSubs = submissions.filter(s => s.status === 'PAYMENT_REQUESTED' && s.paymentRequestId)
-        const grouped = paymentRequestedSubs.reduce<Record<string, typeof paymentRequestedSubs>>((acc, s) => {
-          const key = s.paymentRequestId!
-          if (!acc[key]) acc[key] = []
-          acc[key].push(s)
-          return acc
-        }, {})
-        const entries = Object.entries(grouped)
-        if (entries.length === 0) return null
-        return (
-          <div className="mb-6">
-            <h3 className="mb-3 text-sm font-semibold text-white">
-              Pending Payment Requests ({entries.length})
-            </h3>
-            <div className="space-y-3">
-              {entries.map(([requestId, subs]) => (
-                <CampaignPayBundle
-                  key={requestId}
-                  taskId={taskId}
-                  paymentRequestId={requestId}
-                  multisigAddress={multisigAddress}
-                  recipientWallet={subs[0].submitter.walletAddress}
-                  submissions={subs}
-                  onPaid={fetchData}
-                  onReject={(submissionId) => {
-                    setRejectingId(submissionId)
-                    setRejectPreset('')
-                    setRejectReason('')
-                    setRejectError('')
-                    setBanSubmitter(false)
-                  }}
-                  paymentToken={paymentToken}
-                  customTokenMint={customTokenMint}
-                  customTokenSymbol={customTokenSymbol}
-                  customTokenDecimals={customTokenDecimals}
-                  submitterId={subs[0].submitterId}
-                />
-              ))}
-            </div>
-          </div>
-        )
-      })()}
-
       {/* Submissions Table */}
       <div>
         <h3 className="mb-3 text-sm font-semibold text-white">Submissions ({totalCount})</h3>
@@ -1459,7 +1423,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-k-border">
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Submitter</th>
+                  <SortHeader col="submitter">Submitter</SortHeader>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
                   <SortHeader col="score">Klout Score</SortHeader>
                   <SortHeader col="views">Views</SortHeader>
@@ -1529,10 +1493,31 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       <td className="py-3">
                         {s.status === 'PAYMENT_REQUESTED' && s.paymentRequestId && (
                           <div className="flex flex-col gap-2">
-                            <span className="inline-flex items-center gap-1 text-xs text-purple-400">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
-                              In payment bundle
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {bundleFirstIds.has(s.id) && (
+                                <CampaignPayBundle
+                                  compact
+                                  taskId={taskId}
+                                  paymentRequestId={s.paymentRequestId}
+                                  multisigAddress={multisigAddress}
+                                  recipientWallet={s.submitter.walletAddress}
+                                  submissions={bundleMap.get(s.paymentRequestId)!}
+                                  onPaid={fetchData}
+                                  onReject={() => {}}
+                                  paymentToken={paymentToken}
+                                  customTokenMint={customTokenMint}
+                                  customTokenSymbol={customTokenSymbol}
+                                  customTokenDecimals={customTokenDecimals}
+                                  submitterId={s.submitterId}
+                                />
+                              )}
+                              <button
+                                onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
+                                className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
                             {rejectingId === s.id && (
                               <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
                                 <select
@@ -1603,7 +1588,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           </div>
                         )}
                         {(s.status === 'APPROVED') && s.payoutLamports && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-2">
                             <span className="text-xs text-zinc-500">Awaiting payment request</span>
                             <button
                               onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
