@@ -932,7 +932,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               Share ({sharedUsers.length})
             </button>
           )}
-          {isCreator && (
           <div className="relative">
             <button
               onClick={() => setExportOpen(o => !o)}
@@ -969,7 +968,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               </div>
             )}
           </div>
-          )}
         </div>
 
         {/* Share panel */}

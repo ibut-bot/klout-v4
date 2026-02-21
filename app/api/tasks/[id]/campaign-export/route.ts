@@ -30,7 +30,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   if (task.creatorId !== auth.userId) {
-    return Response.json({ success: false, message: 'Only the campaign creator can export' }, { status: 403 })
+    const share = await prisma.campaignShare.findUnique({
+      where: { taskId_sharedWithId: { taskId, sharedWithId: auth.userId } },
+    })
+    if (!share) {
+      return Response.json({ success: false, message: 'Only the campaign creator or shared viewers can export' }, { status: 403 })
+    }
   }
 
   let imageBase64: string | null = null
