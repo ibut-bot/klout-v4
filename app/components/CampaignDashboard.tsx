@@ -25,6 +25,7 @@ interface CampaignStats {
   rejected: number
   pending: number
   totalViews: number
+  paidViews: number
   myApprovedPayoutLamports: string
 }
 
@@ -1390,6 +1391,24 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.minPayoutLamports, tInfo, 2)} {sym}</p>
             </div>
           )}
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Paid Views</p>
+            <p className="text-lg font-semibold text-zinc-100">{stats.paidViews.toLocaleString()}</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Effective CPM</p>
+            <p className="text-lg font-semibold text-zinc-100">
+              {stats.totalViews > 0 ? formatTokenAmount(String(Math.round(Number(stats.budgetSpentLamports) / stats.totalViews * 1000)), tInfo, 2) : '0'} {sym}
+            </p>
+            <p className="text-xs text-zinc-400">total payouts / total views</p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
+            <p className="text-xs text-zinc-500">Legit CPM</p>
+            <p className="text-lg font-semibold text-zinc-100">
+              {stats.paidViews > 0 ? formatTokenAmount(String(Math.round(Number(stats.budgetSpentLamports) / stats.paidViews * 1000)), tInfo, 2) : '0'} {sym}
+            </p>
+            <p className="text-xs text-zinc-400">total payouts / paid views</p>
+          </div>
         </div>
       )}
 

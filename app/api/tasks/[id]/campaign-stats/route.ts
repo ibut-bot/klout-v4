@@ -48,6 +48,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .filter((s) => s.viewCount !== null)
     .reduce((sum, s) => sum + (s.viewCount || 0), 0)
 
+  const paidViews = submissions
+    .filter((s) => s.status === 'PAID' && s.viewCount !== null)
+    .reduce((sum, s) => sum + (s.viewCount || 0), 0)
+
   const totalSpent = submissions
     .filter((s) => s.status === 'PAID' && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
@@ -80,6 +84,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       rejected,
       pending,
       totalViews,
+      paidViews,
       myApprovedPayoutLamports: myApprovedPayout.toString(),
     },
   })
