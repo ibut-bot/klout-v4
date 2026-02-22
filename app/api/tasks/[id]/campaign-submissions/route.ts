@@ -57,11 +57,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (searchPostId) {
     where.xPostId = { contains: searchPostId }
   }
+  const submitterSearch = searchParams.get('submitterSearch')
   const filterSubmitterId = searchParams.get('submitterId')
   if (!isCreator && !isSharedViewer) {
     where.submitterId = auth.userId
   } else if (filterSubmitterId) {
     where.submitterId = filterSubmitterId
+  } else if (submitterSearch) {
+    const matchingUsers = await prisma.user.findMany({
+      where: {
+        OR: [
+          { xUsername: { contains: submitterSearch, mode: 'insensitive' } },
+          { username: { contains: submitterSearch, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+      take: 50,
+    })
+    where.submitterId = { in: matchingUsers.map(u => u.id) }
   }
 
   const submitterInclude = {
@@ -107,6 +120,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     } else if (filterSubmitterId) {
       query += ` AND cs."submitterId" = $${idx}`
       params.push(filterSubmitterId)
+    } else if (submitterSearch && where.submitterId?.in?.length) {
+      const placeholders = where.submitterId.in.map((_: string, i: number) => `$${idx + i}`).join(', ')
+      query += ` AND cs."submitterId" IN (${placeholders})`
+      where.submitterId.in.forEach((id: string) => params.push(id))
+      idx += where.submitterId.in.length
       idx++
     }
 

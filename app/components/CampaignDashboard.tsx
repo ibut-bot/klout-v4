@@ -132,6 +132,12 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [postSearch, setPostSearch] = useState('')
   const [postSearchOpen, setPostSearchOpen] = useState(false)
   const [debouncedPostSearch, setDebouncedPostSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  const statusFilterRef = useRef<HTMLDivElement>(null)
+  const [submitterSearch, setSubmitterSearch] = useState('')
+  const [submitterSearchOpen, setSubmitterSearchOpen] = useState(false)
+  const [debouncedSubmitterSearch, setDebouncedSubmitterSearch] = useState('')
   const [requestingPayment, setRequestingPayment] = useState(false)
   const [requestPaymentError, setRequestPaymentError] = useState('')
   const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
@@ -154,6 +160,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target as Node)) setStatusFilterOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -1060,6 +1067,12 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       if (debouncedPostSearch.trim()) {
         subsParams.set('postId', debouncedPostSearch.trim())
       }
+      if (statusFilter) {
+        subsParams.set('status', statusFilter)
+      }
+      if (debouncedSubmitterSearch.trim()) {
+        subsParams.set('submitterSearch', debouncedSubmitterSearch.trim())
+      }
       const [statsRes, subsRes] = await Promise.all([
         authFetch(`/api/tasks/${taskId}/campaign-stats`),
         authFetch(`/api/tasks/${taskId}/campaign-submissions?${subsParams}`),
@@ -1075,7 +1088,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       }
     } catch {}
     setLoading(false)
-  }, [taskId, authFetch, page, sortCol, sortDir, debouncedPostSearch])
+  }, [taskId, authFetch, page, sortCol, sortDir, debouncedPostSearch, statusFilter, debouncedSubmitterSearch])
 
   const handleReject = async (submissionId: string) => {
     if (!rejectPreset) {
@@ -1190,6 +1203,14 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     }, 400)
     return () => clearTimeout(timer)
   }, [postSearch])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSubmitterSearch(submitterSearch)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [submitterSearch])
 
   useEffect(() => {
     fetchData()
@@ -1497,15 +1518,42 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       {/* Submissions Table */}
       <div>
         <h3 className="mb-3 text-sm font-semibold text-white">Submissions ({totalCount})</h3>
-        {submissions.length === 0 ? (
-          <p className="text-sm text-zinc-500">No submissions yet.</p>
-        ) : (
-        <>
-          <div className="overflow-x-auto">
+          <div className="overflow-visible">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-k-border">
-                  <SortHeader col="submitter">Submitter</SortHeader>
+                  <th className="pb-2 pr-4 font-medium text-zinc-500">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => toggleSort('submitter')} className="cursor-pointer select-none hover:text-zinc-300 transition-colors inline-flex items-center gap-1">
+                          Submitter
+                          {sortCol === 'submitter' ? (
+                            <svg className="h-3 w-3 text-accent" viewBox="0 0 12 12" fill="currentColor">
+                              {sortDir === 'asc' ? <path d="M6 2l4 5H2z" /> : <path d="M6 10l4-5H2z" />}
+                            </svg>
+                          ) : (
+                            <svg className="h-3 w-3 opacity-30" viewBox="0 0 12 12" fill="currentColor">
+                              <path d="M6 2l3 4H3zM6 10l3-4H3z" />
+                            </svg>
+                          )}
+                        </button>
+                        <button onClick={() => { setSubmitterSearchOpen(!submitterSearchOpen); if (submitterSearchOpen) setSubmitterSearch('') }} className="hover:text-zinc-300 transition-colors">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        </button>
+                      </div>
+                      {submitterSearchOpen && (
+                        <input
+                          type="text"
+                          value={submitterSearch}
+                          onChange={(e) => setSubmitterSearch(e.target.value)}
+                          placeholder="Search username..."
+                          className="w-32 rounded bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  </th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">
                     <div className="flex flex-col gap-1">
                       <button onClick={() => { setPostSearchOpen(!postSearchOpen); if (postSearchOpen) setPostSearch('') }} className="hover:text-zinc-300 transition-colors text-left flex items-center gap-1">
@@ -1529,13 +1577,47 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   <SortHeader col="views">Views</SortHeader>
                   <SortHeader col="payout">Payout</SortHeader>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
-                  <SortHeader col="status">Status</SortHeader>
+                  <th className="pb-2 pr-4 font-medium text-zinc-500 relative">
+                    <div ref={statusFilterRef} className="relative inline-block">
+                      <button
+                        onClick={() => setStatusFilterOpen(!statusFilterOpen)}
+                        className="hover:text-zinc-300 transition-colors flex items-center gap-1"
+                      >
+                        Status
+                        {statusFilter && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400" />}
+                        <svg className={`h-3 w-3 transition-transform ${statusFilterOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      {statusFilterOpen && (
+                        <div className="absolute top-full left-0 mt-1 z-50 rounded border border-zinc-700 bg-zinc-800 shadow-lg py-1 min-w-[160px]">
+                          <button
+                            onClick={() => { setStatusFilter(''); setStatusFilterOpen(false); setPage(1) }}
+                            className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-700 transition-colors ${!statusFilter ? 'text-blue-400' : 'text-zinc-300'}`}
+                          >
+                            All
+                          </button>
+                          {Object.keys(STATUS_BADGE).map(s => (
+                            <button
+                              key={s}
+                              onClick={() => { setStatusFilter(s); setStatusFilterOpen(false); setPage(1) }}
+                              className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-700 transition-colors ${statusFilter === s ? 'text-blue-400' : 'text-zinc-300'}`}
+                            >
+                              <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_BADGE[s]}`}>
+                                {s.replace(/_/g, ' ')}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </th>
                   <SortHeader col="date">Submitted</SortHeader>
                   {isCreator && <th className="pb-2 font-medium text-zinc-500">Action</th>}
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((s) => (
+                {submissions.length === 0 ? (
+                  <tr><td colSpan={isCreator ? 9 : 8} className="py-8 text-center text-sm text-zinc-500">{statusFilter || debouncedPostSearch ? 'No submissions match the current filters.' : 'No submissions yet.'}</td></tr>
+                ) : submissions.map((s) => (
                   <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
                       <button
@@ -1827,8 +1909,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               </div>
             </div>
           )}
-        </>
-        )}
       </div>
 
       {/* User Submissions Modal */}
@@ -1874,8 +1954,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Klout Score</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
-                          <th className="pb-2 pr-4 font-medium text-zinc-500">Date</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Submitted</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1902,6 +1983,17 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                             <td className="py-3 pr-4 text-zinc-300">
                               {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo, 2)} ${sym}` : '-'}
                             </td>
+                            <td className="py-3 pr-4 text-zinc-300">
+                              {(() => {
+                                const multiplier = s.cpmMultiplierApplied ?? 1.0
+                                const effectiveCpm = Number(stats.cpmLamports) * multiplier
+                                return (
+                                  <span className="text-xs" title={`Multiplier: ${multiplier}x`}>
+                                    {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
+                                  </span>
+                                )
+                              })()}
+                            </td>
                             <td className="py-3 pr-4">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
                                 {s.status.replace(/_/g, ' ')}
@@ -1913,8 +2005,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 </p>
                               )}
                             </td>
-                            <td className="py-3 pr-4 text-xs text-zinc-400">
-                              {new Date(s.createdAt).toLocaleDateString()}
+                            <td className="py-3 pr-4 text-xs text-zinc-400" title={new Date(s.createdAt).toLocaleString()}>
+                              {formatElapsed(s.createdAt)}
                             </td>
                           </tr>
                         ))}
