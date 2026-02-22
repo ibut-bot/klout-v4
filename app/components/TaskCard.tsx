@@ -117,7 +117,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   const isCampaign = taskType === 'CAMPAIGN'
   const pt: PaymentTokenType = (paymentToken as PaymentTokenType) || 'SOL'
   const tInfo = resolveTokenInfo(pt, customTokenMint, customTokenSymbol, customTokenDecimals)
-  const budgetAmountDisplay = formatTokenAmount(budgetLamports, tInfo, pt === 'SOL' ? 1 : 0)
+  const budgetAmountDisplay = formatTokenAmount(budgetLamports, tInfo, pt === 'SOL' ? 2 : 0)
   const budgetTotal = Number(budgetLamports)
   const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0

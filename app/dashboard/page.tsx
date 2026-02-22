@@ -790,7 +790,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               <div className="mb-1 flex items-center justify-between text-xs">
                 <span className="text-zinc-500">Budget Used</span>
                 <span className="font-medium text-zinc-300">
-                  {formatTokenAmount(budgetRemaining, tInfo)} {sym} / {formatTokenAmount(task.budgetLamports, tInfo)} {sym}
+                  {formatTokenAmount(budgetRemaining, tInfo, pt === 'SOL' ? 2 : 0)} {sym} / {formatTokenAmount(task.budgetLamports, tInfo, pt === 'SOL' ? 2 : 0)} {sym}
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
