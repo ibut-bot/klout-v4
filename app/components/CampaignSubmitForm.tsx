@@ -5,9 +5,9 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
+import { getKloutAdjustedFee } from '@/lib/klout-fee'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
-const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000)
 
 interface Props {
   taskId: string
@@ -24,6 +24,7 @@ interface Props {
   minKloutScore?: number | null
   requireFollowX?: string | null
   collateralLink?: string | null
+  kloutScore: number
   xLinked: boolean
   hasKloutScore: boolean
   onSubmitted: () => void
@@ -33,7 +34,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, kloutScore, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -92,8 +93,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         }
       }
 
-      // Step 1: Pay API fee
+      // Step 1: Pay API fee (adjusted by Klout score)
       setStep('paying')
+      const feeLamports = getKloutAdjustedFee(kloutScore)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
@@ -102,7 +104,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         SystemProgram.transfer({
           fromPubkey: publicKey,
           toPubkey: new PublicKey(SYSTEM_WALLET),
-          lamports: X_API_FEE_LAMPORTS,
+          lamports: feeLamports,
         })
       )
       const sig = await sendTransaction(tx, connection)
@@ -148,7 +150,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     }
   }
 
-  const feeSol = (X_API_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)
+  const feeSol = (getKloutAdjustedFee(kloutScore) / LAMPORTS_PER_SOL).toFixed(4)
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const cpmDisplay = formatTokenAmount(cpmLamports, tInfo, 2)

@@ -7,12 +7,12 @@ import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
+import { getKloutAdjustedFee } from '@/lib/klout-fee'
 
 // Allow up to 60s for Solana + X API + Anthropic calls
 export const maxDuration = 60
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
-const X_API_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_X_API_FEE_LAMPORTS || 500000) // ~10c SOL
 
 const THRESHOLD_REJECTION_RE = /^Post has \d+ (views|likes|retweets|comments), minimum required is \d+\.$/
 
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 6. Verify API fee payment
+  // 6. Verify API fee payment (adjusted by Klout score)
   if (!SYSTEM_WALLET) {
     return Response.json(
       { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet not configured' },
@@ -195,7 +195,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  const feeVerification = await verifyPaymentTx(apiFeeTxSig, SYSTEM_WALLET, X_API_FEE_LAMPORTS)
+  const userKloutScore = user.xScores[0]?.totalScore ?? 0
+  const adjustedFeeLamports = getKloutAdjustedFee(userKloutScore)
+  const feeVerification = await verifyPaymentTx(apiFeeTxSig, SYSTEM_WALLET, adjustedFeeLamports)
   if (!feeVerification.valid) {
     return Response.json(
       { success: false, error: 'INVALID_PAYMENT', message: feeVerification.error || 'API fee payment verification failed' },

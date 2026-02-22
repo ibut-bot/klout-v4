@@ -143,6 +143,7 @@ export default function TaskDetailPage() {
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
+  const [kloutScore, setKloutScore] = useState(0)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
   const [isSharedViewer, setIsSharedViewer] = useState(false)
   // Image repositioning state
@@ -221,7 +222,10 @@ export default function TaskDetailPage() {
     try {
       const res = await authFetch('/api/klout-score')
       const data = await res.json()
-      if (data.success && data.score) setHasKloutScore(true)
+      if (data.success && data.score) {
+        setHasKloutScore(true)
+        setKloutScore(data.score.totalScore ?? 0)
+      }
     } catch {}
   }, [isAuthenticated, authFetch])
 
@@ -701,6 +705,7 @@ export default function TaskDetailPage() {
               minKloutScore={campaignConfig.minKloutScore}
               requireFollowX={campaignConfig.requireFollowX}
               collateralLink={campaignConfig.collateralLink}
+              kloutScore={kloutScore}
               xLinked={xLinked}
               hasKloutScore={hasKloutScore}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
