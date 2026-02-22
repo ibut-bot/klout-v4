@@ -273,17 +273,16 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       lines.push(`Rejected,${rejected}`)
       lines.push('')
       lines.push('Submissions')
-      lines.push(['Submitter', 'Wallet', 'Post URL', 'Klout Score', 'Views', `Payout (${sym})`, `Platform Fee (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date'].map(esc).join(','))
+      lines.push(['Submitter', 'Wallet', 'Post URL', 'Klout Score', 'Views', `Payout (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date'].map(esc).join(','))
 
       for (const s of subs) {
         const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
         const payout = s.payoutLamports ? fmtToken(s.payoutLamports) : '-'
-        const fee = s.payoutLamports ? fmtToken(Math.round(Number(s.payoutLamports) * 0.1)) : '-'
         lines.push([
           name, s.submitter.walletAddress, s.postUrl,
           s.submitter.kloutScore != null ? String(s.submitter.kloutScore) : '-',
           s.viewCount != null ? String(s.viewCount) : '-',
-          payout, fee, s.status.replace(/_/g, ' '),
+          payout, s.status.replace(/_/g, ' '),
           s.rejectionReason || '', s.paymentTxSig || '',
           new Date(s.createdAt).toLocaleDateString(),
         ].map(esc).join(','))
@@ -1478,7 +1477,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   <SortHeader col="score">Klout Score</SortHeader>
                   <SortHeader col="views">Views</SortHeader>
                   <SortHeader col="payout">Payout</SortHeader>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
                   <SortHeader col="status">Status</SortHeader>
                   <SortHeader col="date">Submitted</SortHeader>
@@ -1525,9 +1523,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
                       {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo, 2)} ${sym}` : '-'}
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-300">
-                      {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo, 2)} ${sym}` : '-'}
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
                       {(() => {
@@ -1828,7 +1823,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Klout Score</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
-                          <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Date</th>
                         </tr>
@@ -1856,9 +1850,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                             </td>
                             <td className="py-3 pr-4 text-zinc-300">
                               {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo, 2)} ${sym}` : '-'}
-                            </td>
-                            <td className="py-3 pr-4 text-zinc-300">
-                              {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo, 2)} ${sym}` : '-'}
                             </td>
                             <td className="py-3 pr-4">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>

@@ -6,7 +6,7 @@ export interface ScoreBreakdown {
   reachScore: number        // 0–1 (64.95% weight)
   ratioScore: number        // 0–1 (10% weight, scaled by reach)
   engagementScore: number   // 0–1 (25% weight, scaled by reach)
-  verificationScore: number // 0–1 (0.01% weight)
+  verificationScore: number // 0.01–1 (multiplier on total)
   geoMultiplier: number     // 0–1 (0.04% weight)
   geoTier: number | null    // 1–4 or null
   geoRegion: string | null
@@ -105,9 +105,8 @@ function computeEngagementScore(
 // ── Verification Score (0–1) ──
 
 function computeVerificationScore(verifiedType: string | null): number {
-  if (!verifiedType) return 0
   if (verifiedType === 'blue') return 1.0
-  return 0
+  return 0.01
 }
 
 // ── Geographic Tier & Multiplier ──
@@ -284,14 +283,12 @@ export function calculateKloutScore(
   // Parse geo
   const geo = parseGeoFromLocation(profile.location)
 
-  // Weighted sum: reach 64.95%, engagement 25%, ratio 10%, verification 0.01%, geo 0.04%
-  const totalScore = Math.min(10_000, Math.round(
-    (reachScore * 0.6495 +
+  // Weighted sum: reach 65%, engagement 25%, ratio 10%, geo 0.04% — then × verification multiplier
+  const rawScore = (reachScore * 0.6496 +
      engagementScore * 0.25 +
      ratioScore * 0.10 +
-     verificationScore * 0.0001 +
      geo.multiplier * 0.0004) * 10_000
-  ))
+  const totalScore = Math.min(10_000, Math.round(rawScore * verificationScore))
   const qualityScore = totalScore / 10_000
 
   return {
