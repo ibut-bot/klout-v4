@@ -126,6 +126,12 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [shareError, setShareError] = useState('')
   const [sharedUsers, setSharedUsers] = useState<SharedUser[]>([])
   const [sharedUsersLoading, setSharedUsersLoading] = useState(false)
+  const [userModalSubmitter, setUserModalSubmitter] = useState<CampaignSubmission['submitter'] | null>(null)
+  const [userModalSubs, setUserModalSubs] = useState<CampaignSubmission[]>([])
+  const [userModalLoading, setUserModalLoading] = useState(false)
+  const [userModalPage, setUserModalPage] = useState(1)
+  const [userModalTotalPages, setUserModalTotalPages] = useState(1)
+  const [userModalTotal, setUserModalTotal] = useState(0)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1127,6 +1133,36 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     setRequestingPayment(false)
   }
 
+  const openUserModal = useCallback((submitter: CampaignSubmission['submitter']) => {
+    setUserModalSubmitter(submitter)
+    setUserModalPage(1)
+    setUserModalSubs([])
+    setUserModalTotalPages(1)
+    setUserModalTotal(0)
+  }, [])
+
+  const fetchUserModalSubs = useCallback(async () => {
+    if (!userModalSubmitter) return
+    setUserModalLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(userModalPage), limit: '50', submitterId: userModalSubmitter.id })
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setUserModalSubs(data.submissions)
+        if (data.pagination) {
+          setUserModalTotalPages(data.pagination.pages)
+          setUserModalTotal(data.pagination.total)
+        }
+      }
+    } catch {}
+    setUserModalLoading(false)
+  }, [userModalSubmitter, userModalPage, taskId, authFetch])
+
+  useEffect(() => {
+    if (userModalSubmitter) fetchUserModalSubs()
+  }, [userModalSubmitter, fetchUserModalSubs])
+
   useEffect(() => {
     fetchData()
   }, [fetchData, refreshTrigger])
@@ -1438,7 +1474,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                 {submissions.map((s) => (
                   <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openUserModal(s.submitter)}
+                        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                      >
                         {s.submitter.profilePicUrl ? (
                           <img src={s.submitter.profilePicUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
                         ) : (
@@ -1446,10 +1485,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                             {s.submitter.walletAddress.slice(0, 2)}
                           </div>
                         )}
-                        <span className="text-zinc-300">
+                        <span className="text-zinc-300 underline decoration-zinc-600 hover:decoration-zinc-400">
                           {s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || `${s.submitter.walletAddress.slice(0, 6)}...`}
                         </span>
-                      </div>
+                      </button>
                     </td>
                     <td className="py-3 pr-4">
                       <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-blue-400">
@@ -1719,6 +1758,130 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         </>
         )}
       </div>
+
+      {/* User Submissions Modal */}
+      {userModalSubmitter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setUserModalSubmitter(null)}>
+          <div className="relative mx-4 max-h-[85vh] w-full max-w-5xl overflow-hidden rounded-xl border border-k-border bg-zinc-900 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-k-border px-6 py-4">
+              <div className="flex items-center gap-3">
+                {userModalSubmitter.profilePicUrl ? (
+                  <img src={userModalSubmitter.profilePicUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-700 text-xs font-medium text-zinc-300">
+                    {userModalSubmitter.walletAddress.slice(0, 2)}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {userModalSubmitter.xUsername ? `@${userModalSubmitter.xUsername}` : userModalSubmitter.username || `${userModalSubmitter.walletAddress.slice(0, 6)}...${userModalSubmitter.walletAddress.slice(-4)}`}
+                  </h3>
+                  <p className="text-xs text-zinc-400">{userModalTotal} submission{userModalTotal !== 1 ? 's' : ''} in this campaign</p>
+                </div>
+              </div>
+              <button onClick={() => setUserModalSubmitter(null)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-surface hover:text-zinc-200 transition-colors">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-auto p-6" style={{ maxHeight: 'calc(85vh - 73px)' }}>
+              {userModalLoading ? (
+                <div className="animate-pulse space-y-3">
+                  {[...Array(3)].map((_, i) => <div key={i} className="h-10 rounded bg-surface" />)}
+                </div>
+              ) : userModalSubs.length === 0 ? (
+                <p className="text-sm text-zinc-500">No submissions found.</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-k-border">
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Klout Score</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
+                          <th className="pb-2 pr-4 font-medium text-zinc-500">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userModalSubs.map((s) => (
+                          <tr key={s.id} className="border-b border-k-border/50">
+                            <td className="py-3 pr-4">
+                              <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                                View Post
+                              </a>
+                            </td>
+                            <td className="py-3 pr-4 text-zinc-300">
+                              {s.submitter.kloutScore != null ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-semibold text-yellow-400">
+                                  <svg className="h-3 w-3" viewBox="0 0 375 375" fill="currentColor"><path d="M255.074 48.605L158.453 47.785L125.961 193.941H174.68L135.703 318.171L267.234 141.16H195.789L255.074 48.605Z"/></svg>
+                                  {s.submitter.kloutScore.toLocaleString()}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-zinc-500">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 text-zinc-300">
+                              {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
+                            </td>
+                            <td className="py-3 pr-4 text-zinc-300">
+                              {s.payoutLamports ? `${formatTokenAmount(s.payoutLamports, tInfo, 2)} ${sym}` : '-'}
+                            </td>
+                            <td className="py-3 pr-4 text-zinc-300">
+                              {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo, 2)} ${sym}` : '-'}
+                            </td>
+                            <td className="py-3 pr-4">
+                              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
+                                {s.status.replace(/_/g, ' ')}
+                              </span>
+                              {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
+                                <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`} title={s.rejectionReason}>
+                                  {s.status === 'CREATOR_REJECTED' ? 'Creator: ' : ''}
+                                  {s.rejectionReason.length > 50 ? s.rejectionReason.slice(0, 50) + '...' : s.rejectionReason}
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 text-xs text-zinc-400">
+                              {new Date(s.createdAt).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {userModalTotalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">
+                        Page {userModalPage} of {userModalTotalPages} ({userModalTotal} total)
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setUserModalPage(p => Math.max(1, p - 1))}
+                          disabled={userModalPage <= 1}
+                          className="rounded-md border border-k-border px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-surface disabled:opacity-30"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => setUserModalPage(p => Math.min(userModalTotalPages, p + 1))}
+                          disabled={userModalPage >= userModalTotalPages}
+                          className="rounded-md border border-k-border px-3 py-1 text-xs font-medium text-zinc-300 hover:bg-surface disabled:opacity-30"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -53,8 +53,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (status) {
     where.status = status
   }
+  const filterSubmitterId = searchParams.get('submitterId')
   if (!isCreator && !isSharedViewer) {
     where.submitterId = auth.userId
+  } else if (filterSubmitterId) {
+    where.submitterId = filterSubmitterId
   }
 
   const submitterInclude = {
@@ -91,6 +94,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (!isCreator && !isSharedViewer) {
       query += ` AND cs."submitterId" = $${idx}`
       params.push(auth.userId)
+      idx++
+    } else if (filterSubmitterId) {
+      query += ` AND cs."submitterId" = $${idx}`
+      params.push(filterSubmitterId)
       idx++
     }
 
