@@ -13,6 +13,7 @@ import ImagePositionEditor, { type ImageTransform } from './ImagePositionEditor'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const TASK_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_TASK_FEE_LAMPORTS || 10000000)
+const CAMPAIGN_CREATION_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_CAMPAIGN_CREATION_FEE_LAMPORTS || 1_000_000_000)
 
 export default function TaskForm() {
   const { authFetch, isAuthenticated } = useAuth()
@@ -201,17 +202,26 @@ export default function TaskForm() {
       let vaultDetails: { multisigAddress?: string; vaultAddress?: string } = {}
 
       if (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') {
-        // Competition/Campaign: create 1/1 multisig vault and fund it with budget
         if (!signTransaction) throw new Error('Wallet does not support signing')
         setStep('paying')
         const walletSigner = { publicKey, signTransaction }
+
+        // For campaigns, include a 1 SOL creation fee in the same transaction
+        const extraIx = taskType === 'CAMPAIGN' && SYSTEM_WALLET
+          ? [SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: new PublicKey(SYSTEM_WALLET),
+              lamports: CAMPAIGN_CREATION_FEE_LAMPORTS,
+            })]
+          : []
+
         let result: { multisigPda: { toBase58(): string }; vaultPda: { toBase58(): string }; signature: string }
         if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
-          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, USDC_MINT)
+          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, USDC_MINT, extraIx)
         } else if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && customTokenMeta) {
-          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, new PublicKey(customTokenMeta.mint))
+          result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, new PublicKey(customTokenMeta.mint), extraIx)
         } else {
-          result = await createMultisigVaultAndFundWA(connection, walletSigner, budgetLamports)
+          result = await createMultisigVaultAndFundWA(connection, walletSigner, budgetLamports, extraIx)
         }
         signature = result.signature
         vaultDetails = {
@@ -477,9 +487,11 @@ export default function TaskForm() {
           )}
         </div>
         <p className="mt-1 text-xs text-zinc-500">
-          {taskType === 'COMPETITION' || taskType === 'CAMPAIGN'
-            ? `This ${tokenLabel} budget will be locked in an escrow vault when you post the campaign.`
-            : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
+          {taskType === 'CAMPAIGN'
+            ? `This ${tokenLabel} budget will be locked in an escrow vault. A ${CAMPAIGN_CREATION_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL campaign creation fee applies.`
+            : taskType === 'COMPETITION'
+              ? `This ${tokenLabel} budget will be locked in an escrow vault when you post the campaign.`
+              : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
         </p>
       </div>
 

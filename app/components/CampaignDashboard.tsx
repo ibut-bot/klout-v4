@@ -50,6 +50,7 @@ interface CampaignSubmission {
     profilePicUrl: string | null
     kloutScore?: number | null
   }
+  cpmMultiplierApplied: number | null
   createdAt: string
 }
 
@@ -79,6 +80,19 @@ function formatSol(lamports: string | number, decimals = 4): string {
   if (sol === 0) return '0'
   if (sol < 0.001 && decimals >= 4) return sol.toPrecision(2)
   return sol.toFixed(decimals)
+}
+
+function formatElapsed(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  if (ms < 0) return 'just now'
+  const secs = Math.floor(ms / 1000)
+  const mins = Math.floor(secs / 60)
+  const hrs = Math.floor(mins / 60)
+  const days = Math.floor(hrs / 24)
+  if (days > 0) return `${days}d ${hrs % 24}h ago`
+  if (hrs > 0) return `${hrs}h ${mins % 60}m ago`
+  if (mins > 0) return `${mins}m ${secs % 60}s ago`
+  return `${secs}s ago`
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -1465,8 +1479,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   <SortHeader col="views">Views</SortHeader>
                   <SortHeader col="payout">Payout</SortHeader>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">Platform Fee (10%)</th>
+                  <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
                   <SortHeader col="status">Status</SortHeader>
-                  <SortHeader col="date">Date</SortHeader>
+                  <SortHeader col="date">Submitted</SortHeader>
                   {isCreator && <th className="pb-2 font-medium text-zinc-500">Action</th>}
                 </tr>
               </thead>
@@ -1514,6 +1529,17 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     <td className="py-3 pr-4 text-zinc-300">
                       {s.payoutLamports ? `${formatTokenAmount(Math.round(Number(s.payoutLamports) * 0.1), tInfo, 2)} ${sym}` : '-'}
                     </td>
+                    <td className="py-3 pr-4 text-zinc-300">
+                      {(() => {
+                        const multiplier = s.cpmMultiplierApplied ?? 1.0
+                        const effectiveCpm = Number(stats.cpmLamports) * multiplier
+                        return (
+                          <span className="text-xs" title={`Multiplier: ${multiplier}x`}>
+                            {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
+                          </span>
+                        )
+                      })()}
+                    </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
                         {s.status.replace(/_/g, ' ')}
@@ -1525,8 +1551,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         </p>
                       )}
                     </td>
-                    <td className="py-3 pr-4 text-xs text-zinc-400">
-                      {new Date(s.createdAt).toLocaleDateString()}
+                    <td className="py-3 pr-4 text-xs text-zinc-400" title={new Date(s.createdAt).toLocaleString()}>
+                      {formatElapsed(s.createdAt)}
                     </td>
                     {isCreator && (
                       <td className="py-3">

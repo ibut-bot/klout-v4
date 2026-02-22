@@ -163,6 +163,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         profilePicUrl: s.submitter.profilePicUrl,
         kloutScore: s.submitter.xScores[0]?.totalScore ?? null,
       },
+      cpmMultiplierApplied: s.cpmMultiplierApplied ?? null,
       createdAt: s.createdAt.toISOString(),
     })),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },

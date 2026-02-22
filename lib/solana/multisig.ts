@@ -801,6 +801,7 @@ export async function createMultisigVaultAndFundWA(
   connection: Connection,
   wallet: WalletSigner,
   budgetLamports: number,
+  extraInstructions: Parameters<Transaction['add']>[0][] = [],
 ): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
   const createKey = Keypair.generate()
   const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
@@ -809,7 +810,6 @@ export async function createMultisigVaultAndFundWA(
   const programConfigPda = getProgramConfigPda()
   const programConfig = await multisig.accounts.ProgramConfig.fromAccountAddress(connection, programConfigPda)
 
-  // 1. Create 1/1 multisig with creator as sole member
   const createMultisigIx = multisig.instructions.multisigCreateV2({
     createKey: createKey.publicKey,
     creator: wallet.publicKey,
@@ -822,7 +822,6 @@ export async function createMultisigVaultAndFundWA(
     rentCollector: null,
   })
 
-  // 2. Fund the vault with the budget
   const fundIx = SystemProgram.transfer({
     fromPubkey: wallet.publicKey,
     toPubkey: vaultPda,
@@ -833,7 +832,7 @@ export async function createMultisigVaultAndFundWA(
   const tx = new Transaction()
   tx.recentBlockhash = blockhash
   tx.feePayer = wallet.publicKey
-  tx.add(createMultisigIx, fundIx)
+  tx.add(createMultisigIx, fundIx, ...extraInstructions)
 
   const signedTx = await wallet.signTransaction(tx)
   signedTx.partialSign(createKey)

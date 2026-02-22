@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getKloutCpmMultiplier } from "@/lib/klout-cpm";
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || "";
 const KLOUT_SCORE_FEE_LAMPORTS = Number(
@@ -567,10 +568,23 @@ function MyScoreTab() {
 
           <div className="p-5">
             {scoreResult.tierQuote && (
-              <p className="mb-5 text-center text-sm italic text-zinc-400">
+              <p className="mb-4 text-center text-sm italic text-zinc-400">
                 &ldquo;{scoreResult.tierQuote}&rdquo;
               </p>
             )}
+
+            <div className="mb-5 rounded-xl border border-k-border bg-zinc-800/50 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-zinc-500">Your CPM Multiplier</p>
+                <p className="text-lg font-bold text-white">{(getKloutCpmMultiplier(scoreResult.totalScore) * 100).toFixed(0)}%</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] text-zinc-500">of base campaign CPM</p>
+                {getKloutCpmMultiplier(scoreResult.totalScore) < 1 && (
+                  <p className="text-[11px] text-accent">Increase your score to earn more</p>
+                )}
+              </div>
+            </div>
 
             <button
               onClick={handleShare}

@@ -87,6 +87,7 @@ export async function createMultisigVaultAndFundSplWA(
   wallet: WalletSigner,
   budgetBaseUnits: number,
   mint: PublicKey = USDC_MINT,
+  extraInstructions: Parameters<Transaction['add']>[0][] = [],
 ): Promise<{ multisigPda: PublicKey; vaultPda: PublicKey; signature: string }> {
   const createKey = Keypair.generate()
   const [multisigPda] = multisig.getMultisigPda({ createKey: createKey.publicKey })
@@ -121,7 +122,7 @@ export async function createMultisigVaultAndFundSplWA(
   const tx = new Transaction()
   tx.recentBlockhash = blockhash
   tx.feePayer = wallet.publicKey
-  tx.add(createMultisigIx, createVaultAtaIx, transferIx)
+  tx.add(createMultisigIx, createVaultAtaIx, transferIx, ...extraInstructions)
 
   const signedTx = await wallet.signTransaction(tx)
   signedTx.partialSign(createKey)
