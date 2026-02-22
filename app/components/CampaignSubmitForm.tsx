@@ -6,6 +6,7 @@ import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana
 import { useAuth } from '../hooks/useAuth'
 import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 import { getKloutAdjustedFee } from '@/lib/klout-fee'
+import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 
@@ -154,6 +155,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const cpmDisplay = formatTokenAmount(cpmLamports, tInfo, 2)
+  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  const effectiveCpmLamports = Math.floor(Number(cpmLamports) * cpmMultiplier).toString()
+  const effectiveCpmDisplay = formatTokenAmount(effectiveCpmLamports, tInfo, 2)
   const remainingDisplay = formatTokenAmount(budgetRemainingLamports, tInfo, 2)
   const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
     ? formatTokenAmount(minPayoutLamports, tInfo, 2)
@@ -198,8 +202,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
       {/* Campaign Info Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
-          <p className="text-[11px] text-zinc-500">CPM (per 1,000 views)</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-100">{cpmDisplay} {sym}</p>
+          <p className="text-[11px] text-zinc-500">Your CPM (per 1,000 views)</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">{effectiveCpmDisplay} {sym}</p>
+          {cpmMultiplier < 1 && (
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              {(cpmMultiplier * 100).toFixed(0)}% of {cpmDisplay} {sym} base &middot; <a href="/my-score" className="text-accent hover:underline">boost your score</a>
+            </p>
+          )}
         </div>
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Budget remaining</p>

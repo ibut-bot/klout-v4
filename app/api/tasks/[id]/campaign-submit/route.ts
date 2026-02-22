@@ -8,6 +8,7 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 import { getKloutAdjustedFee } from '@/lib/klout-fee'
+import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
 
 // Allow up to 60s for Solana + X API + Anthropic calls
 export const maxDuration = 60
@@ -420,8 +421,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  // 11. Calculate payout (budget is NOT deducted here — only at payment request time)
-  let payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * Number(config.cpmLamports)))
+  // 11. Calculate payout with Klout score-based CPM multiplier
+  const kloutScore = latestScoreData?.totalScore ?? 0
+  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
+  let payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * effectiveCpm))
 
   // Cap payout to maxBudgetPerPostPercent of total budget (if configured)
   if (config.maxBudgetPerPostPercent != null) {
@@ -457,6 +461,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       contentCheckPassed: true,
       contentCheckExplanation: contentCheck.explanation,
       payoutLamports,
+      kloutScoreAtSubmission: kloutScore,
+      cpmMultiplierApplied: cpmMultiplier,
     },
   })
 

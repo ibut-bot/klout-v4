@@ -283,6 +283,15 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       if (newMinRetweets !== (task.campaignConfig?.minRetweets ?? 0)) updates.minRetweets = newMinRetweets
       if (newMinComments !== (task.campaignConfig?.minComments ?? 0)) updates.minComments = newMinComments
 
+      // CPM
+      if (editCpm) {
+        const newCpmLamports = Math.round(parseFloat(editCpm) * mult)
+        const curCpmLamports = Number(task.campaignConfig?.cpmLamports ?? 0)
+        if (newCpmLamports !== curCpmLamports && newCpmLamports > 0) {
+          updates.cpmLamports = newCpmLamports
+        }
+      }
+
       // Min payout threshold (can only increase)
       const newMinPayoutLamports = editMinPayout ? Math.round(parseFloat(editMinPayout) * mult) : 0
       const curMinPayoutLamports = Number(task.campaignConfig?.minPayoutLamports ?? 0)
@@ -410,7 +419,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined || updates.minPayoutLamports !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined || updates.minPayoutLamports !== undefined || updates.cpmLamports !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
@@ -427,6 +436,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           ...(updates.minKloutScore !== undefined ? { minKloutScore: updates.minKloutScore } : {}),
           ...(updates.requireFollowX !== undefined ? { requireFollowX: updates.requireFollowX } : {}),
           ...(updates.minPayoutLamports !== undefined ? { minPayoutLamports: String(updates.minPayoutLamports) } : {}),
+          ...(updates.cpmLamports !== undefined ? { cpmLamports: String(updates.cpmLamports) } : {}),
         }
       }
 
@@ -614,6 +624,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"
               />
               <p className="mt-0.5 text-[10px] text-zinc-600">Link to images, logos, or other assets creators can use. Not checked by AI verification.</p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">CPM — Cost per 1,000 views ({sym})</label>
+              <input type="number" step="0.001" min="0.001" value={editCpm} onChange={(e) => setEditCpm(e.target.value)} placeholder="0.01"
+                className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+              <p className="mt-0.5 text-[10px] text-zinc-600">How much you pay per 1,000 views. This is the maximum rate — actual payouts are scaled by the submitter&apos;s Klout score.</p>
             </div>
 
             <div>

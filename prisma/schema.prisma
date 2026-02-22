@@ -363,6 +363,8 @@ model CampaignSubmission {
   contentCheckPassed      Boolean?
   contentCheckExplanation String?
   payoutLamports          BigInt?
+  kloutScoreAtSubmission  Float?
+  cpmMultiplierApplied    Float?
   status                  CampaignSubmissionStatus @default(PENDING_PAYMENT)
   rejectionReason         String?
   paymentTxSig            String?
