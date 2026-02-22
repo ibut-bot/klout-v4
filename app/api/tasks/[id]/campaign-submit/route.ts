@@ -188,7 +188,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 6. Verify API fee payment (adjusted by Klout score)
+  // 6. Verify API fee payment (adjusted by Klout score + repeat submission surcharge)
   if (!SYSTEM_WALLET) {
     return Response.json(
       { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet not configured' },
@@ -196,8 +196,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
+  const priorSubmissionCount = await prisma.campaignSubmission.count({
+    where: { taskId, submitterId: userId },
+  })
+
   const userKloutScore = user.xScores[0]?.totalScore ?? 0
-  const adjustedFeeLamports = getKloutAdjustedFee(userKloutScore)
+  const adjustedFeeLamports = getKloutAdjustedFee(userKloutScore, priorSubmissionCount)
   const feeVerification = await verifyPaymentTx(apiFeeTxSig, SYSTEM_WALLET, adjustedFeeLamports)
   if (!feeVerification.valid) {
     return Response.json(

@@ -53,6 +53,18 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     resubmittable?: boolean
   } | null>(null)
 
+  const [priorSubmissionCount, setPriorSubmissionCount] = useState(0)
+
+  const fetchPriorCount = async () => {
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-submissions?limit=1`)
+      const data = await res.json()
+      if (data.success) setPriorSubmissionCount(data.pagination.total)
+    } catch {}
+  }
+
+  useEffect(() => { fetchPriorCount() }, [taskId])
+
   const followKey = requireFollowX ? `follow_${taskId}_${requireFollowX}` : ''
   const [hasFollowed, setHasFollowed] = useState(false)
 
@@ -94,9 +106,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         }
       }
 
-      // Step 1: Pay API fee (adjusted by Klout score)
+      // Step 1: Pay API fee (adjusted by Klout score + repeat submission surcharge)
       setStep('paying')
-      const feeLamports = getKloutAdjustedFee(kloutScore)
+      const feeLamports = getKloutAdjustedFee(kloutScore, priorSubmissionCount)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
@@ -132,6 +144,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
           payoutLamports: data.submission.payoutLamports,
         })
         setPostUrl('')
+        setPriorSubmissionCount(c => c + 1)
         onSubmitted()
       } else {
         setResult({
@@ -151,7 +164,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     }
   }
 
-  const feeSol = (getKloutAdjustedFee(kloutScore) / LAMPORTS_PER_SOL).toFixed(4)
+  const feeSol = (getKloutAdjustedFee(kloutScore, priorSubmissionCount) / LAMPORTS_PER_SOL).toFixed(4)
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const cpmDisplay = formatTokenAmount(cpmLamports, tInfo, 2)
@@ -217,6 +230,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Verification fee</p>
           <p className="mt-1 text-sm font-semibold text-zinc-100">{feeSol} SOL</p>
+          {priorSubmissionCount > 0 && (
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              +{Math.round((Math.pow(1.2, priorSubmissionCount) - 1) * 100)}% repeat surcharge
+            </p>
+          )}
         </div>
         {minViews !== undefined && minViews > 0 && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">

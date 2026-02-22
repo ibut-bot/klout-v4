@@ -7,6 +7,12 @@ export function getKloutFeeMultiplier(score: number): number {
   return 2
 }
 
-export function getKloutAdjustedFee(score: number): number {
-  return Math.floor(BASE_FEE_LAMPORTS * getKloutFeeMultiplier(score))
+export function getRepeatSubmissionMultiplier(priorCount: number): number {
+  return Math.pow(1.2, priorCount)
+}
+
+export function getKloutAdjustedFee(score: number, priorSubmissionCount = 0): number {
+  return Math.floor(
+    BASE_FEE_LAMPORTS * getKloutFeeMultiplier(score) * getRepeatSubmissionMultiplier(priorSubmissionCount)
+  )
 }
