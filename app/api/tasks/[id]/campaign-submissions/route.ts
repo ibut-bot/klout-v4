@@ -53,6 +53,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (status) {
     where.status = status
   }
+  const searchPostId = searchParams.get('postId')
+  if (searchPostId) {
+    where.xPostId = { contains: searchPostId }
+  }
   const filterSubmitterId = searchParams.get('submitterId')
   if (!isCreator && !isSharedViewer) {
     where.submitterId = auth.userId
@@ -89,6 +93,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (status) {
       query += ` AND cs."status" = $${idx}`
       params.push(status)
+      idx++
+    }
+    if (searchPostId) {
+      query += ` AND cs."xPostId" LIKE '%' || $${idx} || '%'`
+      params.push(searchPostId)
       idx++
     }
     if (!isCreator && !isSharedViewer) {

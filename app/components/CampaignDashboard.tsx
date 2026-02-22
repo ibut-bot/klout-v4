@@ -129,6 +129,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [overrideApproveError, setOverrideApproveError] = useState('')
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [postSearch, setPostSearch] = useState('')
+  const [postSearchOpen, setPostSearchOpen] = useState(false)
+  const [debouncedPostSearch, setDebouncedPostSearch] = useState('')
   const [requestingPayment, setRequestingPayment] = useState(false)
   const [requestPaymentError, setRequestPaymentError] = useState('')
   const [requestPaymentSuccess, setRequestPaymentSuccess] = useState('')
@@ -1054,6 +1057,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         subsParams.set('sortBy', sortCol)
         subsParams.set('sortDir', sortDir)
       }
+      if (debouncedPostSearch.trim()) {
+        subsParams.set('postId', debouncedPostSearch.trim())
+      }
       const [statsRes, subsRes] = await Promise.all([
         authFetch(`/api/tasks/${taskId}/campaign-stats`),
         authFetch(`/api/tasks/${taskId}/campaign-submissions?${subsParams}`),
@@ -1069,7 +1075,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       }
     } catch {}
     setLoading(false)
-  }, [taskId, authFetch, page, sortCol, sortDir])
+  }, [taskId, authFetch, page, sortCol, sortDir, debouncedPostSearch])
 
   const handleReject = async (submissionId: string) => {
     if (!rejectPreset) {
@@ -1176,6 +1182,14 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   useEffect(() => {
     if (userModalSubmitter) fetchUserModalSubs()
   }, [userModalSubmitter, fetchUserModalSubs])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPostSearch(postSearch)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [postSearch])
 
   useEffect(() => {
     fetchData()
@@ -1492,7 +1506,25 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               <thead>
                 <tr className="border-b border-k-border">
                   <SortHeader col="submitter">Submitter</SortHeader>
-                  <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
+                  <th className="pb-2 pr-4 font-medium text-zinc-500">
+                    <div className="flex flex-col gap-1">
+                      <button onClick={() => { setPostSearchOpen(!postSearchOpen); if (postSearchOpen) setPostSearch('') }} className="hover:text-zinc-300 transition-colors text-left flex items-center gap-1">
+                        Post
+                        <svg className={`h-3 w-3 transition-transform ${postSearchOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                      </button>
+                      {postSearchOpen && (
+                        <input
+                          type="text"
+                          value={postSearch}
+                          onChange={(e) => setPostSearch(e.target.value)}
+                          placeholder="Search post ID..."
+                          className="w-32 rounded bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  </th>
                   <SortHeader col="score">Klout Score</SortHeader>
                   <SortHeader col="views">Views</SortHeader>
                   <SortHeader col="payout">Payout</SortHeader>
@@ -1524,7 +1556,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     </td>
                     <td className="py-3 pr-4">
                       <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-blue-400">
-                        View Post
+                        {s.xPostId}
                       </a>
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
@@ -1851,7 +1883,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <tr key={s.id} className="border-b border-k-border/50">
                             <td className="py-3 pr-4">
                               <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-                                View Post
+                                {s.xPostId}
                               </a>
                             </td>
                             <td className="py-3 pr-4 text-zinc-300">
