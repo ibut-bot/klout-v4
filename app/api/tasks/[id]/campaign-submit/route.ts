@@ -17,6 +17,18 @@ const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 
 const THRESHOLD_REJECTION_RE = /^Post has \d+ (views|likes|retweets|comments), minimum required is \d+\.$/
 
+const TECHNICAL_ERROR_PATTERNS = [
+  /^X account token expired/,
+  /^Failed to read post metrics:/,
+  /^Content check failed:/,
+  /^Content check service error:/,
+]
+
+function isTechnicalRejection(reason: string | null): boolean {
+  if (!reason) return false
+  return TECHNICAL_ERROR_PATTERNS.some(re => re.test(reason))
+}
+
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -170,7 +182,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       && existing.status === 'REJECTED'
       && THRESHOLD_REJECTION_RE.test(existing.rejectionReason || '')
 
-    if (isStuckProcessing || isThresholdRejection) {
+    const isTechnicalError = existing.status === 'REJECTED'
+      && isTechnicalRejection(existing.rejectionReason)
+
+    if (isStuckProcessing || isThresholdRejection || isTechnicalError) {
       await prisma.campaignSubmission.delete({ where: { id: existing.id } })
     } else {
       return Response.json(
