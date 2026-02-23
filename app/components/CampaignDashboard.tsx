@@ -132,7 +132,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [postSearch, setPostSearch] = useState('')
   const [postSearchOpen, setPostSearchOpen] = useState(false)
   const [debouncedPostSearch, setDebouncedPostSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('PAYMENT_REQUESTED')
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef<HTMLDivElement>(null)
   const [submitterSearch, setSubmitterSearch] = useState('')
@@ -1117,6 +1117,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         setRejectReason('')
         setBanSubmitter(false)
         fetchData()
+        if (userModalSubmitter) fetchUserModalSubs()
       }
     } catch {
       setRejectError('Network error')
@@ -1957,6 +1958,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Submitted</th>
+                          {isCreator && <th className="pb-2 font-medium text-zinc-500">Action</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -2008,6 +2010,76 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                             <td className="py-3 pr-4 text-xs text-zinc-400" title={new Date(s.createdAt).toLocaleString()}>
                               {formatElapsed(s.createdAt)}
                             </td>
+                            {isCreator && (
+                              <td className="py-3">
+                                {s.status === 'PAYMENT_REQUESTED' && (
+                                  <div className="flex flex-col gap-2">
+                                    <button
+                                      onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
+                                      className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                                    >
+                                      Reject
+                                    </button>
+                                    {rejectingId === s.id && (
+                                      <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 p-2">
+                                        <select
+                                          value={rejectPreset}
+                                          onChange={(e) => { setRejectPreset(e.target.value as any); setRejectError('') }}
+                                          className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 focus:border-red-500 focus:outline-none"
+                                        >
+                                          <option value="">Select reason...</option>
+                                          <option value="Botting">Botting</option>
+                                          <option value="Quality">Quality</option>
+                                          <option value="Relevancy">Relevancy</option>
+                                          <option value="Other">Other</option>
+                                        </select>
+                                        {rejectPreset === 'Other' && (
+                                          <input
+                                            type="text"
+                                            value={rejectReason}
+                                            onChange={(e) => setRejectReason(e.target.value)}
+                                            placeholder="Enter rejection reason..."
+                                            className="w-full rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none"
+                                            maxLength={500}
+                                          />
+                                        )}
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={banSubmitter}
+                                            onChange={(e) => setBanSubmitter(e.target.checked)}
+                                            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-900 text-red-500 focus:ring-red-500"
+                                          />
+                                          <span className="text-xs text-zinc-400">Ban from all your future campaigns</span>
+                                        </label>
+                                        {rejectError && <p className="text-xs text-red-500">{rejectError}</p>}
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            onClick={() => handleReject(s.id)}
+                                            disabled={rejectLoading || !rejectPreset || (rejectPreset === 'Other' && !rejectReason.trim())}
+                                            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                          >
+                                            {rejectLoading ? (banSubmitter ? 'Rejecting & Banning...' : 'Rejecting...') : (banSubmitter ? 'Reject & Ban' : 'Confirm Reject')}
+                                          </button>
+                                          <button
+                                            onClick={() => { setRejectingId(null); setRejectPreset(''); setBanSubmitter(false) }}
+                                            className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:text-zinc-200"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {s.status === 'PAID' && s.paymentTxSig && (
+                                  <span className="text-xs text-emerald-600">Paid</span>
+                                )}
+                                {s.status === 'CREATOR_REJECTED' && (
+                                  <span className="text-xs text-orange-400">Rejected by you</span>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
