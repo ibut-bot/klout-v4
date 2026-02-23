@@ -9,6 +9,7 @@ import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 import { getKloutAdjustedFee } from '@/lib/klout-fee'
 import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
+import { calculateFlatBonus } from '@/lib/klout-bonus'
 
 // Allow up to 60s for Solana + X API + Anthropic calls
 export const maxDuration = 60
@@ -476,6 +477,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // 11b. One-time flat bonus for high Klout score users (first submission only)
+  let flatBonusLamports = BigInt(0)
+  if (config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
+    if (kloutScore >= config.bonusMinKloutScore) {
+      const priorApproved = await prisma.campaignSubmission.count({
+        where: {
+          taskId,
+          submitterId: userId,
+          status: { in: ['APPROVED', 'PAYMENT_REQUESTED', 'PAID'] },
+          flatBonusLamports: { not: null, gt: BigInt(0) },
+        },
+      })
+      if (priorApproved === 0) {
+        flatBonusLamports = calculateFlatBonus(kloutScore, config.bonusMinKloutScore, config.bonusMaxLamports)
+        payoutLamports += flatBonusLamports
+      }
+    }
+  }
+
   if (payoutLamports <= BigInt(0)) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
@@ -502,6 +522,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       contentCheckPassed: true,
       contentCheckExplanation: contentCheck.explanation,
       payoutLamports,
+      flatBonusLamports: flatBonusLamports > BigInt(0) ? flatBonusLamports : null,
       kloutScoreAtSubmission: kloutScore,
       cpmMultiplierApplied: cpmMultiplier,
     },
@@ -511,12 +532,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const pt = (task.paymentToken || 'SOL') as PaymentTokenType
   const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
   const payoutDisplay = `${formatTokenAmount(payoutLamports, tInfo)} ${tInfo.symbol}`
+  const bonusSuffix = flatBonusLamports > BigInt(0) ? ` (includes ${formatTokenAmount(flatBonusLamports, tInfo)} ${tInfo.symbol} Klout bonus)` : ''
 
   await createNotification({
     userId: task.creatorId,
     type: 'CAMPAIGN_SUBMISSION_APPROVED',
     title: 'New campaign post approved',
-    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}`,
+    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
     linkUrl: `/tasks/${taskId}`,
   })
 
@@ -525,7 +547,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     userId,
     type: 'CAMPAIGN_SUBMISSION_APPROVED',
     title: 'Campaign submission approved!',
-    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}. Request payment once you meet the minimum payout threshold.`,
+    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
     linkUrl: `/tasks/${taskId}`,
   })
 

@@ -90,6 +90,8 @@ export async function GET(
             minKloutScore: task.campaignConfig.minKloutScore,
             requireFollowX: task.campaignConfig.requireFollowX,
             collateralLink: task.campaignConfig.collateralLink,
+            bonusMinKloutScore: task.campaignConfig.bonusMinKloutScore,
+            bonusMaxLamports: task.campaignConfig.bonusMaxLamports?.toString() ?? null,
           }
         : null,
       bidCount: task._count.bids,
@@ -161,7 +163,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports, bonusMinKloutScore, bonusMaxLamports } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
 
   // Validate imageUrl if provided
@@ -329,7 +331,7 @@ export async function PATCH(
   }
 
   // Check if there are campaign config updates
-  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || requireFollowX !== undefined || budgetIncrease !== null || collateralLink !== undefined || minPayoutLamports !== undefined || cpmLamports !== undefined
+  const hasCampaignConfigUpdates = guidelines !== undefined || heading !== undefined || minViews !== undefined || minLikes !== undefined || minRetweets !== undefined || minComments !== undefined || maxBudgetPerUserPercent !== undefined || maxBudgetPerPostPercent !== undefined || minKloutScore !== undefined || requireFollowX !== undefined || budgetIncrease !== null || collateralLink !== undefined || minPayoutLamports !== undefined || cpmLamports !== undefined || bonusMinKloutScore !== undefined || bonusMaxLamports !== undefined
 
   // Validate min payout can only increase
   if (minPayoutLamports !== undefined && task.campaignConfig) {
@@ -385,6 +387,16 @@ export async function PATCH(
       if (cpmLamports !== undefined) {
         const newCpm = BigInt(Math.max(1, Math.round(Number(cpmLamports))))
         configUpdate.cpmLamports = newCpm
+      }
+      if (bonusMinKloutScore !== undefined) {
+        configUpdate.bonusMinKloutScore = bonusMinKloutScore === null || bonusMinKloutScore === '' || Number(bonusMinKloutScore) <= 0
+          ? null
+          : Math.max(1, Math.min(10000, Math.round(Number(bonusMinKloutScore))))
+      }
+      if (bonusMaxLamports !== undefined) {
+        configUpdate.bonusMaxLamports = bonusMaxLamports === null || bonusMaxLamports === '' || Number(bonusMaxLamports) <= 0
+          ? null
+          : BigInt(Math.max(1, Math.round(Number(bonusMaxLamports))))
       }
       if (budgetIncrease !== null && task.campaignConfig) {
         configUpdate.budgetRemainingLamports = task.campaignConfig.budgetRemainingLamports + budgetIncrease

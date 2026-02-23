@@ -175,6 +175,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       viewCount: s.viewCount,
       viewsReadAt: s.viewsReadAt?.toISOString() || null,
       payoutLamports: s.payoutLamports?.toString() || null,
+      flatBonusLamports: s.flatBonusLamports?.toString() || null,
       status: s.status,
       rejectionReason: s.rejectionReason,
       contentCheckPassed: s.contentCheckPassed,

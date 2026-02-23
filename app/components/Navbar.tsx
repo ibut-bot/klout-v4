@@ -57,11 +57,9 @@ export default function Navbar() {
   const [xUsername, setXUsername] = useState<string | null>(null)
   const [linkingX, setLinkingX] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showKloutDropdown, setShowKloutDropdown] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
-  const kloutDropdownRef = useRef<HTMLDivElement>(null)
 
   // Fetch profile info when authenticated
   useEffect(() => {
@@ -97,9 +95,6 @@ export default function Navbar() {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotifications(false)
       }
-      if (kloutDropdownRef.current && !kloutDropdownRef.current.contains(e.target as Node)) {
-        setShowKloutDropdown(false)
-      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -108,7 +103,6 @@ export default function Navbar() {
   // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false)
-    setShowKloutDropdown(false)
   }, [pathname])
 
   const handleNotificationClick = (n: Notification) => {
@@ -261,7 +255,7 @@ export default function Navbar() {
     return pathname.startsWith(href)
   }
 
-  const isKloutActive = pathname.startsWith('/my-score') || pathname.startsWith('/klout-scores')
+  const isKloutActive = pathname.startsWith('/my-score')
 
   const filteredNavItems = navItems.filter((item) => !item.auth || isAuthenticated)
 
@@ -291,37 +285,17 @@ export default function Navbar() {
               </Link>
             )
           })}
-          {/* My Klout Dropdown */}
-          <div className="relative" ref={kloutDropdownRef}>
-            <button
-              onClick={() => { setShowKloutDropdown(!showKloutDropdown); setShowDropdown(false); setShowNotifications(false) }}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                isKloutActive ? 'bg-accent text-black' : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
-              }`}
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="hidden lg:inline">My Klout</span>
-              <svg className={`h-3 w-3 transition-transform ${showKloutDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {showKloutDropdown && (
-              <div className="absolute left-0 top-full mt-1 w-44 rounded-xl border border-k-border bg-surface py-1 shadow-2xl">
-                <Link href="/my-score" onClick={() => setShowKloutDropdown(false)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-surface-hover transition"
-                >
-                  My Klout Score
-                </Link>
-                <Link href="/my-score?tab=scores" onClick={() => setShowKloutDropdown(false)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-surface-hover transition"
-                >
-                  Klout Scores
-                </Link>
-              </div>
-            )}
-          </div>
+          <Link
+            href="/my-score"
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              isKloutActive ? 'bg-accent text-black' : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
+            }`}
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span className="hidden lg:inline">My Klout</span>
+          </Link>
           {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/docs' && i.href !== '/dashboard').map((item) => {
             const active = isActive(item.href)
             return (
@@ -564,32 +538,19 @@ export default function Navbar() {
                 </Link>
               )
             })}
-            {/* My Klout group */}
-            <div className="pt-1">
-              <p className="px-3 pb-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider">My Klout</p>
-              <Link
-                href="/my-score"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  isKloutActive ? 'bg-accent text-black' : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
-                }`}
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>My Klout Score</span>
-              </Link>
-              <Link
-                href="/my-score?tab=scores"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition text-zinc-400 hover:bg-surface hover:text-zinc-200"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Klout Scores</span>
-              </Link>
-            </div>
+            {/* My Klout */}
+            <Link
+              href="/my-score"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                isKloutActive ? 'bg-accent text-black' : 'text-zinc-400 hover:bg-surface hover:text-zinc-200'
+              }`}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span>My Klout</span>
+            </Link>
             {filteredNavItems.filter(i => i.href !== '/tasks' && i.href !== '/docs' && i.href !== '/dashboard').map((item) => {
               const active = isActive(item.href)
               return (

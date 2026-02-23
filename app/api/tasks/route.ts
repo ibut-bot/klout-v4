@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -361,6 +361,10 @@ export async function POST(request: NextRequest) {
           ...(minKloutScore != null && Number(minKloutScore) > 0 ? { minKloutScore: Math.max(1, Math.min(10000, Math.round(Number(minKloutScore)))) } : {}),
           ...(requireFollowX ? { requireFollowX: String(requireFollowX).trim().replace(/^@/, '') } : {}),
           ...(collateralLink ? { collateralLink: String(collateralLink).trim() } : {}),
+          ...(bonusMinKloutScore != null && Number(bonusMinKloutScore) > 0 && bonusMaxLamports != null && Number(bonusMaxLamports) > 0 ? {
+            bonusMinKloutScore: Math.max(1, Math.min(10000, Math.round(Number(bonusMinKloutScore)))),
+            bonusMaxLamports: BigInt(Math.max(1, Math.round(Number(bonusMaxLamports)))),
+          } : {}),
         },
       })
 

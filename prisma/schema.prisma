@@ -321,6 +321,8 @@ model CampaignConfig {
   minKloutScore           Int?    // Minimum Klout score required to participate (null = no requirement)
   requireFollowX          String?   // X username the participant should follow (null = not required)
   collateralLink          String?   // Optional link to Google Drive / Dropbox with campaign collateral for creators
+  bonusMinKloutScore      Int?    // Minimum Klout score to qualify for the flat one-time bonus (null = no bonus)
+  bonusMaxLamports        BigInt? // Maximum bonus amount for the highest scorer (null = no bonus)
 
   task                    Task    @relation(fields: [taskId], references: [id])
 
@@ -363,6 +365,7 @@ model CampaignSubmission {
   contentCheckPassed      Boolean?
   contentCheckExplanation String?
   payoutLamports          BigInt?
+  flatBonusLamports       BigInt?  // One-time Klout score-based flat bonus (null = no bonus applied)
   kloutScoreAtSubmission  Float?
   cpmMultiplierApplied    Float?
   status                  CampaignSubmissionStatus @default(PENDING_PAYMENT)

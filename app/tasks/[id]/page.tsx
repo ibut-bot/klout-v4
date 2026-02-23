@@ -139,7 +139,7 @@ export default function TaskDetailPage() {
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
-    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null
+    cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
@@ -756,6 +756,9 @@ export default function TaskDetailPage() {
                   )}
                   {campaignConfig.minKloutScore != null && (
                     <p>Min Klout score: {campaignConfig.minKloutScore.toLocaleString()}</p>
+                  )}
+                  {campaignConfig.bonusMinKloutScore != null && campaignConfig.bonusMaxLamports != null && (
+                    <p>Klout bonus: Up to {formatTokenAmount(campaignConfig.bonusMaxLamports, tInfo, 2)} {tInfo.symbol} for users with score {'>='} {campaignConfig.bonusMinKloutScore.toLocaleString()} (one-time)</p>
                   )}
                   {campaignConfig.requireFollowX && (
                     <p>Follow required: <a href={`https://x.com/${campaignConfig.requireFollowX}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">@{campaignConfig.requireFollowX}</a></p>

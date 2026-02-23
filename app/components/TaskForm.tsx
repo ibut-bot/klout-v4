@@ -122,6 +122,8 @@ export default function TaskForm() {
   const [maxBudgetPerPost, setMaxBudgetPerPost] = useState('')
   const [minKloutScore, setMinKloutScore] = useState('')
   const [requireFollowX, setRequireFollowX] = useState('')
+  const [bonusMinKloutScore, setBonusMinKloutScore] = useState('')
+  const [bonusMax, setBonusMax] = useState('')
   const [dos, setDos] = useState<string[]>([''])
   const [donts, setDonts] = useState<string[]>([''])
   const [collateralLink, setCollateralLink] = useState('')
@@ -269,6 +271,10 @@ export default function TaskForm() {
         ...(minKloutScore && parseInt(minKloutScore) > 0 ? { minKloutScore: parseInt(minKloutScore) } : {}),
         ...(requireFollowX.trim() ? { requireFollowX: requireFollowX.trim().replace(/^@/, '') } : {}),
         ...(collateralLink.trim() ? { collateralLink: collateralLink.trim() } : {}),
+        ...(bonusMinKloutScore && parseInt(bonusMinKloutScore) > 0 && bonusMax && parseFloat(bonusMax) > 0 ? {
+          bonusMinKloutScore: parseInt(bonusMinKloutScore),
+          bonusMaxLamports: Math.round(parseFloat(bonusMax) * multiplier),
+        } : {}),
         guidelines: {
           dos: dos.map(d => d.trim()).filter(Boolean),
           donts: donts.map(d => d.trim()).filter(Boolean),
@@ -629,6 +635,40 @@ export default function TaskForm() {
               className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
             <p className="mt-1 text-xs text-zinc-500">Participants must have at least this Klout score to submit. Leave empty for no requirement.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-200">Klout Score Bonus — optional</label>
+            <p className="mb-3 text-xs text-zinc-500">Offer a one-time flat bonus to high Klout score users on their first submission. The bonus scales exponentially — top scorers get the full amount, lower-eligible users get less. Both fields are required to enable the bonus.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Min score for bonus</label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="10000"
+                  value={bonusMinKloutScore}
+                  onChange={(e) => setBonusMinKloutScore(e.target.value)}
+                  placeholder="e.g. 5000"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
+                />
+                <p className="mt-0.5 text-[10px] text-zinc-600">Users above this score get the bonus on their first post</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-zinc-400">Max bonus ({tokenLabel})</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={bonusMax}
+                  onChange={(e) => setBonusMax(e.target.value)}
+                  placeholder="e.g. 100"
+                  className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
+                />
+                <p className="mt-0.5 text-[10px] text-zinc-600">Max bonus for a 10,000 Klout user. Lower scores get proportionally less.</p>
+              </div>
+            </div>
           </div>
 
           <div>

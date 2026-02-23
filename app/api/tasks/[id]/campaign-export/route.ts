@@ -92,6 +92,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       postUrl: s.postUrl,
       viewCount: s.viewCount,
       payoutLamports: s.payoutLamports?.toString() || null,
+      flatBonusLamports: s.flatBonusLamports?.toString() || null,
       status: s.status,
       rejectionReason: s.rejectionReason,
       paymentTxSig: s.paymentTxSig,

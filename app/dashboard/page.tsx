@@ -49,6 +49,8 @@ interface Task {
     minKloutScore?: number | null
     requireFollowX?: string | null
     collateralLink?: string | null
+    bonusMinKloutScore?: number | null
+    bonusMaxLamports?: string | null
   } | null
   winningBid?: {
     id: string
@@ -149,6 +151,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
   const [editMaxBudgetPerPost, setEditMaxBudgetPerPost] = useState(task.campaignConfig?.maxBudgetPerPostPercent != null ? String(task.campaignConfig.maxBudgetPerPostPercent) : '')
   const [editMinKloutScore, setEditMinKloutScore] = useState(task.campaignConfig?.minKloutScore != null ? String(task.campaignConfig.minKloutScore) : '')
   const [editRequireFollowX, setEditRequireFollowX] = useState(task.campaignConfig?.requireFollowX || '')
+  const [editBonusMinKloutScore, setEditBonusMinKloutScore] = useState(task.campaignConfig?.bonusMinKloutScore != null ? String(task.campaignConfig.bonusMinKloutScore) : '')
+  const [editBonusMax, setEditBonusMax] = useState(task.campaignConfig?.bonusMaxLamports != null && Number(task.campaignConfig.bonusMaxLamports) > 0 ? String(Number(task.campaignConfig.bonusMaxLamports) / mult) : '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editError, setEditError] = useState('')
@@ -322,6 +326,14 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
       const curFollowX = task.campaignConfig?.requireFollowX ?? null
       if (newFollowX !== curFollowX) updates.requireFollowX = newFollowX
 
+      // Klout Score Bonus
+      const newBonusMinKlout = editBonusMinKloutScore ? parseInt(editBonusMinKloutScore) : null
+      const curBonusMinKlout = task.campaignConfig?.bonusMinKloutScore ?? null
+      if (newBonusMinKlout !== curBonusMinKlout) updates.bonusMinKloutScore = newBonusMinKlout
+      const newBonusMax = editBonusMax ? Math.round(parseFloat(editBonusMax) * mult) : null
+      const curBonusMax = task.campaignConfig?.bonusMaxLamports != null ? Number(task.campaignConfig.bonusMaxLamports) : null
+      if (newBonusMax !== curBonusMax) updates.bonusMaxLamports = newBonusMax
+
       // Deadline
       if (editDeadline) {
         const newDeadline = new Date(editDeadline).toISOString()
@@ -419,7 +431,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
         localUpdates.budgetRemainingLamports = newRemaining.toString()
       }
       // Merge campaign config updates
-      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined || updates.minPayoutLamports !== undefined || updates.cpmLamports !== undefined
+      const hasConfigUpdate = updates.guidelines || updates.heading !== undefined || updates.collateralLink !== undefined || updates.minViews !== undefined || updates.minLikes !== undefined || updates.minRetweets !== undefined || updates.minComments !== undefined || updates.maxBudgetPerUserPercent !== undefined || updates.maxBudgetPerPostPercent !== undefined || updates.minKloutScore !== undefined || updates.requireFollowX !== undefined || updates.minPayoutLamports !== undefined || updates.cpmLamports !== undefined || updates.bonusMinKloutScore !== undefined || updates.bonusMaxLamports !== undefined
       if (hasConfigUpdate) {
         const base = task.campaignConfig || { cpmLamports: '0', budgetRemainingLamports: task.budgetLamports, guidelines: { dos: [], donts: [] }, minViews: 100, minLikes: 0, minRetweets: 0, minComments: 0, minPayoutLamports: '0' }
         localUpdates.campaignConfig = {
@@ -437,6 +449,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
           ...(updates.requireFollowX !== undefined ? { requireFollowX: updates.requireFollowX } : {}),
           ...(updates.minPayoutLamports !== undefined ? { minPayoutLamports: String(updates.minPayoutLamports) } : {}),
           ...(updates.cpmLamports !== undefined ? { cpmLamports: String(updates.cpmLamports) } : {}),
+          ...(updates.bonusMinKloutScore !== undefined ? { bonusMinKloutScore: updates.bonusMinKloutScore } : {}),
+          ...(updates.bonusMaxLamports !== undefined ? { bonusMaxLamports: updates.bonusMaxLamports != null ? String(updates.bonusMaxLamports) : null } : {}),
         }
       }
 
@@ -707,6 +721,23 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
             </div>
 
             <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-400">Klout Score Bonus — optional</label>
+              <p className="mb-2 text-[10px] text-zinc-600">One-time flat bonus for high Klout score users on their first submission. Both fields required to enable.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Min score for bonus</label>
+                  <input type="number" min="0" max="10000" step="1" value={editBonusMinKloutScore} onChange={(e) => setEditBonusMinKloutScore(e.target.value)} placeholder="e.g. 5000"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Max bonus ({sym})</label>
+                  <input type="number" min="0" step="0.01" value={editBonusMax} onChange={(e) => setEditBonusMax(e.target.value)} placeholder="e.g. 100"
+                    className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
+                </div>
+              </div>
+            </div>
+
+            <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Require Follow on X — optional</label>
               <input type="text" value={editRequireFollowX} onChange={(e) => setEditRequireFollowX(e.target.value)} placeholder="@yourhandle"
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
@@ -774,6 +805,8 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                   setEditMinRetweets(String(task.campaignConfig?.minRetweets ?? 0))
                   setEditMinComments(String(task.campaignConfig?.minComments ?? 0))
                   setEditCollateralLink(task.campaignConfig?.collateralLink || '')
+                  setEditBonusMinKloutScore(task.campaignConfig?.bonusMinKloutScore != null ? String(task.campaignConfig.bonusMinKloutScore) : '')
+                  setEditBonusMax(task.campaignConfig?.bonusMaxLamports != null && Number(task.campaignConfig.bonusMaxLamports) > 0 ? String(Number(task.campaignConfig.bonusMaxLamports) / mult) : '')
                   setEditDeadline(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
                   setEditBudget('')
                   setEditError('')
