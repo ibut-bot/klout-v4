@@ -14,6 +14,7 @@ interface Props {
   taskId: string
   guidelines: { dos: string[]; donts: string[] }
   cpmLamports: string
+  budgetLamports: string
   budgetRemainingLamports: string
   minPayoutLamports?: string
   minViews?: number
@@ -35,7 +36,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, kloutScore, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, kloutScore, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -171,6 +172,10 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
   const effectiveCpmLamports = Math.floor(Number(cpmLamports) * cpmMultiplier).toString()
   const effectiveCpmDisplay = formatTokenAmount(effectiveCpmLamports, tInfo, 2)
+  const topUserPercent = maxBudgetPerUserPercent ?? 10
+  const userMaxPercent = topUserPercent * cpmMultiplier
+  const userMaxLamports = Math.floor(Number(budgetLamports) * (userMaxPercent / 100))
+  const userMaxDisplay = formatTokenAmount(userMaxLamports, tInfo, 2)
   const remainingDisplay = formatTokenAmount(budgetRemainingLamports, tInfo, 2)
   const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
     ? formatTokenAmount(minPayoutLamports, tInfo, 2)
@@ -264,12 +269,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minPayoutDisplay} {sym}</p>
           </div>
         )}
-        {maxBudgetPerUserPercent != null && (
-          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
-            <p className="text-[11px] text-zinc-500">Max per user</p>
-            <p className="mt-1 text-sm font-semibold text-zinc-100">{maxBudgetPerUserPercent}% of budget</p>
-          </div>
-        )}
+        <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+          <p className="text-[11px] text-zinc-500">Your max earning</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">{userMaxDisplay} {sym}</p>
+          <p className="mt-0.5 text-[10px] text-zinc-500">Based on your Klout Score</p>
+        </div>
         {maxBudgetPerPostPercent != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Max per post</p>

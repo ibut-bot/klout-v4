@@ -662,10 +662,10 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Budget Caps — optional</label>
-              <p className="mb-2 text-[10px] text-zinc-600">Limit how much of the total budget a single user or post can consume. Leave empty for no limit.</p>
+              <p className="mb-2 text-[10px] text-zinc-600">Max per user sets the ceiling for top Klout score users — lower-score users are scaled down automatically. Defaults to 10% if not set.</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[10px] text-zinc-500">Max per user (%)</label>
+                  <label className="mb-0.5 block text-[10px] text-zinc-500">Max per top user (%)</label>
                   <div className="relative">
                     <input type="number" min="1" max="100" step="0.1" value={editMaxBudgetPerUser} onChange={(e) => setEditMaxBudgetPerUser(e.target.value)} placeholder="No limit"
                       className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 pr-7 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />

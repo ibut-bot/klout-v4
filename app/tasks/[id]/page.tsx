@@ -694,6 +694,7 @@ export default function TaskDetailPage() {
               taskId={task.id}
               guidelines={campaignConfig.guidelines}
               cpmLamports={campaignConfig.cpmLamports}
+              budgetLamports={task.budgetLamports}
               budgetRemainingLamports={campaignConfig.budgetRemainingLamports}
               minPayoutLamports={campaignConfig.minPayoutLamports}
               minViews={campaignConfig.minViews}

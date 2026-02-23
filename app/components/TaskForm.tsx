@@ -586,7 +586,7 @@ export default function TaskForm() {
             <p className="mb-3 text-xs text-zinc-500">Limit how much of the total budget a single user or post can consume. Leave empty for no limit.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs text-zinc-400">Max per user (%)</label>
+                <label className="mb-1 block text-xs text-zinc-400">Max per top user (%)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -594,10 +594,10 @@ export default function TaskForm() {
                   max="100"
                   value={maxBudgetPerUser}
                   onChange={(e) => setMaxBudgetPerUser(e.target.value)}
-                  placeholder="No limit"
+                  placeholder="10"
                   className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
                 />
-                <p className="mt-0.5 text-[10px] text-zinc-600">Max % of total budget one user can earn</p>
+                <p className="mt-0.5 text-[10px] text-zinc-600">Ceiling for top Klout score users. Lower scores are scaled down. Defaults to 10%.</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Max per post (%)</label>

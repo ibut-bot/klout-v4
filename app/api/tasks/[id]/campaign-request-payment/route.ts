@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
+import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -129,14 +130,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return { error: 'BUDGET_EXHAUSTED' }
     }
 
-    // Determine per-user cap (if configured)
+    // Determine per-user cap: scaled by Klout score multiplier
+    // maxBudgetPerUserPercent is the ceiling for the top user (1.0x); defaults to 10%
     let effectiveCeiling = budgetRemaining
 
-    if (freshConfig.maxBudgetPerUserPercent != null) {
-      const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
-      const maxPerUser = totalBudget
-        ? BigInt(Math.floor(Number(totalBudget.budgetLamports) * (freshConfig.maxBudgetPerUserPercent / 100)))
-        : BigInt(0)
+    const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+    if (totalBudget) {
+      const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
+      const latestScore = await tx.xScoreData.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        select: { totalScore: true },
+      })
+      const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+      const userPercent = topUserPercent * userMultiplier
+      const maxPerUser = BigInt(Math.floor(Number(totalBudget.budgetLamports) * (userPercent / 100)))
 
       if (maxPerUser > BigInt(0)) {
         const priorSubmissions = await tx.campaignSubmission.findMany({
