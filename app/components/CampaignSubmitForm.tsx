@@ -55,6 +55,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   } | null>(null)
 
   const [priorSubmissionCount, setPriorSubmissionCount] = useState(0)
+  const [capReached, setCapReached] = useState(false)
+  const [myTotalEarned, setMyTotalEarned] = useState(0)
+  const [myBudgetCap, setMyBudgetCap] = useState(0)
 
   const fetchPriorCount = async () => {
     try {
@@ -64,7 +67,21 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     } catch {}
   }
 
-  useEffect(() => { fetchPriorCount() }, [taskId])
+  const fetchCapStatus = async () => {
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/campaign-stats`)
+      const data = await res.json()
+      if (data.success && data.stats) {
+        const earned = Number(data.stats.myTotalEarnedLamports || '0')
+        const cap = Number(data.stats.myBudgetCapLamports || '0')
+        setMyTotalEarned(earned)
+        setMyBudgetCap(cap)
+        setCapReached(cap > 0 && earned >= cap)
+      }
+    } catch {}
+  }
+
+  useEffect(() => { fetchPriorCount(); fetchCapStatus() }, [taskId])
 
   const followKey = requireFollowX ? `follow_${taskId}_${requireFollowX}` : ''
   const [hasFollowed, setHasFollowed] = useState(false)
@@ -84,10 +101,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   }
 
   const budgetExhausted = BigInt(budgetRemainingLamports) <= BigInt(0)
+  const formDisabled = budgetExhausted || capReached
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!publicKey || !xLinked || budgetExhausted) return
+    if (!publicKey || !xLinked || formDisabled) return
     setError('')
     setResult(null)
     setLoading(true)
@@ -146,6 +164,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         })
         setPostUrl('')
         setPriorSubmissionCount(c => c + 1)
+        fetchCapStatus()
         onSubmitted()
       } else {
         setResult({
@@ -349,6 +368,11 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         {budgetExhausted ? (
           <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400">
             Campaign budget has been exhausted. No more submissions accepted.
+          </div>
+        ) : capReached ? (
+          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm space-y-1">
+            <p className="font-medium text-amber-400">You&apos;ve reached your earning cap for this campaign</p>
+            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo)} of your {formatTokenAmount(myBudgetCap, tInfo)} {sym} limit. Increase your Klout score to unlock a higher cap.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">

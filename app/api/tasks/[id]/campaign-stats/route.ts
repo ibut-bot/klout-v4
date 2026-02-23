@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
+import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -61,11 +62,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .filter((s) => (s.status === 'PAYMENT_REQUESTED' || s.status === 'PAID') && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
 
-  // Calculate per-user unpaid approved totals for the requesting user
+  // Calculate per-user totals for the requesting user
   const { userId } = auth
   const myApprovedPayout = submissions
     .filter((s) => s.submitterId === userId && s.status === 'APPROVED' && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
+
+  const myTotalEarned = submissions
+    .filter((s) => s.submitterId === userId && ['APPROVED', 'PAYMENT_REQUESTED', 'PAID'].includes(s.status) && s.payoutLamports)
+    .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
+
+  // Calculate this user's Klout-based budget cap
+  const latestScore = await prisma.xScoreData.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { totalScore: true },
+  })
+  const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+  const topUserPercent = task.campaignConfig.maxBudgetPerUserPercent ?? 10
+  const userPercent = topUserPercent * userMultiplier
+  const myBudgetCap = Math.floor(Number(task.budgetLamports) * (userPercent / 100))
 
   return Response.json({
     success: true,
@@ -77,6 +93,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       cpmLamports: task.campaignConfig.cpmLamports.toString(),
       minViews: task.campaignConfig.minViews,
       minPayoutLamports: task.campaignConfig.minPayoutLamports.toString(),
+      maxBudgetPerUserPercent: task.campaignConfig.maxBudgetPerUserPercent,
       totalSubmissions,
       approved,
       paymentRequested,
@@ -86,6 +103,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       totalViews,
       paidViews,
       myApprovedPayoutLamports: myApprovedPayout.toString(),
+      myTotalEarnedLamports: myTotalEarned.toString(),
+      myBudgetCapLamports: myBudgetCap.toString(),
     },
   })
 }

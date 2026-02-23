@@ -252,6 +252,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // 6c. Check if user has reached their Klout-based budget cap
+  const userCpmMultiplier = getKloutCpmMultiplier(latestScoreData?.totalScore ?? 0)
+  const topUserPercent = config.maxBudgetPerUserPercent ?? 10
+  const userMaxBudget = BigInt(Math.floor(Number(task.budgetLamports) * (topUserPercent * userCpmMultiplier / 100)))
+  const priorEarned = await prisma.campaignSubmission.findMany({
+    where: {
+      taskId,
+      submitterId: userId,
+      status: { in: ['APPROVED', 'PAYMENT_REQUESTED', 'PAID'] },
+    },
+    select: { payoutLamports: true },
+  })
+  const totalEarned = priorEarned.reduce((sum, s) => sum + (s.payoutLamports || BigInt(0)), BigInt(0))
+  if (userMaxBudget > BigInt(0) && totalEarned >= userMaxBudget) {
+    return Response.json({
+      success: false,
+      error: 'USER_CAP_REACHED',
+      message: 'You have reached your maximum earning limit for this campaign. Increase your Klout score to unlock a higher cap.',
+    }, { status: 400 })
+  }
+
   // Create the submission record early so we can update it through the process
   const submission = await prisma.campaignSubmission.create({
     data: {

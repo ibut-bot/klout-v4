@@ -27,6 +27,8 @@ interface CampaignStats {
   totalViews: number
   paidViews: number
   myApprovedPayoutLamports: string
+  myTotalEarnedLamports: string
+  myBudgetCapLamports: string
 }
 
 interface CampaignSubmission {
@@ -1228,10 +1230,14 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     : 0
 
   const myApprovedPayout = Number(stats.myApprovedPayoutLamports || '0')
+  const myTotalEarned = Number(stats.myTotalEarnedLamports || '0')
+  const myBudgetCap = Number(stats.myBudgetCapLamports || '0')
+  const capReached = myBudgetCap > 0 && myTotalEarned >= myBudgetCap
+  const capProgress = myBudgetCap > 0 ? Math.min((myTotalEarned / myBudgetCap) * 100, 100) : 0
   const budgetRemaining = Number(stats.budgetRemainingLamports || '0')
   const cappedPayout = Math.min(myApprovedPayout, budgetRemaining)
   const minPayoutThreshold = Number(stats.minPayoutLamports || '0')
-  const canRequestPayment = !isCreator && !isSharedViewer && cappedPayout > 0 && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
+  const canRequestPayment = !isCreator && !isSharedViewer && cappedPayout > 0 && !capReached && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
 
   const toggleSort = (col: string) => {
     setPage(1)
@@ -1467,6 +1473,24 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         <div className="rounded-xl border border-k-border p-4">
           <h3 className="mb-2 text-sm font-semibold text-white">Your Payout</h3>
           <div className="space-y-2 text-sm">
+            {myBudgetCap > 0 && (
+              <div>
+                <div className="flex justify-between text-zinc-400 mb-1">
+                  <span>Earning cap:</span>
+                  <span className="font-medium text-zinc-100">{formatTokenAmount(myTotalEarned, tInfo)} / {formatTokenAmount(myBudgetCap, tInfo)} {sym}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
+                  <div
+                    className={`h-full rounded-full transition-all ${capReached ? 'bg-red-500' : 'bg-accent'}`}
+                    style={{ width: `${capProgress}%` }}
+                  />
+                </div>
+                {capReached && (
+                  <p className="mt-1 text-xs text-red-400">You&apos;ve reached your earning limit. Increase your Klout score to unlock a higher cap.</p>
+                )}
+                <p className="mt-1 text-[10px] text-zinc-600">Based on your Klout Score</p>
+              </div>
+            )}
             <div className="flex justify-between text-zinc-400">
               <span>Approved (unpaid):</span>
               <span className="font-medium text-zinc-100">
