@@ -1,31 +1,40 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
-import { getValidXToken, getXUserProfileFull, getRecentTweets } from '@/lib/x-api'
+import { getValidXToken, getXUserProfileFull } from '@/lib/x-api'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
-import { calculateKloutScore, getScoreLabel, getGeoTierLabel } from '@/lib/klout-scoring'
 import { generateBuffedProfileImage } from '@/lib/fal'
-import { getRandomQuote } from '@/lib/score-tiers'
+import { getRandomQuote, getScoreTierTitle as getScoreLabel } from '@/lib/score-tiers'
 import { getTotalReferralCount, getCurrentTier, isReferralProgramActive } from '@/lib/referral'
 
-// Allow up to 60s for Solana + X API calls
 export const maxDuration = 60
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const KLOUT_SCORE_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_KLOUT_SCORE_FEE_LAMPORTS || 10_000_000)
+const WALLCHAIN_API_BASE = 'https://dev.api.wallchains.com'
+
+async function fetchWallchainScore(xUsername: string): Promise<number> {
+  const res = await fetch(
+    `${WALLCHAIN_API_BASE}/extension/x_score/score/${encodeURIComponent(xUsername)}`
+  )
+  if (!res.ok) {
+    throw new Error(`Wallchain API error (${res.status})`)
+  }
+  const data = await res.json()
+  return data.score // 0–1,000
+}
+
+function applyScoreDeviation(baseScore: number): number {
+  const deviation = 1 + (Math.random() * 0.10 - 0.05) // ±5%
+  return Math.max(0, Math.min(10_000, Math.round(baseScore * deviation)))
+}
 
 /**
  * POST /api/klout-score/calculate
  *
- * Calculate a Klout score for the authenticated user's linked X account.
- * Flow:
- * 1. Verify user is authenticated and has linked X account
- * 2. Verify 0.01 SOL fee payment to system wallet
- * 3. Fetch extended X profile (followers, following, verified, location)
- * 4. Fetch last 20 original tweets with metrics
- * 5. Compute score using hybrid multiplicative model
- * 6. Store raw data + score in XScoreData table
- * 7. Return score breakdown
+ * Calculate a Klout score using the Wallchain X Score API (server-side).
+ * Wallchain scores (0–1,000) are scaled ×10 to our 0–10,000 range
+ * with a ±5% random deviation applied.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request)
@@ -92,7 +101,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 4. Get valid X token
+  // 4. Get valid X token & fetch profile (server-side — for profile image + stored data)
   const accessToken = await getValidXToken(userId)
   if (!accessToken) {
     return Response.json(
@@ -101,7 +110,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 5. Fetch X profile with metrics
   let profile
   try {
     profile = await getXUserProfileFull(accessToken)
@@ -112,38 +120,31 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 6. Fetch recent tweets
-  let tweetsResult
+  // 5. Fetch score from Wallchain API (server-side only)
+  let wallchainScore: number
   try {
-    tweetsResult = await getRecentTweets(profile.id, accessToken, 20)
+    wallchainScore = await fetchWallchainScore(user.xUsername!)
   } catch (err: any) {
     return Response.json(
-      { success: false, error: 'X_API_ERROR', message: `Failed to fetch tweets: ${err.message}` },
+      { success: false, error: 'SCORE_API_ERROR', message: `Failed to fetch score: ${err.message}` },
       { status: 502 }
     )
   }
 
-  const { tweets, raw: rawTweetsData } = tweetsResult
+  // 6. Scale 0–1,000 → 0–10,000 and apply ±5% random deviation
+  const scaledScore = wallchainScore * 10
+  const totalScore = applyScoreDeviation(scaledScore)
+  const qualityScore = totalScore / 10_000
 
-  // 7. Compute score
-  const scoreBreakdown = calculateKloutScore(profile, tweets)
-
-  // Compute averages for storage
-  const tweetsCount = tweets.length
-  const avgLikes = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.likeCount, 0) / tweetsCount : 0
-  const avgRetweets = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.retweetCount, 0) / tweetsCount : 0
-  const avgReplies = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.replyCount, 0) / tweetsCount : 0
-  const avgViews = tweetsCount > 0 ? tweets.reduce((s, t) => s + t.viewCount, 0) / tweetsCount : 0
-
-  // 8. Generate buffed profile image (non-blocking — don't fail the score if this fails)
+  // 7. Generate buffed profile image using X profile pic as base reference
   let buffedImageUrl: string | null = null
   try {
-    buffedImageUrl = await generateBuffedProfileImage(profile.profileImageUrl, profile.username, scoreBreakdown.totalScore)
+    buffedImageUrl = await generateBuffedProfileImage(profile.profileImageUrl, profile.username, totalScore)
   } catch (err) {
     console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
   }
 
-  // 9. Mark referral as completed and assign tier/position (user now has a Klout score)
+  // 8. Mark referral as completed and assign tier/position (user now has a Klout score)
   try {
     const pendingReferral = await prisma.referral.findUnique({
       where: { referredUserId: userId },
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
     // Non-fatal: don't block score calculation
   }
 
-  // 10. Store in database
+  // 9. Store in database
   const scoreData = await prisma.xScoreData.create({
     data: {
       userId,
@@ -189,24 +190,21 @@ export async function POST(request: NextRequest) {
       verifiedType: profile.verifiedType,
       location: profile.location,
       profileImageUrl: profile.profileImageUrl,
-      geoTier: scoreBreakdown.geoTier,
-      geoRegion: scoreBreakdown.geoRegion,
-      tweetsAnalyzed: tweetsCount,
-      avgLikes,
-      avgRetweets,
-      avgReplies,
-      avgViews,
-      rawProfileData: profile.raw,
-      rawTweetsData,
-      reachScore: scoreBreakdown.reachScore,
-      ratioScore: scoreBreakdown.ratioScore,
-      engagementScore: scoreBreakdown.engagementScore,
-      verificationScore: scoreBreakdown.verificationScore,
-      geoMultiplier: scoreBreakdown.geoMultiplier,
-      qualityScore: scoreBreakdown.qualityScore,
-      totalScore: scoreBreakdown.totalScore,
+      tweetsAnalyzed: 0,
+      avgLikes: 0,
+      avgRetweets: 0,
+      avgReplies: 0,
+      avgViews: 0,
+      rawProfileData: { ...profile.raw, wallchainScore, scaledScore, totalScore },
+      reachScore: 0,
+      ratioScore: 0,
+      engagementScore: 0,
+      verificationScore: 0,
+      geoMultiplier: 0,
+      qualityScore,
+      totalScore,
       buffedImageUrl,
-      tierQuote: getRandomQuote(scoreBreakdown.totalScore),
+      tierQuote: getRandomQuote(totalScore),
       feeTxSignature: feeTxSig,
     },
   })
@@ -220,18 +218,13 @@ export async function POST(request: NextRequest) {
       buffedImageUrl: scoreData.buffedImageUrl,
       tierQuote: scoreData.tierQuote,
       breakdown: {
-        reach: { score: scoreBreakdown.reachScore, followers: profile.followersCount },
-        engagement: { score: scoreBreakdown.engagementScore, avgLikes, avgRetweets, avgReplies, avgViews, tweetsAnalyzed: tweetsCount },
-        ratio: { score: scoreBreakdown.ratioScore, followers: profile.followersCount, following: profile.followingCount },
-        verification: { score: scoreBreakdown.verificationScore, type: profile.verifiedType },
-        geo: {
-          multiplier: scoreBreakdown.geoMultiplier,
-          tier: scoreBreakdown.geoTier,
-          tierLabel: getGeoTierLabel(scoreBreakdown.geoTier),
-          location: profile.location,
-        },
+        reach: { score: 0, followers: profile.followersCount },
+        engagement: { score: 0, avgLikes: 0, avgRetweets: 0, avgReplies: 0, avgViews: 0, tweetsAnalyzed: 0 },
+        ratio: { score: 0, followers: profile.followersCount, following: profile.followingCount },
+        verification: { score: 0, type: profile.verifiedType },
+        geo: { multiplier: 0, tier: null, tierLabel: 'N/A', location: profile.location },
       },
-      qualityScore: scoreBreakdown.qualityScore,
+      qualityScore,
     },
   }, { status: 201 })
 }

@@ -530,8 +530,7 @@ function MyScoreTab() {
                 {scoreResult ? "Recalculate Score" : "Get My Score"} — 0.01 SOL
               </button>
               <p className="mt-2 text-xs text-zinc-600">
-                Fee covers X API costs. Score is computed from your profile
-                metrics and historical tweets performance.
+                Score is computed from your X influence and engagement quality.
               </p>
             </>
           ) : (
@@ -544,14 +543,14 @@ function MyScoreTab() {
                   "Approve the transaction in your wallet..."}
                 {step === "confirming" && "Confirming payment on Solana..."}
                 {step === "calculating" &&
-                  "Analyzing your X profile & tweets..."}
+                  "Calculating your Klout score..."}
                 {step === "generating_image" &&
                   "Generating your buffed profile image..."}
                 {step === "checking_x" && "Checking X account..."}
               </p>
               {step === "calculating" && (
                 <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
-                  Evaluating reach · engagement rate · follower ratio · verification status · location
+                  Evaluating your X influence score
                 </p>
               )}
               <p className="mt-1 text-xs text-zinc-500">
