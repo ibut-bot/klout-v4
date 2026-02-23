@@ -8,7 +8,6 @@ const pages: Record<string, string> = {
   quickstart: 'Quickstart',
   concepts: 'Core Concepts',
   'klout-score': 'My Klout Score',
-  leaderboard: 'Leaderboard',
   'browse-campaigns': 'Browsing Campaigns',
   'join-campaign': 'Joining a Campaign',
   'cpm-payouts': 'CPM & Payouts',
@@ -25,7 +24,7 @@ const pages: Record<string, string> = {
 
 const sections = [
   { label: 'Getting Started', items: ['intro', 'quickstart', 'concepts'] },
-  { label: 'Klout Score', items: ['klout-score', 'leaderboard'] },
+  { label: 'Klout Score', items: ['klout-score'] },
   { label: 'For Creators', items: ['browse-campaigns', 'join-campaign', 'cpm-payouts', 'wallet'] },
   { label: 'For Brands', items: ['launch', 'campaign-fields', 'managing-submissions', 'escrow'] },
   { label: 'Referrals', items: ['referrals', 'referral-tiers'] },
@@ -34,7 +33,7 @@ const sections = [
 
 const sectionIcons: Record<string, string> = {
   intro: '🏠', quickstart: '⚡', concepts: '🧠',
-  'klout-score': '⚡', leaderboard: '🏆',
+  'klout-score': '⚡',
   'browse-campaigns': '📋', 'join-campaign': '🚀', 'cpm-payouts': '💸', wallet: '👛',
   launch: '📣', 'campaign-fields': '📝', 'managing-submissions': '✅', escrow: '🔐',
   referrals: '🔗', 'referral-tiers': '📈',
@@ -135,7 +134,6 @@ function IntroPage({ go }: { go: (id: string) => void }) {
         [<strong key="b" className="text-zinc-100 font-medium">CPM Campaigns</strong>, 'Earn per 1,000 verified views on your X posts — paid in any Solana token the brand selects'],
         [<strong key="c" className="text-zinc-100 font-medium">Escrow Budget</strong>, 'Brand budgets are locked in escrow; brands release payments manually per submission'],
         [<strong key="d" className="text-zinc-100 font-medium">AI + Manual Review</strong>, 'Submissions auto-screened for botting; brands do final checks before releasing payment'],
-        [<strong key="e" className="text-zinc-100 font-medium">Leaderboard</strong>, 'Live ranking of 15,000+ users by Klout Score'],
         [<strong key="f" className="text-zinc-100 font-medium">Referrals</strong>, 'Earn a % of platform fees on every payout your referrals receive'],
       ]} />
     </>
@@ -217,7 +215,7 @@ function KloutScorePage() {
       <H2>What Your Score Unlocks</H2>
       <Table heads={['Now', 'Coming soon']} rows={[
         ['Campaign eligibility — score gates which campaigns you can join', 'Tiered earning rates — higher scores will earn more per campaign'],
-        ['Leaderboard ranking — compare yourself against 15,000+ creators', 'Premium brand deals exclusively available to top-ranked creators'],
+        ['CPM multiplier — your score determines your earning rate', 'Premium brand deals exclusively available to top-scored creators'],
       ]} />
 
       <H2>Recalculating Your Score</H2>
@@ -227,45 +225,6 @@ function KloutScorePage() {
       <P>Hit <strong className="text-zinc-100 font-medium">Share on X</strong> from your score card. The image is auto-copied to your clipboard. Sharing your score is a natural way to drive referral sign-ups: followers curious about their own score click your referral link, earning you passive SOL income every time they get paid.</P>
 
       <Callout type="info" icon="ℹ️" title="Score labels">Every score has a descriptive label (e.g. &quot;NPC Energy&quot;, &quot;Enhanced&quot;) giving a human-readable sense of your tier. Higher labels signal stronger accounts to brands and unlock more campaign access.</Callout>
-    </>
-  )
-}
-
-function LeaderboardPage() {
-  return (
-    <>
-      <PageTitle icon="🏆" title="Leaderboard" sub="See how your Klout Score stacks up against every creator on the platform." />
-      <H2 first>What is the Leaderboard?</H2>
-      <P>The <strong className="text-zinc-100 font-medium">Klout Scores</strong> tab shows a live, ranked list of every user sorted by their Klout Score. Access it from <strong className="text-zinc-100 font-medium">My Klout → Klout Scores</strong>. With 15,793 users currently ranked, it&apos;s the definitive signal of creator influence on Klout.</P>
-
-      <InfoCard icon="🏆" title="Klout Scores — 15,793 users ranked">
-        {[
-          { rank: 1, name: 'toly us', score: '10,010', top: true },
-          { rank: 2, name: 'mert', score: '9,600', top: true },
-          { rank: 3, name: 'smolting (wassie, verse)', score: '7,930', top: true },
-          { rank: 4, name: 'DeeZe', score: '7,200', top: false },
-          { rank: 5, name: 'BORED', score: '5,080', top: false },
-          { rank: 6, name: 'icebergy', score: '4,970', top: false },
-        ].map((r) => (
-          <div key={r.rank} className="flex items-center gap-3 py-3 border-b border-k-border last:border-b-0">
-            <div className={`w-6 text-center font-mono text-[12px] shrink-0 ${r.top ? 'text-accent font-bold' : 'text-zinc-500'}`}>{r.rank}</div>
-            <div className="w-8 h-8 rounded-lg bg-surface-hover border border-k-border flex items-center justify-center text-base shrink-0">👤</div>
-            <div className="flex-1 text-sm text-zinc-100">{r.name}</div>
-            <div className="font-mono text-sm text-accent font-medium">⚡ {r.score}</div>
-          </div>
-        ))}
-        <div className="text-center pt-3 pb-1 text-[12px] text-zinc-500 font-mono">...and 15,787 more</div>
-      </InfoCard>
-
-      <H2>Why Your Rank Matters</H2>
-      <P>Your leaderboard position is a live signal of standing in the Klout ecosystem. As tiered earning rates roll out, higher-ranked creators will earn a larger multiplier per campaign. Brands also browse top creators for direct outreach and exclusive partnerships.</P>
-
-      <H2>How to Climb</H2>
-      <Ul items={[
-        'Grow your X audience with genuinely engaged followers — quality beats raw count',
-        'Post consistently and drive high engagement (reposts, replies, bookmarks)',
-        'A viral tweet can spike your score significantly — recalculate after breakout moments',
-      ]} />
     </>
   )
 }
@@ -682,7 +641,6 @@ function ChangelogPage() {
       <Ul items={[
         <span key="a">✅ <strong className="text-zinc-100 font-medium">Referral Program launched</strong> — earn a % of platform fees from your referrals&apos; campaign payouts.</span>,
         <span key="b">✅ <strong className="text-zinc-100 font-medium">Referral Tiers</strong> — Tier 1 grants 100% of the platform fee share; drops as tiers fill.</span>,
-        <span key="c">✅ <strong className="text-zinc-100 font-medium">Leaderboard</strong> — live Klout Scores leaderboard, 15,000+ users ranked.</span>,
         <span key="d">✅ <strong className="text-zinc-100 font-medium">Score card sharing</strong> — one-click share to X with auto-copied image.</span>,
         <span key="e">✅ <strong className="text-zinc-100 font-medium">On-demand recalculation</strong> — refresh your score anytime for 0.01 SOL.</span>,
         <span key="f">✅ <strong className="text-zinc-100 font-medium">Campaign collateral links</strong> — brands can share Drive/Dropbox assets with creators.</span>,
@@ -804,7 +762,6 @@ export default function DocsPage() {
       case 'quickstart': return <QuickstartPage />
       case 'concepts': return <ConceptsPage />
       case 'klout-score': return <KloutScorePage />
-      case 'leaderboard': return <LeaderboardPage />
       case 'browse-campaigns': return <BrowseCampaignsPage />
       case 'join-campaign': return <JoinCampaignPage go={go} />
       case 'cpm-payouts': return <CpmPayoutsPage />

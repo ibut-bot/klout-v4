@@ -4,15 +4,13 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { getKloutCpmMultiplier } from "@/lib/klout-cpm";
 
 const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || "";
 const KLOUT_SCORE_FEE_LAMPORTS = Number(
   process.env.NEXT_PUBLIC_KLOUT_SCORE_FEE_LAMPORTS || 10_000_000,
 );
-const PAGE_SIZE = 50;
-
 // --- Types ---
 
 interface ScoreBreakdown {
@@ -57,24 +55,6 @@ type Step =
   | "generating_image"
   | "done"
   | "error";
-
-interface KloutUser {
-  id: string;
-  name: string | null;
-  username: string | null;
-  image: string | null;
-  twitterId: string | null;
-  score: number;
-  rank: number;
-}
-
-interface LeaderboardPagination {
-  page: number;
-  pageSize: number;
-  nextPage: number | null;
-  hasMore: boolean;
-  total: number;
-}
 
 // --- Helpers ---
 
@@ -224,91 +204,6 @@ async function generateShareCard(score: ScoreResult): Promise<Blob | null> {
 
   return new Promise((resolve) =>
     canvas.toBlob((b) => resolve(b), "image/png"),
-  );
-}
-
-// --- Leaderboard Components ---
-
-function FallbackAvatar({ name }: { name: string }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-hover text-sm font-semibold text-muted">
-      {initials || "??"}
-    </div>
-  );
-}
-
-function ScoreRow({ user }: { user: KloutUser }) {
-  const [imgError, setImgError] = useState(false);
-  const displayName = user.name || user.username || "Anonymous";
-
-  return (
-    <div className="flex items-center gap-3 border-b border-k-border px-4 py-3 last:border-b-0 transition-colors hover:bg-surface-hover">
-      <span className="w-10 shrink-0 text-center text-sm font-semibold text-zinc-500">
-        {user.rank}
-      </span>
-      {user.image && !imgError ? (
-        <img
-          src={user.image.replace("normal", "400x400")}
-          alt=""
-          className="h-10 w-10 shrink-0 rounded-lg bg-surface-hover object-cover"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <FallbackAvatar name={displayName} />
-      )}
-      <div className="min-w-0 flex-1">
-        {user.username ? (
-          <a
-            href={`https://x.com/${user.username}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block truncate font-medium text-white hover:text-accent transition-colors"
-          >
-            {displayName}
-          </a>
-        ) : (
-          <span className="block truncate font-medium text-white">
-            {displayName}
-          </span>
-        )}
-      </div>
-      <span className="flex shrink-0 items-center gap-0.5 text-lg font-semibold text-accent">
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          strokeWidth={2.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M13 10V3L4 14h7v7l9-11h-7z"
-          />
-        </svg>
-        {formatNumber(user.score)}
-      </span>
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-3 border-b border-k-border px-4 py-3 last:border-b-0">
-      <div className="h-4 w-10 shrink-0 animate-pulse rounded bg-surface-hover" />
-      <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-surface-hover" />
-      <div className="flex-1">
-        <div className="h-4 w-32 animate-pulse rounded bg-surface-hover" />
-      </div>
-      <div className="h-5 w-16 shrink-0 animate-pulse rounded bg-surface-hover" />
-    </div>
   );
 }
 
@@ -679,88 +574,6 @@ function MyScoreTab() {
   );
 }
 
-// --- Tab: Klout Scores ---
-
-function ScoresTab() {
-  const { isAuthenticated, authFetch } = useAuth()
-  const [users, setUsers] = useState<KloutUser[]>([])
-  const [currentUser, setCurrentUser] = useState<KloutUser | null>(null)
-  const [pagination, setPagination] = useState<LeaderboardPagination | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchPage = useCallback(async (page: number, append: boolean) => {
-    try {
-      const fetcher = isAuthenticated ? authFetch : fetch
-      const res = await fetcher(`/api/klout-scores?page=${page}&pageSize=${PAGE_SIZE}`)
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error || 'Failed to load')
-      setUsers((prev) => (append ? [...prev, ...data.users] : data.users))
-      setPagination(data.pagination)
-      if (page === 1 && data.currentUser) {
-        setCurrentUser(data.currentUser)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    }
-  }, [isAuthenticated, authFetch])
-
-  useEffect(() => {
-    setLoading(true)
-    fetchPage(1, false).finally(() => setLoading(false))
-  }, [fetchPage])
-
-  const handleLoadMore = async () => {
-    if (!pagination?.hasMore || loadingMore) return
-    setLoadingMore(true)
-    await fetchPage(pagination.nextPage!, true)
-    setLoadingMore(false)
-  }
-
-  return (
-    <>
-      <div className="mb-6 text-center">
-        <p className="text-sm text-zinc-500">
-          {pagination ? `${formatNumber(pagination.total)} users ranked` : 'Loading...'}
-        </p>
-      </div>
-
-      {/* Current user's rank pinned at top */}
-      {currentUser && !loading && (
-        <div className="mb-3 overflow-hidden rounded-2xl border border-accent/30 bg-accent/5">
-          <div className="px-4 py-1.5 border-b border-accent/20">
-            <span className="text-xs font-semibold text-accent">Your Rank</span>
-          </div>
-          <ScoreRow user={currentUser} />
-        </div>
-      )}
-
-      <div className="overflow-hidden rounded-2xl border border-k-border bg-surface">
-        {loading ? (
-          Array.from({ length: 10 }, (_, i) => <SkeletonRow key={i} />)
-        ) : error ? (
-          <div className="p-8 text-center text-red-400">{error}</div>
-        ) : users.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No scores yet.</div>
-        ) : (
-          users.map((user) => <ScoreRow key={user.id} user={user} />)
-        )}
-      </div>
-
-      {pagination?.hasMore && !loading && (
-        <button
-          onClick={handleLoadMore}
-          disabled={loadingMore}
-          className="mt-6 w-full rounded-xl bg-surface py-3 text-sm font-semibold text-accent border border-k-border transition-colors hover:bg-surface-hover hover:border-k-border-hover disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loadingMore ? 'Loading...' : 'Load more'}
-        </button>
-      )}
-    </>
-  )
-}
-
 // --- Main Page ---
 
 export default function MyScorePage() {
@@ -772,42 +585,9 @@ export default function MyScorePage() {
 }
 
 function MyScorePageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const activeTab =
-    searchParams.get("tab") === "scores" ? "scores" : "my-score";
-
   return (
     <div className="mx-auto max-w-2xl pb-20">
-      {/* Tab Bar */}
-      <div className="mb-8 flex items-center justify-center">
-        <div className="inline-flex rounded-xl bg-surface border border-k-border p-1">
-          <button
-            onClick={() => router.replace("/my-score", { scroll: false })}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              activeTab === "my-score"
-                ? "bg-accent text-black"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            My Klout Score
-          </button>
-          <button
-            onClick={() =>
-              router.replace("/my-score?tab=scores", { scroll: false })
-            }
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
-              activeTab === "scores"
-                ? "bg-accent text-black"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            Klout Scores
-          </button>
-        </div>
-      </div>
-
-      {activeTab === "my-score" ? <MyScoreTab /> : <ScoresTab />}
+      <MyScoreTab />
     </div>
   );
 }
