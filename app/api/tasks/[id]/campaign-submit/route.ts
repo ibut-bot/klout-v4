@@ -229,7 +229,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const latestScoreData = await prisma.xScoreData.findFirst({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    select: { totalScore: true, verifiedType: true },
+    select: { totalScore: true, verifiedType: true, followersCount: true },
   })
 
   if (!latestScoreData?.verifiedType) {
@@ -325,6 +325,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { success: false, error: 'NOT_POST_OWNER', message: 'The submitted post does not belong to your linked X account' },
       { status: 400 }
     )
+  }
+
+  // 8b. Bot detection: reject if post views are 2x or more the user's follower count
+  const followersCount = latestScoreData?.followersCount ?? 0
+  if (followersCount > 0 && postMetrics.viewCount >= 2 * followersCount) {
+    await prisma.campaignSubmission.update({
+      where: { id: submission.id },
+      data: {
+        viewCount: postMetrics.viewCount,
+        likeCount: postMetrics.likeCount,
+        retweetCount: postMetrics.retweetCount,
+        commentCount: postMetrics.commentCount,
+        viewsReadAt: now,
+        status: 'REJECTED',
+        rejectionReason: `Suspicious activity detected: post views (${postMetrics.viewCount}) exceed 2x your follower count (${followersCount}).`,
+      },
+    })
+    return Response.json({
+      success: false,
+      error: 'BOT_ACTIVITY_DETECTED',
+      message: `Submission rejected: post views (${postMetrics.viewCount}) are disproportionately high relative to your follower count (${followersCount}).`,
+    }, { status: 400 })
   }
 
   // 9. Check minimum engagement thresholds
