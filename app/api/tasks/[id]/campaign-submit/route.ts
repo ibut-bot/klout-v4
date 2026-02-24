@@ -549,7 +549,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 12. Approve the submission (no budget deduction — that happens when user requests payment)
+  // 12. Approve the submission
   const updatedSubmission = await prisma.campaignSubmission.update({
     where: { id: submission.id },
     data: {
@@ -564,28 +564,127 @@ export async function POST(request: NextRequest, context: RouteContext) {
     },
   })
 
-  // 13. Notify campaign creator
   const pt = (task.paymentToken || 'SOL') as PaymentTokenType
   const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
   const payoutDisplay = `${formatTokenAmount(payoutLamports, tInfo)} ${tInfo.symbol}`
   const bonusSuffix = flatBonusLamports > BigInt(0) ? ` (includes ${formatTokenAmount(flatBonusLamports, tInfo)} ${tInfo.symbol} Klout bonus)` : ''
 
-  await createNotification({
-    userId: task.creatorId,
-    type: 'CAMPAIGN_SUBMISSION_APPROVED',
-    title: 'New campaign post approved',
-    body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
-    linkUrl: `/tasks/${taskId}`,
-  })
+  // 13. Auto-request payment if this single post meets the minimum payout threshold
+  const minPayout = config.minPayoutLamports
+  const meetsThreshold = minPayout <= BigInt(0) || payoutLamports >= minPayout
+  let autoRequested = false
 
-  // Notify submitter
-  await createNotification({
-    userId,
-    type: 'CAMPAIGN_SUBMISSION_APPROVED',
-    title: 'Campaign submission approved!',
-    body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
-    linkUrl: `/tasks/${taskId}`,
-  })
+  if (meetsThreshold) {
+    const autoResult = await prisma.$transaction(async (tx) => {
+      const freshConfig = await tx.campaignConfig.findUnique({ where: { taskId } })
+      if (!freshConfig) return { error: 'CONFIG_MISSING' as const }
+
+      const budgetRemaining = freshConfig.budgetRemainingLamports
+      if (budgetRemaining <= BigInt(0)) return { error: 'BUDGET_EXHAUSTED' as const }
+
+      // Gather ALL approved submissions for this user (includes the one just created)
+      const approvedSubs = await tx.campaignSubmission.findMany({
+        where: { taskId, submitterId: userId, status: 'APPROVED' },
+      })
+      if (approvedSubs.length === 0) return { error: 'NO_APPROVED' as const }
+
+      // Determine per-user cap
+      let effectiveCeiling = budgetRemaining
+      const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+      if (totalBudget) {
+        const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
+        const latestScore = await tx.xScoreData.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          select: { totalScore: true },
+        })
+        const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+        const userPercent = topUserPercent * userMultiplier
+        const maxPerUser = BigInt(Math.floor(Number(totalBudget.budgetLamports) * (userPercent / 100)))
+
+        if (maxPerUser > BigInt(0)) {
+          const priorSubs = await tx.campaignSubmission.findMany({
+            where: { taskId, submitterId: userId, status: { in: ['PAYMENT_REQUESTED', 'PAID'] } },
+            select: { payoutLamports: true },
+          })
+          const priorPaid = priorSubs.reduce((sum, s) => sum + (s.payoutLamports || BigInt(0)), BigInt(0))
+          const userBudgetLeft = maxPerUser - priorPaid
+          if (userBudgetLeft <= BigInt(0)) return { error: 'USER_CAP_REACHED' as const }
+          if (userBudgetLeft < effectiveCeiling) effectiveCeiling = userBudgetLeft
+        }
+      }
+
+      let totalCapped = BigInt(0)
+      const includedIds: string[] = []
+      for (const s of approvedSubs) {
+        const p = s.payoutLamports || BigInt(0)
+        if (p <= BigInt(0)) continue
+        const remaining = effectiveCeiling - totalCapped
+        if (remaining <= BigInt(0)) break
+        const capped = p > remaining ? remaining : p
+        includedIds.push(s.id)
+        totalCapped += capped
+        if (capped < p) {
+          await tx.campaignSubmission.update({ where: { id: s.id }, data: { payoutLamports: capped } })
+        }
+      }
+
+      if (includedIds.length === 0 || totalCapped <= BigInt(0)) return { error: 'BUDGET_EXHAUSTED' as const }
+
+      await tx.campaignConfig.update({
+        where: { taskId },
+        data: { budgetRemainingLamports: { decrement: totalCapped } },
+      })
+
+      const paymentRequest = await tx.campaignPaymentRequest.create({
+        data: { taskId, requesterId: userId, totalPayoutLamports: totalCapped },
+      })
+
+      await tx.campaignSubmission.updateMany({
+        where: { id: { in: includedIds } },
+        data: { status: 'PAYMENT_REQUESTED', paymentRequestId: paymentRequest.id },
+      })
+
+      return { success: true as const, count: includedIds.length, total: totalCapped }
+    })
+
+    if ('success' in autoResult && autoResult.total != null) {
+      autoRequested = true
+      const autoTotal = autoResult.total
+      await createNotification({
+        userId: task.creatorId,
+        type: 'CAMPAIGN_PAYMENT_REQUEST',
+        title: 'Campaign payment requested',
+        body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views (${payoutDisplay}${bonusSuffix}). Payment auto-requested for ${autoResult.count} post(s) — ${formatTokenAmount(autoTotal, tInfo)} ${tInfo.symbol} total.`,
+        linkUrl: `/tasks/${taskId}`,
+      })
+      await createNotification({
+        userId,
+        type: 'CAMPAIGN_SUBMISSION_APPROVED',
+        title: 'Post approved — payment requested!',
+        body: `Your post was approved with ${postMetrics.viewCount} views. Payout: ${payoutDisplay}${bonusSuffix}. Payment has been automatically requested.`,
+        linkUrl: `/tasks/${taskId}`,
+      })
+    }
+  }
+
+  // 14. If auto-request didn't happen (below threshold or budget issue), send standard notifications
+  if (!autoRequested) {
+    await createNotification({
+      userId: task.creatorId,
+      type: 'CAMPAIGN_SUBMISSION_APPROVED',
+      title: 'New campaign post approved',
+      body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
+      linkUrl: `/tasks/${taskId}`,
+    })
+    await createNotification({
+      userId,
+      type: 'CAMPAIGN_SUBMISSION_APPROVED',
+      title: 'Campaign submission approved!',
+      body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
+      linkUrl: `/tasks/${taskId}`,
+    })
+  }
 
   return Response.json({
     success: true,
@@ -594,8 +693,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       postUrl: updatedSubmission.postUrl,
       viewCount: updatedSubmission.viewCount,
       payoutLamports: updatedSubmission.payoutLamports?.toString(),
-      status: updatedSubmission.status,
+      status: autoRequested ? 'PAYMENT_REQUESTED' : updatedSubmission.status,
       contentCheckExplanation: updatedSubmission.contentCheckExplanation,
+      autoPaymentRequested: autoRequested,
     },
   }, { status: 201 })
 }

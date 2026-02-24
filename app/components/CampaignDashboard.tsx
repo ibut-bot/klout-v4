@@ -117,12 +117,9 @@ const STATUS_BADGE: Record<string, string> = {
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  APPROVED: 'PENDING REVIEW',
-}
+const STATUS_LABEL: Record<string, string> = {}
 
 function getStatusBadge(status: string, _isCreator: boolean): string {
-  if (status === 'APPROVED') return 'bg-blue-500/20 text-blue-400'
   return STATUS_BADGE[status] || ''
 }
 
@@ -1931,7 +1928,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         )}
                         {(s.status === 'APPROVED') && s.payoutLamports && (
                           <div className="flex flex-col gap-2">
-                            <span className="text-xs text-zinc-500">Awaiting payment request</span>
+                            <span className="text-xs text-zinc-500">Below payout threshold — awaiting payment request</span>
                             <button
                               onClick={() => { setRejectingId(s.id); setRejectPreset(''); setRejectReason(''); setRejectError(''); setBanSubmitter(false) }}
                               className="rounded-md border border-red-500/30 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
