@@ -2,8 +2,10 @@ import puppeteer, { type Browser } from 'puppeteer-core'
 
 const CHROME_PATH = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const WALLCHAIN_API = 'https://api.wallchain.xyz/extension/x_score/score'
+const WALLCHAIN_DEV_API = process.env.WALLCHAIN_DEV_API_URL || 'https://dev.api.wallchains.com/extension/x_score/score'
 const DIRECT_FETCH_TIMEOUT_MS = 8_000
 const PUPPETEER_TIMEOUT_MS = 25_000
+const DEV_FETCH_TIMEOUT_MS = 10_000
 
 let browserInstance: Browser | null = null
 let browserLaunchPromise: Promise<Browser> | null = null
@@ -80,10 +82,17 @@ export async function fetchWallchainScore(xUsername: string): Promise<number> {
   }
 
   // Slow path: Puppeteer to bypass Cloudflare
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Klout score fetch timed out')), PUPPETEER_TIMEOUT_MS)
-  )
-  return Promise.race([fetchViaP(url), timeout])
+  try {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Klout score fetch timed out')), PUPPETEER_TIMEOUT_MS)
+    )
+    return await Promise.race([fetchViaP(url), timeout])
+  } catch (err: any) {
+    console.log('[wallchain] Puppeteer failed, falling back to dev API:', err.message)
+  }
+
+  // Last resort: dev API (no Cloudflare)
+  return fetchViaDev(xUsername)
 }
 
 async function fetchViaP(url: string): Promise<number> {
@@ -115,6 +124,34 @@ async function fetchViaP(url: string): Promise<number> {
     return parseWallchainResponse(text)
   } finally {
     await page.close().catch(() => {})
+  }
+}
+
+async function fetchViaDev(xUsername: string): Promise<number> {
+  const url = `${WALLCHAIN_DEV_API}/${encodeURIComponent(xUsername)}`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), DEV_FETCH_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+      },
+    })
+    clearTimeout(timer)
+
+    if (!res.ok) {
+      throw new Error(`Dev API returned ${res.status}`)
+    }
+
+    const text = await res.text()
+    console.log('[wallchain] Dev API fetch succeeded')
+    return parseWallchainResponse(text)
+  } catch (err: any) {
+    clearTimeout(timer)
+    throw new Error(`Klout score fetch failed on all attempts — please try again: ${err.message}`)
   }
 }
 
