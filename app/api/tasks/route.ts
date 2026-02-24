@@ -132,9 +132,9 @@ export async function POST(request: NextRequest) {
   const isCompetition = resolvedTaskType === 'COMPETITION'
   const isCampaign = resolvedTaskType === 'CAMPAIGN'
 
-  // Validate paymentToken (only for CAMPAIGN, defaults to SOL)
+  // Validate paymentToken (for CAMPAIGN and COMPETITION, defaults to SOL)
   const validTokens = ['SOL', 'USDC', 'CUSTOM']
-  const resolvedPaymentToken = isCampaign && paymentToken ? String(paymentToken).toUpperCase() : 'SOL'
+  const resolvedPaymentToken = (isCampaign || isCompetition) && paymentToken ? String(paymentToken).toUpperCase() : 'SOL'
   if (!validTokens.includes(resolvedPaymentToken)) {
     return Response.json(
       { success: false, error: 'INVALID_PAYMENT_TOKEN', message: 'paymentToken must be SOL, USDC, or CUSTOM' },
@@ -449,6 +449,13 @@ export async function POST(request: NextRequest) {
         multisigAddress, vaultAddress,
         maxWinners: resolvedMaxWinners,
         ...(resolvedPrizeStructure ? { prizeStructure: resolvedPrizeStructure } : {}),
+        paymentToken: resolvedPaymentToken as any,
+        ...(resolvedPaymentToken === 'CUSTOM' ? {
+          customTokenMint: customTokenMint,
+          customTokenSymbol: customTokenSymbol,
+          customTokenDecimals: Number(customTokenDecimals),
+          ...(customTokenLogoUri ? { customTokenLogoUri: String(customTokenLogoUri) } : {}),
+        } : {}),
       } : {}),
       ...(deadlineAt ? { deadlineAt } : {}),
       ...(imageUrl ? { imageUrl } : {}),

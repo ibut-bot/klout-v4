@@ -148,10 +148,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   }, [id, pendingTransform, onImageTransformSave])
 
   const placeLabels = ['1st', '2nd', '3rd']
-  const formatPrizeSol = (lamports: string) => {
-    const sol = Number(lamports) / 1e9
-    return sol < 0.01 ? sol.toPrecision(2) : sol.toFixed(2)
-  }
+  const formatPrize = (lamports: string) => formatTokenAmount(lamports, tInfo, 2)
 
   // Card with full-bleed image (campaign or competition)
   if (hasCardImage) {
@@ -242,7 +239,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {prizeStructure.map((p, i) => (
                   <span key={p.place} className="rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-medium text-zinc-200">
-                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrizeSol(p.amountLamports)} SOL
+                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
                   </span>
                 ))}
               </div>
@@ -350,7 +347,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             <div className="mb-3 flex flex-wrap gap-1.5">
               {prizeStructure.map((p, i) => (
                 <span key={p.place} className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                  {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrizeSol(p.amountLamports)} SOL
+                  {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
                 </span>
               ))}
             </div>

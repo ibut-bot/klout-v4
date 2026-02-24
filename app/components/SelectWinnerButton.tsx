@@ -1,19 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { useAuth } from '../hooks/useAuth'
 import { approveAndExecuteWA, createProposalApproveExecuteWA } from '@/lib/solana/multisig'
+import { createProposalApproveExecuteSplWA, USDC_MINT } from '@/lib/solana/spl-token'
+import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 
 const PLATFORM_WALLET = process.env.NEXT_PUBLIC_ARBITER_WALLET_ADDRESS || ''
-
-function formatSol(lamports: string | number): string {
-  const sol = Number(lamports) / LAMPORTS_PER_SOL
-  if (sol === 0) return '0 SOL'
-  if (sol < 0.01) return `${sol.toPrecision(2)} SOL`
-  return `${sol.toFixed(2)} SOL`
-}
 
 export interface WinnerBid {
   id: string
@@ -36,6 +31,10 @@ interface SelectWinnerButtonProps {
   taskMultisigAddress?: string | null
   winnerPlace?: number
   prizeAmountLamports?: string
+  paymentToken?: string
+  customTokenMint?: string | null
+  customTokenSymbol?: string | null
+  customTokenDecimals?: number | null
   onDone?: () => void
 }
 
@@ -51,6 +50,10 @@ export default function SelectWinnerButton({
   taskMultisigAddress,
   winnerPlace,
   prizeAmountLamports,
+  paymentToken,
+  customTokenMint,
+  customTokenSymbol,
+  customTokenDecimals,
   onDone,
 }: SelectWinnerButtonProps) {
   const { authFetch } = useAuth()
@@ -64,6 +67,8 @@ export default function SelectWinnerButton({
 
   const isCompetition = taskType === 'COMPETITION'
   const paymentAmount = prizeAmountLamports || bid.amountLamports
+  const pt = (paymentToken as PaymentTokenType) || 'SOL'
+  const tInfo = resolveTokenInfo(pt, customTokenMint, customTokenSymbol, customTokenDecimals)
 
   const payWinner = async () => {
     if (!publicKey || !signTransaction || !taskMultisigAddress || !PLATFORM_WALLET) return
@@ -71,17 +76,34 @@ export default function SelectWinnerButton({
     setStep('paying')
     const multisigPda = new PublicKey(taskMultisigAddress)
     const winnerWallet = new PublicKey(bid.bidderWallet)
-    const lamports = Number(paymentAmount)
+    const baseUnits = Number(paymentAmount)
 
-    const { signature } = await createProposalApproveExecuteWA(
-      connection,
-      { publicKey, signTransaction },
-      multisigPda,
-      winnerWallet,
-      lamports,
-      new PublicKey(PLATFORM_WALLET),
-      `slopwork-payout-${taskId}-place${winnerPlace || 1}`,
-    )
+    let signature: string
+    if (pt === 'SOL') {
+      const result = await createProposalApproveExecuteWA(
+        connection,
+        { publicKey, signTransaction },
+        multisigPda,
+        winnerWallet,
+        baseUnits,
+        new PublicKey(PLATFORM_WALLET),
+        `slopwork-payout-${taskId}-place${winnerPlace || 1}`,
+      )
+      signature = result.signature
+    } else {
+      const mint = pt === 'USDC' ? USDC_MINT : new PublicKey(customTokenMint!)
+      const result = await createProposalApproveExecuteSplWA(
+        connection,
+        { publicKey, signTransaction },
+        multisigPda,
+        winnerWallet,
+        baseUnits,
+        new PublicKey(PLATFORM_WALLET),
+        `slopwork-payout-${taskId}-place${winnerPlace || 1}`,
+        mint,
+      )
+      signature = result.signature
+    }
 
     const payRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/approve-payment`, {
       method: 'POST',
@@ -204,9 +226,11 @@ export default function SelectWinnerButton({
     return 'Processing...'
   }
 
+  const formattedAmount = `${formatTokenAmount(paymentAmount, tInfo, 2)} ${tInfo.symbol}`
+
   const label = winnerPlace
-    ? `Award ${placeLabel(winnerPlace)} Place & Pay (${formatSol(paymentAmount)})`
-    : `Select Winner & Pay (${formatSol(paymentAmount)})`
+    ? `Award ${placeLabel(winnerPlace)} Place & Pay (${formattedAmount})`
+    : `Select Winner & Pay (${formattedAmount})`
 
   if (paymentSig) {
     return (
@@ -236,7 +260,7 @@ export default function SelectWinnerButton({
           disabled={busy}
           className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
-          {busy ? getButtonText() : `Retry Payment (${formatSol(paymentAmount)})`}
+          {busy ? getButtonText() : `Retry Payment (${formattedAmount})`}
         </button>
       </div>
     )

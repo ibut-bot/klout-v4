@@ -9,17 +9,22 @@ interface RouteContext {
 /**
  * POST /api/tasks/[id]/finish
  *
- * Finish a campaign early and refund remaining budget to the creator.
+ * Finish a campaign or competition early and refund remaining budget to the creator.
  * The creator must first execute an on-chain refund transaction from the vault,
  * then submit the tx signature here to confirm.
  *
  * Body: { refundTxSig: string }
  *
- * This will:
- * - Set campaign status to COMPLETED
+ * For CAMPAIGN:
+ * - Set status to COMPLETED
  * - Set budgetRemainingLamports to 0
- * - Auto-reject APPROVED submissions (budget was never deducted for those)
+ * - Auto-reject APPROVED submissions
  * - Leave PAYMENT_REQUESTED submissions payable
+ *
+ * For COMPETITION:
+ * - Set status to CANCELLED (or COMPLETED if all winners were already paid)
+ * - Reject all PENDING bids
+ * - Leave ACCEPTED/COMPLETED bids intact
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await requireAuth(request)
@@ -46,6 +51,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       creatorId: true,
       taskType: true,
       status: true,
+      budgetLamports: true,
+      maxWinners: true,
       campaignConfig: { select: { id: true, budgetRemainingLamports: true } },
     },
   })
@@ -59,36 +66,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (task.creatorId !== userId) {
     return Response.json(
-      { success: false, error: 'FORBIDDEN', message: 'Only the campaign creator can finish a campaign' },
+      { success: false, error: 'FORBIDDEN', message: 'Only the creator can finish this' },
       { status: 403 }
     )
   }
 
-  if (task.taskType !== 'CAMPAIGN') {
+  const isCampaign = task.taskType === 'CAMPAIGN'
+  const isCompetition = task.taskType === 'COMPETITION'
+
+  if (!isCampaign && !isCompetition) {
     return Response.json(
-      { success: false, error: 'INVALID_TASK_TYPE', message: 'Only campaigns can be finished' },
+      { success: false, error: 'INVALID_TASK_TYPE', message: 'Only campaigns and competitions can be finished' },
       { status: 400 }
     )
   }
 
-  if (task.status !== 'OPEN' && task.status !== 'PAUSED') {
+  const finishableStatuses = isCompetition
+    ? ['OPEN', 'IN_PROGRESS', 'PAUSED']
+    : ['OPEN', 'PAUSED']
+
+  if (!finishableStatuses.includes(task.status)) {
+    const typeLabel = isCompetition ? 'competition' : 'campaign'
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: 'Only OPEN or PAUSED campaigns can be finished' },
+      { success: false, error: 'INVALID_STATUS', message: `Only ${finishableStatuses.join(', ')} ${typeLabel}s can be finished` },
       { status: 400 }
     )
   }
 
-  const remainingBudget = task.campaignConfig?.budgetRemainingLamports ?? BigInt(0)
-
-  // If there's remaining budget, require a refund transaction
-  if (remainingBudget > BigInt(0)) {
-    if (!refundTxSig) {
-      return Response.json(
-        { success: false, error: 'MISSING_TX', message: 'refundTxSig is required when there is remaining budget to refund' },
-        { status: 400 }
-      )
-    }
-
+  // Verify on-chain refund tx if provided
+  if (refundTxSig) {
     const { getConnection } = await import('@/lib/solana/connection')
     const connection = getConnection()
     try {
@@ -116,36 +122,74 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
-  // Atomically: complete the campaign, zero out budget, reject unprocessed submissions
+  if (isCampaign) {
+    const remainingBudget = task.campaignConfig?.budgetRemainingLamports ?? BigInt(0)
+
+    if (remainingBudget > BigInt(0) && !refundTxSig) {
+      return Response.json(
+        { success: false, error: 'MISSING_TX', message: 'refundTxSig is required when there is remaining budget to refund' },
+        { status: 400 }
+      )
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id: taskId },
+        data: { status: 'COMPLETED' },
+      })
+
+      if (task.campaignConfig) {
+        await tx.campaignConfig.update({
+          where: { id: task.campaignConfig.id },
+          data: { budgetRemainingLamports: BigInt(0) },
+        })
+      }
+
+      await tx.campaignSubmission.updateMany({
+        where: { taskId, status: 'APPROVED' },
+        data: { status: 'REJECTED', rejectionReason: 'Campaign finished.' },
+      })
+    })
+
+    return Response.json({
+      success: true,
+      message: 'Campaign finished successfully. Remaining budget has been refunded.',
+      refundedLamports: remainingBudget.toString(),
+    })
+  }
+
+  // COMPETITION finish
+  const completedBids = await prisma.bid.count({
+    where: { taskId, status: 'COMPLETED', winnerPlace: { not: null } },
+  })
+  const acceptedBids = await prisma.bid.count({
+    where: { taskId, status: 'ACCEPTED', winnerPlace: { not: null } },
+  })
+
+  // If all winners were paid, mark COMPLETED; otherwise CANCELLED
+  const allWinnersPaid = completedBids >= (task.maxWinners || 1)
+  const finalStatus = allWinnersPaid ? 'COMPLETED' : 'CANCELLED'
+
   await prisma.$transaction(async (tx) => {
     await tx.task.update({
       where: { id: taskId },
-      data: { status: 'COMPLETED' },
+      data: { status: finalStatus },
     })
 
-    if (task.campaignConfig) {
-      await tx.campaignConfig.update({
-        where: { id: task.campaignConfig.id },
-        data: { budgetRemainingLamports: BigInt(0) },
-      })
-    }
-
-    // Auto-reject APPROVED submissions (budget never deducted for these)
-    await tx.campaignSubmission.updateMany({
-      where: {
-        taskId,
-        status: 'APPROVED',
-      },
-      data: {
-        status: 'REJECTED',
-        rejectionReason: 'Campaign finished.',
-      },
+    // Reject all pending bids
+    await tx.bid.updateMany({
+      where: { taskId, status: 'PENDING' },
+      data: { status: 'REJECTED' },
     })
   })
 
   return Response.json({
     success: true,
-    message: 'Campaign finished successfully. Remaining budget has been refunded.',
-    refundedLamports: remainingBudget.toString(),
+    message: finalStatus === 'COMPLETED'
+      ? 'Competition completed. All winners were paid.'
+      : `Competition stopped. ${completedBids + acceptedBids} winner(s) awarded. Remaining funds refunded.`,
+    finalStatus,
+    winnersPaid: completedBids,
+    winnersAccepted: acceptedBids,
   })
 }

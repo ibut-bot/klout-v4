@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../../components/ImagePositionEditor'
 import XPostEmbed, { extractXPostUrl } from '../../components/XPostEmbed'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType, type TokenInfo } from '@/lib/token-utils'
@@ -31,12 +30,6 @@ function useCountdown(deadlineAt: string | null | undefined) {
   return timeLeft
 }
 
-function formatSol(lamports: string | number): string {
-  const sol = Number(lamports) / LAMPORTS_PER_SOL
-  if (sol === 0) return '0 SOL'
-  if (sol < 0.01) return `${sol.toPrecision(2)} SOL`
-  return `${sol.toFixed(2)} SOL`
-}
 import { useAuth } from '../../hooks/useAuth'
 import Link from 'next/link'
 import BidForm from '../../components/BidForm'
@@ -49,6 +42,7 @@ import CompetitionEntryForm from '../../components/CompetitionEntryForm'
 import SelectWinnerButton, { type WinnerBid } from '../../components/SelectWinnerButton'
 import CampaignDashboard from '../../components/CampaignDashboard'
 import CampaignSubmitForm from '../../components/CampaignSubmitForm'
+import CompetitionFinishRefund from '../../components/CompetitionFinishRefund'
 
 interface Task {
   id: string
@@ -142,6 +136,10 @@ export default function TaskDetailPage() {
   const [selectedBidderId, setSelectedBidderId] = useState<string | null>(null)
   // Track message counts per bidder for unread indicator
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
+  // Competition pause / finish-refund state
+  const [compPauseLoading, setCompPauseLoading] = useState(false)
+  const [compPauseError, setCompPauseError] = useState('')
+  const [compFinishOpen, setCompFinishOpen] = useState(false)
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
@@ -274,6 +272,26 @@ export default function TaskDetailPage() {
     fetchConversations()
   }
 
+  const handleCompPauseResume = async () => {
+    if (!task) return
+    const action = task.status === 'PAUSED' ? 'resume' : 'pause'
+    setCompPauseLoading(true)
+    setCompPauseError('')
+    try {
+      const res = await authFetch(`/api/tasks/${task.id}/pause`, {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      refreshAll()
+    } catch (e: any) {
+      setCompPauseError(e.message || 'Failed to pause/resume')
+    } finally {
+      setCompPauseLoading(false)
+    }
+  }
+
   // Must be called before any early returns (React hooks rule)
   const countdown = useCountdown(task?.deadlineAt ?? null)
 
@@ -300,6 +318,8 @@ export default function TaskDetailPage() {
   const isWinningBidder = task.winningBid?.bidderWallet === wallet
   const isCompetition = task.taskType === 'COMPETITION'
   const isCampaign = task.taskType === 'CAMPAIGN'
+  const pt = (task.paymentToken as PaymentTokenType) || 'SOL'
+  const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
   const campaignBudgetExhausted = isCampaign && campaignConfig && Number(campaignConfig.budgetRemainingLamports) <= 0
   const isExpired = countdown?.expired === true
 
@@ -378,9 +398,7 @@ export default function TaskDetailPage() {
                 task.customTokenSymbol,
                 task.customTokenDecimals,
               )
-              return task.taskType === 'CAMPAIGN'
-                ? `${formatTokenAmount(task.budgetLamports, tInfo, 0)} ${tInfo.symbol}`
-                : formatSol(task.budgetLamports)
+              return `${formatTokenAmount(task.budgetLamports, tInfo, task.taskType === 'CAMPAIGN' ? 0 : 2)} ${tInfo.symbol}`
             })()}
           </span>
           <Link href={`/u/${task.creatorWallet}`} className="flex items-center gap-2 hover:text-zinc-300">
@@ -515,7 +533,7 @@ export default function TaskDetailPage() {
               return (
                 <div key={p.place} className={`rounded-lg border p-3 text-center ${isAwarded ? 'border-green-500/30 bg-green-500/10' : 'border-k-border bg-surface'}`}>
                   <p className="text-xs text-zinc-400">{label} Place</p>
-                  <p className="text-sm font-bold text-white">{formatSol(p.amountLamports)}</p>
+                  <p className="text-sm font-bold text-white">{formatTokenAmount(p.amountLamports, tInfo, 2)} {tInfo.symbol}</p>
                   {isAwarded && (
                     <p className="mt-1 truncate text-[10px] text-green-400">
                       {winnerBid.bidderUsername || `${winnerBid.bidderWallet.slice(0, 4)}...`}
@@ -525,6 +543,59 @@ export default function TaskDetailPage() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Competition: Creator action bar (pause/resume + stop & refund) */}
+      {isCompetition && isCreator && ['OPEN', 'IN_PROGRESS', 'PAUSED'].includes(task.status) && (
+        <div className="mb-6">
+          {task.status === 'PAUSED' && (
+            <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-300">
+              Competition is paused — no new entries accepted.
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleCompPauseResume}
+              disabled={compPauseLoading}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                task.status === 'PAUSED'
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'border border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
+              }`}
+            >
+              {compPauseLoading
+                ? (task.status === 'PAUSED' ? 'Resuming...' : 'Pausing...')
+                : (task.status === 'PAUSED' ? 'Resume Competition' : 'Pause Competition')
+              }
+            </button>
+            <button
+              onClick={() => setCompFinishOpen(true)}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+            >
+              Stop &amp; Refund Remainder
+            </button>
+            {compPauseError && <p className="text-xs text-red-400">{compPauseError}</p>}
+          </div>
+
+          {compFinishOpen && task.multisigAddress && (
+            <CompetitionFinishRefund
+              taskId={task.id}
+              multisigAddress={task.multisigAddress}
+              budgetLamports={task.budgetLamports}
+              paymentToken={pt}
+              customTokenMint={task.customTokenMint}
+              customTokenSymbol={task.customTokenSymbol}
+              customTokenDecimals={task.customTokenDecimals}
+              winnersAwarded={bids.filter(b => b.winnerPlace != null).length}
+              maxWinners={task.maxWinners || 1}
+              onClose={() => setCompFinishOpen(false)}
+              onFinished={() => {
+                setCompFinishOpen(false)
+                refreshAll()
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -635,6 +706,10 @@ export default function TaskDetailPage() {
                             taskMultisigAddress={task.multisigAddress}
                             winnerPlace={place}
                             prizeAmountLamports={amount}
+                            paymentToken={task.paymentToken}
+                            customTokenMint={task.customTokenMint}
+                            customTokenSymbol={task.customTokenSymbol}
+                            customTokenDecimals={task.customTokenDecimals}
                             onDone={refreshAll}
                           />
                         )
@@ -649,6 +724,10 @@ export default function TaskDetailPage() {
                   taskMultisigAddress={task.multisigAddress}
                   winnerPlace={1}
                   prizeAmountLamports={prizeForPlace(1) || task.budgetLamports}
+                  paymentToken={task.paymentToken}
+                  customTokenMint={task.customTokenMint}
+                  customTokenSymbol={task.customTokenSymbol}
+                  customTokenDecimals={task.customTokenDecimals}
                   onDone={refreshAll}
                 />
               )

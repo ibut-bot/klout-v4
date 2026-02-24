@@ -327,7 +327,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (postDate < task.createdAt) {
       await prisma.campaignSubmission.update({
         where: { id: submission.id },
-        data: { status: 'REJECTED', rejectionReason: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.' },
+        data: {
+          viewCount: postMetrics.viewCount,
+          likeCount: postMetrics.likeCount,
+          retweetCount: postMetrics.retweetCount,
+          commentCount: postMetrics.commentCount,
+          viewsReadAt: now,
+          status: 'REJECTED',
+          rejectionReason: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.',
+        },
       })
       return Response.json(
         { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.' },

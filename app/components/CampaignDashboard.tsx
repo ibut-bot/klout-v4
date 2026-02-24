@@ -117,6 +117,19 @@ const STATUS_BADGE: Record<string, string> = {
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  APPROVED: 'PENDING REVIEW',
+}
+
+function getStatusBadge(status: string, _isCreator: boolean): string {
+  if (status === 'APPROVED') return 'bg-blue-500/20 text-blue-400'
+  return STATUS_BADGE[status] || ''
+}
+
+function getStatusLabel(status: string, _isCreator: boolean): string {
+  return STATUS_LABEL[status] || status.replace(/_/g, ' ')
+}
+
 export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals, taskStatus, onStatusChange }: Props) {
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
@@ -1737,8 +1750,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                               onClick={() => { setStatusFilter(s); setStatusFilterOpen(false); setPage(1) }}
                               className={`block w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-700 transition-colors ${statusFilter === s ? 'text-blue-400' : 'text-zinc-300'}`}
                             >
-                              <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_BADGE[s]}`}>
-                                {s.replace(/_/g, ' ')}
+                              <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${getStatusBadge(s, isCreator)}`}>
+                                {getStatusLabel(s, isCreator)}
                               </span>
                             </button>
                           ))}
@@ -1805,8 +1818,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       })()}
                     </td>
                     <td className="py-3 pr-4">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
-                        {s.status.replace(/_/g, ' ')}
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadge(s.status, isCreator)}`}>
+                        {getStatusLabel(s.status, isCreator)}
                       </span>
                       {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
                         <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`}>
@@ -2132,8 +2145,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                               })()}
                             </td>
                             <td className="py-3 pr-4">
-                              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[s.status] || ''}`}>
-                                {s.status.replace(/_/g, ' ')}
+                              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadge(s.status, isCreator)}`}>
+                                {getStatusLabel(s.status, isCreator)}
                               </span>
                               {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
                                 <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`}>

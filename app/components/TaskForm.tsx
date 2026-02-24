@@ -31,7 +31,7 @@ export default function TaskForm() {
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'paying' | 'creating'>('form')
 
-  // Payment token selector (campaign only)
+  // Payment token selector (campaign + competition)
   const [paymentToken, setPaymentToken] = useState<PaymentTokenType>('SOL')
   const [customMint, setCustomMint] = useState('')
   const [customTokenMeta, setCustomTokenMeta] = useState<SplTokenMetadata | null>(null)
@@ -69,7 +69,7 @@ export default function TaskForm() {
   const [balanceLoading, setBalanceLoading] = useState(false)
 
   useEffect(() => {
-    if (!publicKey || taskType !== 'CAMPAIGN') { setWalletBalance(null); return }
+    if (!publicKey || (taskType !== 'CAMPAIGN' && taskType !== 'COMPETITION')) { setWalletBalance(null); return }
     let cancelled = false
     const fetchBalance = async () => {
       setBalanceLoading(true)
@@ -202,14 +202,14 @@ export default function TaskForm() {
     setLoading(true)
 
     try {
-      if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && !customTokenMeta) {
+      if ((taskType === 'CAMPAIGN' || taskType === 'COMPETITION') && paymentToken === 'CUSTOM' && !customTokenMeta) {
         throw new Error('Please enter a valid token mint address first')
       }
-      const multiplier = (taskType === 'CAMPAIGN') ? tokenInfo.multiplier : LAMPORTS_PER_SOL
+      const multiplier = (taskType === 'CAMPAIGN' || taskType === 'COMPETITION') ? tokenInfo.multiplier : LAMPORTS_PER_SOL
 
       let budgetLamports: number
       if (taskType === 'COMPETITION') {
-        budgetLamports = Math.round(totalPrizeSol * LAMPORTS_PER_SOL)
+        budgetLamports = Math.round(totalPrizeSol * multiplier)
         if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Total prize amount must be positive')
         if (prizeAmounts.some(v => !v || parseFloat(v) <= 0)) throw new Error('All prize amounts must be positive')
       } else {
@@ -241,9 +241,9 @@ export default function TaskForm() {
           : []
 
         let result: { multisigPda: { toBase58(): string }; vaultPda: { toBase58(): string }; signature: string }
-        if (taskType === 'CAMPAIGN' && paymentToken === 'USDC') {
+        if (paymentToken === 'USDC') {
           result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, USDC_MINT, extraIx)
-        } else if (taskType === 'CAMPAIGN' && paymentToken === 'CUSTOM' && customTokenMeta) {
+        } else if (paymentToken === 'CUSTOM' && customTokenMeta) {
           result = await createMultisigVaultAndFundSplWA(connection, walletSigner, budgetLamports, new PublicKey(customTokenMeta.mint), extraIx)
         } else {
           result = await createMultisigVaultAndFundWA(connection, walletSigner, budgetLamports, extraIx)
@@ -306,10 +306,17 @@ export default function TaskForm() {
 
       const competitionFields = taskType === 'COMPETITION' ? {
         maxWinners,
+        paymentToken,
+        ...(paymentToken === 'CUSTOM' && customTokenMeta ? {
+          customTokenMint: customTokenMeta.mint,
+          customTokenSymbol: customTokenMeta.symbol,
+          customTokenDecimals: customTokenMeta.decimals,
+          ...(customTokenMeta.logoUri ? { customTokenLogoUri: customTokenMeta.logoUri } : {}),
+        } : {}),
         ...(maxWinners > 1 ? {
           prizeStructure: prizeAmounts.map((v, i) => ({
             place: i + 1,
-            amountLamports: Math.round(parseFloat(v) * LAMPORTS_PER_SOL),
+            amountLamports: Math.round(parseFloat(v) * multiplier),
           })),
         } : {}),
       } : {}
@@ -468,9 +475,9 @@ export default function TaskForm() {
         <p className="mt-1 text-xs text-zinc-500">Optional. This image will be shown on the card. You can position and zoom it.</p>
       </div>
 
-      {taskType === 'CAMPAIGN' && (
+      {(taskType === 'CAMPAIGN' || taskType === 'COMPETITION') && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Bounty Token</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">{taskType === 'COMPETITION' ? 'Prize Token' : 'Bounty Token'}</label>
           <div className="flex gap-2">
             {(['SOL', 'USDC', 'CUSTOM'] as const).map((t) => (
               <button
@@ -517,7 +524,7 @@ export default function TaskForm() {
               )}
             </div>
           )}
-          <p className="mt-1 text-xs text-zinc-500">All bounty payouts, CPM, and platform fees will be denominated in the selected token.</p>
+          <p className="mt-1 text-xs text-zinc-500">{taskType === 'COMPETITION' ? 'All prizes will be denominated in the selected token.' : 'All bounty payouts, CPM, and platform fees will be denominated in the selected token.'}</p>
         </div>
       )}
 
@@ -540,7 +547,7 @@ export default function TaskForm() {
 
       {taskType === 'COMPETITION' && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Prize Amounts (SOL)</label>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Prize Amounts ({tokenLabel})</label>
           <div className="space-y-2">
             {prizeAmounts.map((amt, i) => {
               const placeLabels = ['1st', '2nd', '3rd']
@@ -568,7 +575,7 @@ export default function TaskForm() {
           </div>
           <div className="mt-2 flex items-center justify-between rounded-lg bg-surface p-3 border border-k-border">
             <span className="text-sm font-medium text-zinc-300">Total Budget</span>
-            <span className="text-sm font-bold text-accent">{totalPrizeSol > 0 ? totalPrizeSol.toFixed(4) : '0'} SOL</span>
+            <span className="text-sm font-bold text-accent">{totalPrizeSol > 0 ? totalPrizeSol.toFixed(4) : '0'} {tokenLabel}</span>
           </div>
           <p className="mt-1 text-xs text-zinc-500">This total will be locked in an escrow vault when you create the competition.</p>
         </div>

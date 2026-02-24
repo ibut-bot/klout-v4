@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
+import { getValidXToken, getPostMetrics } from '@/lib/x-api'
+import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
+import { calculateFlatBonus } from '@/lib/klout-bonus'
 
 interface RouteContext {
   params: Promise<{ id: string; submissionId: string }>
@@ -58,8 +61,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       id: true,
       taskId: true,
       submitterId: true,
+      xPostId: true,
       status: true,
       viewCount: true,
+      likeCount: true,
+      retweetCount: true,
+      commentCount: true,
       payoutLamports: true,
       rejectionReason: true,
     },
@@ -83,15 +90,76 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  const viewCount = submission.viewCount ?? 0
-  let payoutLamports = submission.payoutLamports
-    ? BigInt(submission.payoutLamports)
-    : BigInt(Math.floor((viewCount / 1000) * Number(config.cpmLamports)))
+  let viewCount = submission.viewCount ?? 0
+  let likeCount = submission.likeCount ?? 0
+  let retweetCount = submission.retweetCount ?? 0
+  let commentCount = submission.commentCount ?? 0
+
+  if (viewCount === 0) {
+    const accessToken = await getValidXToken(submission.submitterId)
+    if (!accessToken) {
+      return Response.json(
+        { success: false, error: 'X_TOKEN_EXPIRED', message: 'Submitter\'s X account token has expired. They need to re-link their X account before this override can proceed.' },
+        { status: 400 }
+      )
+    }
+
+    try {
+      const postMetrics = await getPostMetrics(submission.xPostId, accessToken)
+      viewCount = postMetrics.viewCount
+      likeCount = postMetrics.likeCount
+      retweetCount = postMetrics.retweetCount
+      commentCount = postMetrics.commentCount
+
+      await prisma.campaignSubmission.update({
+        where: { id: submissionId },
+        data: {
+          viewCount,
+          likeCount,
+          retweetCount,
+          commentCount,
+          viewsReadAt: new Date(),
+        },
+      })
+    } catch (err: any) {
+      return Response.json(
+        { success: false, error: 'X_API_ERROR', message: `Failed to fetch post metrics: ${err.message}` },
+        { status: 502 }
+      )
+    }
+  }
+
+  const submitter = await prisma.user.findUnique({
+    where: { id: submission.submitterId },
+    select: { xScores: { select: { totalScore: true }, orderBy: { createdAt: 'desc' as const }, take: 1 } },
+  })
+  const kloutScore = submitter?.xScores?.[0]?.totalScore ?? 0
+  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
+  let payoutLamports = BigInt(Math.floor((viewCount / 1000) * effectiveCpm))
 
   if (config.maxBudgetPerPostPercent != null) {
     const maxPerPost = BigInt(Math.floor(Number(task.budgetLamports) * (config.maxBudgetPerPostPercent / 100)))
     if (maxPerPost > BigInt(0) && payoutLamports > maxPerPost) {
       payoutLamports = maxPerPost
+    }
+  }
+
+  let flatBonusLamports = BigInt(0)
+  if (config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
+    if (kloutScore >= config.bonusMinKloutScore) {
+      const priorApproved = await prisma.campaignSubmission.count({
+        where: {
+          taskId,
+          submitterId: submission.submitterId,
+          status: { in: ['APPROVED', 'PAYMENT_REQUESTED', 'PAID'] },
+          flatBonusLamports: { not: null, gt: BigInt(0) },
+        },
+      })
+      if (priorApproved === 0) {
+        flatBonusLamports = calculateFlatBonus(kloutScore, config.bonusMinKloutScore, config.bonusMaxLamports)
+        payoutLamports += flatBonusLamports
+      }
     }
   }
 
@@ -107,6 +175,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     data: {
       status: 'APPROVED',
       payoutLamports,
+      flatBonusLamports: flatBonusLamports > BigInt(0) ? flatBonusLamports : null,
+      kloutScoreAtSubmission: kloutScore,
+      cpmMultiplierApplied: cpmMultiplier,
       rejectionReason: null,
     },
   })
