@@ -60,6 +60,11 @@ export async function GET(request: NextRequest) {
             bidder: { select: { walletAddress: true, username: true, profilePicUrl: true } },
           },
         },
+        bids: {
+          where: { winnerPlace: { not: null } },
+          select: { winnerPlace: true, status: true, bidder: { select: { username: true, walletAddress: true } } },
+          orderBy: { winnerPlace: 'asc' },
+        },
       },
     }),
     prisma.task.count({ where }),
@@ -100,6 +105,20 @@ export async function GET(request: NextRequest) {
       imageUrl: t.imageUrl,
       imageTransform: t.imageTransform,
       vaultAddress: t.vaultAddress,
+      maxWinners: t.maxWinners,
+      prizeStructure: t.prizeStructure,
+      customTokenMint: t.customTokenMint,
+      customTokenSymbol: t.customTokenSymbol,
+      customTokenDecimals: t.customTokenDecimals,
+      customTokenLogoUri: t.customTokenLogoUri,
+      competitionWinners: t.taskType === 'COMPETITION' ? t.bids
+        .filter(b => b.winnerPlace != null)
+        .map(b => ({
+          place: b.winnerPlace!,
+          status: b.status,
+          bidderUsername: b.bidder.username,
+          bidderWallet: b.bidder.walletAddress,
+        })) : undefined,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,

@@ -64,6 +64,7 @@ interface TaskCardProps {
   imageTransform?: ImageTransform | null
   maxWinners?: number
   prizeStructure?: { place: number; amountLamports: string }[] | null
+  competitionWinners?: { place: number; status: string; bidderUsername?: string | null; bidderWallet: string }[] | null
   deadlineAt?: string | null
   createdAt: string
   isCreator?: boolean
@@ -100,7 +101,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, maxWinners, prizeStructure, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, maxWinners, prizeStructure, competitionWinners, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -149,6 +150,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
 
   const placeLabels = ['1st', '2nd', '3rd']
   const formatPrize = (lamports: string) => formatTokenAmount(lamports, tInfo, 2)
+  const winnerForPlace = (place: number) => competitionWinners?.find(w => w.place === place)
 
   // Card with full-bleed image (campaign or competition)
   if (hasCardImage) {
@@ -237,17 +239,37 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             {/* Competition: prize breakdown */}
             {isCompetition && prizeStructure && prizeStructure.length > 1 ? (
               <div className="mb-3 flex flex-wrap gap-1.5">
-                {prizeStructure.map((p, i) => (
-                  <span key={p.place} className="rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-medium text-zinc-200">
-                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
-                  </span>
-                ))}
+                {prizeStructure.map((p, i) => {
+                  const w = winnerForPlace(p.place)
+                  const isPaid = w?.status === 'COMPLETED'
+                  const isAwarded = !!w
+                  return (
+                    <span key={p.place} className={`rounded-md backdrop-blur-sm px-2 py-0.5 text-xs font-medium ${
+                      isPaid ? 'bg-green-500/20 text-green-300' : isAwarded ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-zinc-200'
+                    }`}>
+                      {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
+                      {isPaid && ' ✓'}
+                      {isAwarded && !isPaid && ' ⏳'}
+                    </span>
+                  )
+                })}
               </div>
             ) : isCompetition ? (
-              <div className="mb-3">
-                <span className="rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-medium text-zinc-200">
-                  {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
-                </span>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {(() => {
+                  const w = winnerForPlace(1)
+                  const isPaid = w?.status === 'COMPLETED'
+                  const isAwarded = !!w
+                  return (
+                    <span className={`rounded-md backdrop-blur-sm px-2 py-0.5 text-xs font-medium ${
+                      isPaid ? 'bg-green-500/20 text-green-300' : isAwarded ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-zinc-200'
+                    }`}>
+                      {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
+                      {isPaid && ' ✓'}
+                      {isAwarded && !isPaid && ' ⏳'}
+                    </span>
+                  )
+                })()}
               </div>
             ) : (
               <div className="mb-3">
@@ -345,18 +367,38 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
           {/* Competition: prize breakdown */}
           {isCompetition && prizeStructure && prizeStructure.length > 1 && (
             <div className="mb-3 flex flex-wrap gap-1.5">
-              {prizeStructure.map((p, i) => (
-                <span key={p.place} className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                  {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
-                </span>
-              ))}
+              {prizeStructure.map((p, i) => {
+                const w = winnerForPlace(p.place)
+                const isPaid = w?.status === 'COMPLETED'
+                const isAwarded = !!w
+                return (
+                  <span key={p.place} className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                    isPaid ? 'bg-green-500/15 text-green-400' : isAwarded ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
+                    {isPaid && ' ✓'}
+                    {isAwarded && !isPaid && ' ⏳'}
+                  </span>
+                )
+              })}
             </div>
           )}
           {isCompetition && (!prizeStructure || prizeStructure.length <= 1) && (
-            <div className="mb-3">
-              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
-              </span>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {(() => {
+                const w = winnerForPlace(1)
+                const isPaid = w?.status === 'COMPLETED'
+                const isAwarded = !!w
+                return (
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                    isPaid ? 'bg-green-500/15 text-green-400' : isAwarded ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
+                    {isPaid && ' ✓'}
+                    {isAwarded && !isPaid && ' ⏳'}
+                  </span>
+                )
+              })()}
             </div>
           )}
 

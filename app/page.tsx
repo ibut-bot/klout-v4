@@ -27,6 +27,9 @@ interface Task {
   heading?: string | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
+  maxWinners?: number
+  prizeStructure?: { place: number; amountLamports: string }[] | null
+  competitionWinners?: { place: number; status: string; bidderUsername?: string | null; bidderWallet: string }[] | null
   deadlineAt?: string | null
   createdAt: string
 }
