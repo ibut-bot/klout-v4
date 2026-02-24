@@ -101,7 +101,7 @@ export async function POST(
   // Require linked X account for ownership verification
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { xUserId: true, xUsername: true },
+    select: { xUserId: true, xUsername: true, profilePicUrl: true },
   })
   if (!user?.xUserId) {
     return Response.json(
@@ -195,6 +195,11 @@ export async function POST(
         description: descTrimmed,
         postUrl,
         xPostId,
+        postText: postMetrics.text,
+        postMedia: postMetrics.media.length > 0 ? postMetrics.media : undefined,
+        postAuthorName: user.xUsername ? `@${user.xUsername}` : undefined,
+        postAuthorUsername: user.xUsername,
+        postAuthorProfilePic: user.profilePicUrl,
         viewCount: postMetrics.viewCount,
         likeCount: postMetrics.likeCount,
         retweetCount: postMetrics.retweetCount,
@@ -231,6 +236,11 @@ export async function POST(
       description: submission.description,
       postUrl: submission.postUrl,
       xPostId: submission.xPostId,
+      postText: submission.postText,
+      postMedia: submission.postMedia,
+      postAuthorName: submission.postAuthorName,
+      postAuthorUsername: submission.postAuthorUsername,
+      postAuthorProfilePic: submission.postAuthorProfilePic,
       viewCount: submission.viewCount,
       likeCount: submission.likeCount,
       retweetCount: submission.retweetCount,

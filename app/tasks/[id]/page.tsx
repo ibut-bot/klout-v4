@@ -108,6 +108,11 @@ interface SubmissionData {
   attachments: any[] | null
   postUrl?: string | null
   xPostId?: string | null
+  postText?: string | null
+  postMedia?: { type: string; url?: string; previewImageUrl?: string }[] | null
+  postAuthorName?: string | null
+  postAuthorUsername?: string | null
+  postAuthorProfilePic?: string | null
   viewCount?: number | null
   likeCount?: number | null
   retweetCount?: number | null
@@ -203,6 +208,7 @@ export default function TaskDetailPage() {
           .filter((b: any) => b.hasSubmission && b.submission)
           .map((b: any) => ({
             ...b.submission,
+            bidId: b.id,
             bid: {
               id: b.id,
               bidderId: b.bidderId,
@@ -687,9 +693,17 @@ export default function TaskDetailPage() {
               </div>
             )}
             {xUrl && (
-              <XPostEmbed url={xUrl} className="mb-3" />
+              <XPostEmbed
+                url={xUrl}
+                className="mb-3"
+                postText={displaySub.postText}
+                postMedia={displaySub.postMedia}
+                authorUsername={displaySub.postAuthorUsername}
+                authorName={displaySub.postAuthorName}
+                authorProfilePic={displaySub.postAuthorProfilePic}
+              />
             )}
-            {displaySub.viewCount != null && (
+            {displaySub.viewCount != null && (displaySub.viewCount + (displaySub.likeCount ?? 0) + (displaySub.retweetCount ?? 0) + (displaySub.commentCount ?? 0)) > 0 && (
               <div className="mb-3 flex flex-wrap gap-3 rounded-lg border border-k-border bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400">
                 <span title="Views">👁 {displaySub.viewCount.toLocaleString()}</span>
                 <span title="Likes">♥ {(displaySub.likeCount ?? 0).toLocaleString()}</span>
@@ -781,8 +795,68 @@ export default function TaskDetailPage() {
           )
         })() : null
 
+        const mySubmission = !isCreator && myBid ? submissions.find(s => s.bidId === myBid.id) : null
+        const myXUrl = mySubmission ? (mySubmission.postUrl || extractXPostUrl(mySubmission.description || '')) : null
+        const myDescWithoutUrl = mySubmission && myXUrl
+          ? (mySubmission.description || '').replace(myXUrl, '').trim()
+          : mySubmission?.description || ''
+        const myWinPlace = myBid ? bids.find(b => b.id === myBid.id)?.winnerPlace : null
+
         return (
           <>
+          {/* Participant: show their submission prominently */}
+          {!isCreator && mySubmission && (
+            <div className="mb-6 rounded-xl border border-k-border bg-surface overflow-hidden">
+              <div className="flex items-center justify-between border-b border-k-border px-4 py-3">
+                <h3 className="text-sm font-semibold text-white">Your Submission</h3>
+                {myWinPlace ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
+                    🏆 {myWinPlace <= 3 ? ['1st', '2nd', '3rd'][myWinPlace - 1] : `${myWinPlace}th`} Place Winner
+                  </span>
+                ) : myBid && bids.find(b => b.id === myBid.id)?.status === 'REJECTED' ? (
+                  <span className="inline-flex items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400">
+                    Not Selected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+                    Under Review
+                  </span>
+                )}
+              </div>
+              <div className="p-4">
+                {myXUrl && (
+                  <XPostEmbed
+                    url={myXUrl}
+                    className="mb-4"
+                    postText={mySubmission.postText}
+                    postMedia={mySubmission.postMedia}
+                    authorUsername={mySubmission.postAuthorUsername}
+                    authorName={mySubmission.postAuthorName}
+                    authorProfilePic={mySubmission.postAuthorProfilePic}
+                  />
+                )}
+                {mySubmission.viewCount != null && (mySubmission.viewCount + (mySubmission.likeCount ?? 0) + (mySubmission.retweetCount ?? 0) + (mySubmission.commentCount ?? 0)) > 0 && (
+                  <div className="mb-4 grid grid-cols-4 gap-3">
+                    {[
+                      { label: 'Views', value: mySubmission.viewCount },
+                      { label: 'Likes', value: mySubmission.likeCount ?? 0 },
+                      { label: 'Retweets', value: mySubmission.retweetCount ?? 0 },
+                      { label: 'Replies', value: mySubmission.commentCount ?? 0 },
+                    ].map(m => (
+                      <div key={m.label} className="rounded-lg border border-k-border bg-zinc-900/50 px-3 py-2 text-center">
+                        <p className="text-lg font-semibold text-zinc-100">{m.value.toLocaleString()}</p>
+                        <p className="text-[11px] text-zinc-500">{m.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {myDescWithoutUrl && (
+                  <p className="whitespace-pre-wrap text-sm text-zinc-400">{myDescWithoutUrl}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {isCreator && (
             <CompetitionSubmissionsTable
               submissions={submissions}

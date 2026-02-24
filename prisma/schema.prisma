@@ -301,6 +301,11 @@ model Submission {
   attachments   Json?     // Array of { url, key, contentType, size, filename }
   postUrl       String?
   xPostId       String?
+  postText      String?
+  postMedia     Json?     // Array of { type, url?, previewImageUrl? }
+  postAuthorName String?
+  postAuthorUsername String?
+  postAuthorProfilePic String?
   viewCount     Int?
   likeCount     Int?
   retweetCount  Int?
