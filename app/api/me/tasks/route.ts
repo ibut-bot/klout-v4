@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       budgetLamports: t.budgetLamports.toString(),
       taskType: t.taskType,
       paymentToken: t.paymentToken,
-      status: t.status,
+      status: t.taskType === 'CAMPAIGN' && t.status === 'OPEN' && t.campaignConfig && t.campaignConfig.budgetRemainingLamports <= 0 ? 'COMPLETED' : t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,
       creatorProfilePic: t.creator.profilePicUrl,

@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         customTokenSymbol: t.customTokenSymbol,
         customTokenDecimals: t.customTokenDecimals,
         customTokenLogoUri: t.customTokenLogoUri,
-        status: t.status,
+        status: t.status === 'OPEN' && t.campaignConfig && t.campaignConfig.budgetRemainingLamports <= 0 ? 'COMPLETED' : t.status,
         creatorWallet: t.creator.walletAddress,
         creatorUsername: t.creator.username,
         creatorProfilePic: t.creator.profilePicUrl,

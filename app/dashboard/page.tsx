@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import Link from 'next/link'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -506,6 +506,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
           </>
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-600">
+            {editable ? (
             <button
               onClick={() => setEditMode('image')}
               className="flex flex-col items-center gap-1 text-zinc-500 hover:text-accent transition"
@@ -515,6 +516,9 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               </svg>
               <span className="text-xs">Add Image</span>
             </button>
+            ) : (
+              <span className="text-xs text-zinc-600">No image</span>
+            )}
           </div>
         )}
 
@@ -797,6 +801,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               <Link href={`/tasks/${task.id}`} className="hover:underline min-w-0">
                 <h3 className="font-semibold text-zinc-100 truncate">{task.title}</h3>
               </Link>
+              {editable && (
               <button
                 onClick={() => {
                   setEditDescription(task.description)
@@ -819,6 +824,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               >
                 Edit
               </button>
+              )}
             </div>
 
             {/* Budget Progress */}
@@ -862,13 +868,11 @@ export default function DashboardPage() {
   const { isAuthenticated, connected, wallet, authFetch } = useAuth()
   const [myTasks, setMyTasks] = useState<Task[]>([])
   const [myBids, setMyBids] = useState<Bid[]>([])
+  const [sharedTasks, setSharedTasks] = useState<Task[]>([])
   const [loadingTasks, setLoadingTasks] = useState(true)
   const [loadingBids, setLoadingBids] = useState(true)
-  const [activeTab, setActiveTab] = useState<'tasks' | 'bids'>('tasks')
-  const [submitters, setSubmitters] = useState<{ username: string; profilePicUrl: string | null }[]>([])
-  const [selectedSubmitter, setSelectedSubmitter] = useState('')
-  const [submitterDropdownOpen, setSubmitterDropdownOpen] = useState(false)
-  const submitterDropdownRef = useRef<HTMLDivElement>(null)
+  const [loadingShared, setLoadingShared] = useState(true)
+  const [activeTab, setActiveTab] = useState<'tasks' | 'bids' | 'shared'>('tasks')
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -876,9 +880,7 @@ export default function DashboardPage() {
     const fetchTasks = async () => {
       setLoadingTasks(true)
       try {
-        const params = new URLSearchParams({ limit: '50', taskType: 'CAMPAIGN' })
-        if (selectedSubmitter) params.set('submitterUsername', selectedSubmitter)
-        const res = await authFetch(`/api/me/tasks?${params}`)
+        const res = await authFetch('/api/me/tasks?limit=50&taskType=CAMPAIGN')
         const data = await res.json()
         if (data.success) {
           setMyTasks(data.tasks)
@@ -905,28 +907,25 @@ export default function DashboardPage() {
       }
     }
 
-    fetchTasks()
-    fetchBids()
-  }, [isAuthenticated, authFetch, selectedSubmitter])
-
-  useEffect(() => {
-    if (!isAuthenticated) return
-    authFetch('/api/me/tasks/submitters')
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setSubmitters(d.submitters) })
-      .catch(() => {})
-  }, [isAuthenticated, authFetch])
-
-  useEffect(() => {
-    if (!submitterDropdownOpen) return
-    const handleClick = (e: MouseEvent) => {
-      if (submitterDropdownRef.current && !submitterDropdownRef.current.contains(e.target as Node)) {
-        setSubmitterDropdownOpen(false)
+    const fetchShared = async () => {
+      setLoadingShared(true)
+      try {
+        const res = await authFetch('/api/me/shared-campaigns?limit=50')
+        const data = await res.json()
+        if (data.success) {
+          setSharedTasks(data.tasks)
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoadingShared(false)
       }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [submitterDropdownOpen])
+
+    fetchTasks()
+    fetchBids()
+    fetchShared()
+  }, [isAuthenticated, authFetch])
 
   if (!isAuthenticated) {
     return (
@@ -939,19 +938,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <Link
-          href="/tasks/new"
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:bg-accent-hover text-center sm:text-left"
-        >
-          Create Campaign
-        </Link>
-      </div>
-
-      <div className="mb-6 rounded-lg bg-surface border border-k-border px-4 py-3 text-sm text-zinc-400 overflow-hidden">
-        Wallet: <Link href={`/u/${wallet}`} className="font-mono hover:text-accent break-all">{wallet}</Link>
-      </div>
+      <div className="mb-8" />
 
       {/* Tabs */}
       <div className="mb-6 flex gap-2 border-b border-k-border">
@@ -975,57 +962,17 @@ export default function DashboardPage() {
         >
           My Submissions ({myBids.length})
         </button>
+        <button
+          onClick={() => setActiveTab('shared')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'shared'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          Shared with me ({sharedTasks.length})
+        </button>
       </div>
-
-      {/* Submitter Filter */}
-      {activeTab === 'tasks' && submitters.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-xs text-zinc-500">Filter by submitter:</span>
-          <div className="relative" ref={submitterDropdownRef}>
-            <button
-              onClick={() => setSubmitterDropdownOpen(!submitterDropdownOpen)}
-              className="flex items-center gap-2 rounded-lg border border-k-border bg-surface px-3 py-1.5 text-sm text-zinc-300 hover:border-accent/40 transition-colors min-w-[160px]"
-            >
-              <span className="flex-1 text-left truncate">
-                {selectedSubmitter || 'All submitters'}
-              </span>
-              <svg className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${submitterDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {submitterDropdownOpen && (
-              <div className="absolute z-20 mt-1 max-h-60 w-full min-w-[200px] overflow-y-auto rounded-lg border border-k-border bg-zinc-900 shadow-xl">
-                <button
-                  onClick={() => { setSelectedSubmitter(''); setSubmitterDropdownOpen(false) }}
-                  className={`w-full px-3 py-2 text-left text-sm hover:bg-zinc-800 transition-colors ${!selectedSubmitter ? 'text-accent font-medium' : 'text-zinc-300'}`}
-                >
-                  All submitters
-                </button>
-                {submitters.map((s) => (
-                  <button
-                    key={s.username}
-                    onClick={() => { setSelectedSubmitter(s.username); setSubmitterDropdownOpen(false) }}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-800 transition-colors ${selectedSubmitter === s.username ? 'text-accent font-medium' : 'text-zinc-300'}`}
-                  >
-                    {s.profilePicUrl && (
-                      <img src={s.profilePicUrl} alt="" className="h-5 w-5 rounded-full" />
-                    )}
-                    <span className="truncate">@{s.username}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {selectedSubmitter && (
-            <button
-              onClick={() => setSelectedSubmitter('')}
-              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      )}
 
       {/* My Campaigns Tab */}
       {activeTab === 'tasks' && (
@@ -1119,6 +1066,35 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Shared with me Tab */}
+      {activeTab === 'shared' && (
+        <section>
+          {loadingShared ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-36 animate-pulse rounded-xl bg-surface" />
+              ))}
+            </div>
+          ) : sharedTasks.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-k-border p-8 text-center">
+              <p className="text-zinc-500">No campaigns have been shared with you yet.</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sharedTasks.map((task) => (
+                <CampaignCard
+                  key={task.id}
+                  task={task}
+                  editable={false}
+                  authFetch={authFetch}
+                  onTaskUpdate={() => {}}
+                />
               ))}
             </div>
           )}

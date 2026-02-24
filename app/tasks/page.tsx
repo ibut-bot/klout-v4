@@ -33,17 +33,17 @@ interface Task {
   createdAt: string
 }
 
-const STATUSES = ['all', 'open', 'paused', 'completed']
+const STATUSES = ['open', 'paused', 'completed']
 
-type TaskTypeTab = 'CAMPAIGN' | 'COMPETITION'
+type TaskTypeTab = 'ALL' | 'CAMPAIGN' | 'COMPETITION'
 type ViewMode = 'all' | 'my_tasks' | 'my_bids' | 'shared'
 
 export default function TasksPage() {
   const { isAuthenticated, authFetch, wallet } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState('all')
-  const [taskTypeTab, setTaskTypeTab] = useState<TaskTypeTab>('CAMPAIGN')
+  const [status, setStatus] = useState('open')
+  const [taskTypeTab, setTaskTypeTab] = useState<TaskTypeTab>('ALL')
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -55,7 +55,8 @@ export default function TasksPage() {
       let data: any
 
       if (viewMode === 'my_tasks' && isAuthenticated) {
-        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: taskTypeTab })
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (taskTypeTab !== 'ALL') params.set('taskType', taskTypeTab)
         if (status !== 'all') params.set('status', status)
         const res = await authFetch(`/api/me/tasks?${params}`)
         data = await res.json()
@@ -109,7 +110,8 @@ export default function TasksPage() {
           data = bidsData
         }
       } else {
-        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: taskTypeTab })
+        const params = new URLSearchParams({ page: String(page), limit: '20' })
+        if (taskTypeTab !== 'ALL') params.set('taskType', taskTypeTab)
         if (status !== 'all') params.set('status', status)
         const res = await fetch(`/api/tasks?${params}`)
         data = await res.json()
@@ -153,8 +155,28 @@ export default function TasksPage() {
 
   return (
     <div>
+      {/* Hero */}
+      <section className="mb-8 sm:mb-12 text-center">
+        <h1 className="mb-4 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+          Monetize your <span className="text-accent">Klout</span>
+        </h1>
+        <p className="mx-auto mb-8 max-w-xl text-lg text-zinc-400">
+          Get paid to promote brands and products to your audience.
+        </p>
+      </section>
+
       {/* Task Type Tabs */}
       <div className="mb-6 flex gap-1 rounded-lg bg-surface p-1 border border-k-border w-fit">
+        <button
+          onClick={() => { setTaskTypeTab('ALL'); setPage(1); setStatus('all') }}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            taskTypeTab === 'ALL'
+              ? 'bg-accent text-black'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          All
+        </button>
         <button
           onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('all') }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
@@ -177,62 +199,14 @@ export default function TasksPage() {
         </button>
       </div>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-white">{taskTypeTab === 'COMPETITION' ? 'Browse Competitions' : 'Browse Campaigns'}</h1>
-        
-        {/* View Mode Toggle (only when authenticated) */}
-        {isAuthenticated && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setViewMode('all'); setPage(1); setStatus('all') }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === 'all'
-                  ? 'bg-accent text-black'
-                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
-              }`}
-            >
-              {taskTypeTab === 'COMPETITION' ? 'All Competitions' : 'All Campaigns'}
-            </button>
-            <button
-              onClick={() => { setViewMode('my_tasks'); setPage(1); setStatus('all') }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === 'my_tasks'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
-              }`}
-            >
-              {taskTypeTab === 'COMPETITION' ? 'My Competitions' : 'My Campaigns'}
-            </button>
-            <button
-              onClick={() => { setViewMode('my_bids'); setPage(1); setStatus('all') }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === 'my_bids'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
-              }`}
-            >
-              My Submissions
-            </button>
-            <button
-              onClick={() => { setViewMode('shared'); setPage(1); setStatus('all') }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                viewMode === 'shared'
-                  ? 'bg-indigo-500 text-white'
-                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
-              }`}
-            >
-              Shared with Me
-            </button>
-          </div>
-        )}
-      </div>
+      <div className="mb-6" />
 
       {/* Status Filter */}
       <div className="mb-6 flex flex-wrap gap-2">
         {STATUSES.map((s) => (
           <button
             key={s}
-            onClick={() => { setStatus(s); setPage(1) }}
+            onClick={() => { setStatus(status === s ? 'all' : s); setPage(1) }}
             className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
               status === s
                 ? 'bg-accent text-black'
@@ -245,23 +219,6 @@ export default function TasksPage() {
       </div>
 
 
-      {/* Info banner for personal views */}
-      {viewMode === 'my_tasks' && (
-        <div className="mb-4 rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-2 text-sm text-blue-400">
-          Showing campaigns you created. <Link href="/dashboard" className="underline hover:no-underline">Go to Dashboard</Link> for more details.
-        </div>
-      )}
-      {viewMode === 'my_bids' && (
-        <div className="mb-4 rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-2 text-sm text-green-400">
-          Showing campaigns you&apos;ve submitted to. <Link href="/dashboard" className="underline hover:no-underline">Go to Dashboard</Link> for submission details.
-        </div>
-      )}
-      {viewMode === 'shared' && (
-        <div className="mb-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm text-indigo-400">
-          Campaigns shared with you by their creators. Click a campaign to view its dashboard.
-        </div>
-      )}
-
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
@@ -271,19 +228,8 @@ export default function TasksPage() {
       ) : tasks.length === 0 ? (
         <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
           <p className="text-zinc-500 mb-4">
-            {viewMode === 'my_tasks' && `You haven't created any ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} yet.`}
-            {viewMode === 'my_bids' && `You haven't submitted to any ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} yet.`}
-            {viewMode === 'shared' && `No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} have been shared with you yet.`}
-            {viewMode === 'all' && `No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} found.`}
+            {`No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} found.`}
           </p>
-          {viewMode === 'my_tasks' && (
-            <Link
-              href="/tasks/new"
-              className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
-            >
-              {taskTypeTab === 'COMPETITION' ? 'Create Your First Competition' : 'Create Your First Campaign'}
-            </Link>
-          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

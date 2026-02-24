@@ -28,17 +28,27 @@ export async function GET(request: NextRequest) {
   const where: any = {}
   if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
+  } else {
+    where.taskType = { in: ['CAMPAIGN', 'COMPETITION'] }
   }
+  const includesCampaigns = !taskType || taskType === 'CAMPAIGN'
   if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED', 'PAUSED'].includes(status)) {
-    if (taskType === 'CAMPAIGN') {
+    if (includesCampaigns) {
       if (status === 'COMPLETED') {
         where.OR = [
           { status: 'COMPLETED' },
-          { campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
+          { taskType: 'CAMPAIGN', campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
         ]
       } else if (status === 'OPEN') {
-        where.status = 'OPEN'
-        where.campaignConfig = { budgetRemainingLamports: { gt: 0 } }
+        where.AND = [
+          { status: 'OPEN' },
+          {
+            OR: [
+              { taskType: { not: 'CAMPAIGN' } },
+              { campaignConfig: { budgetRemainingLamports: { gt: 0 } } },
+            ],
+          },
+        ]
       } else {
         where.status = status
       }
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
       customTokenSymbol: t.customTokenSymbol,
       customTokenDecimals: t.customTokenDecimals,
       customTokenLogoUri: t.customTokenLogoUri,
-      status: t.status,
+      status: t.taskType === 'CAMPAIGN' && t.status === 'OPEN' && t.campaignConfig && t.campaignConfig.budgetRemainingLamports <= 0 ? 'COMPLETED' : t.status,
       creatorWallet: t.creator.walletAddress,
       creatorUsername: t.creator.username,
       creatorProfilePic: t.creator.profilePicUrl,
