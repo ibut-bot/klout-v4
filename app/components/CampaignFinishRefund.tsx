@@ -5,8 +5,11 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 import { getVaultPda, createProposalApproveExecuteWA } from '@/lib/solana/multisig'
-import { createProposalApproveExecuteSplWA, USDC_MINT, getVaultSplBalance } from '@/lib/solana/spl-token'
+import { createProposalApproveExecuteSplWA, USDC_MINT, getAta } from '@/lib/solana/spl-token'
+import { getAccount } from '@solana/spl-token'
 import { type PaymentTokenType, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
+
+const SOL_RENT_EXEMPT_MIN = 890_880
 
 interface Props {
   taskId: string
@@ -36,37 +39,46 @@ export default function CampaignFinishRefund({
   const wallet = useWallet()
   const [step, setStep] = useState<'loading' | 'confirm' | 'refunding' | 'finalizing'>('loading')
   const [error, setError] = useState('')
-  const [vaultBalance, setVaultBalance] = useState<number>(0)
+  const [refundAmount, setRefundAmount] = useState(0)
 
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const dbRemaining = Number(budgetRemainingLamports)
-  const refundAmount = Math.min(vaultBalance, dbRemaining)
   const hasRefund = refundAmount > 0
   const displayAmount = formatTokenAmount(String(refundAmount), tInfo, 2)
 
   useEffect(() => {
-    const fetchVaultBalance = async () => {
+    const calcRefund = async () => {
+      if (dbRemaining <= 0) {
+        setRefundAmount(0)
+        setStep('confirm')
+        return
+      }
+
       try {
         const msigPda = new PublicKey(multisigAddress)
+
         if (paymentToken === 'SOL') {
           const vaultPda = getVaultPda(msigPda)
-          const balance = await connection.getBalance(vaultPda)
-          setVaultBalance(balance)
+          const vaultBalance = await connection.getBalance(vaultPda)
+          const safeRefund = Math.min(dbRemaining, Math.max(0, vaultBalance - 2_000_000))
+          setRefundAmount(safeRefund)
         } else {
           const mint = paymentToken === 'CUSTOM' && customTokenMint
             ? new PublicKey(customTokenMint)
             : USDC_MINT
-          const decimals = customTokenDecimals ?? 6
-          const { balance } = await getVaultSplBalance(connection, msigPda, mint, decimals)
-          setVaultBalance(Math.floor(balance * 10 ** decimals))
+          const vaultPda = getVaultPda(msigPda)
+          const vaultAta = getAta(vaultPda, mint)
+          const account = await getAccount(connection, vaultAta)
+          const vaultSplBalance = Number(account.amount)
+          setRefundAmount(Math.min(dbRemaining, vaultSplBalance))
         }
       } catch {
-        setVaultBalance(0)
+        setRefundAmount(dbRemaining)
       }
       setStep('confirm')
     }
-    fetchVaultBalance()
-  }, [connection, multisigAddress, paymentToken, customTokenMint, customTokenDecimals])
+    calcRefund()
+  }, [connection, multisigAddress, paymentToken, dbRemaining, customTokenMint])
 
   const handleFinish = async () => {
     if (!wallet.publicKey || !wallet.signTransaction) return
@@ -149,13 +161,7 @@ export default function CampaignFinishRefund({
                   This will withdraw <span className="font-semibold text-accent">{displayAmount} {tInfo.symbol}</span> from the escrow vault back to your wallet and mark the campaign as completed.
                 </p>
               ) : (
-                <p>The vault has no remaining funds to refund. This will mark the campaign as completed.</p>
-              )}
-              {hasRefund && vaultBalance !== dbRemaining && (
-                <p className="text-xs text-zinc-500">
-                  On-chain vault balance: {formatTokenAmount(String(vaultBalance), tInfo, 4)} {tInfo.symbol}
-                  {vaultBalance > dbRemaining && ' (includes pending payment obligations)'}
-                </p>
+                <p>The campaign budget is fully allocated. This will mark the campaign as completed.</p>
               )}
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
                 <p className="font-medium mb-1">What happens:</p>

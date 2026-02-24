@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
+import { useConnection } from '@solana/wallet-adapter-react'
+import { getAccount } from '@solana/spl-token'
 import { useAuth } from '../hooks/useAuth'
+import { getVaultPda } from '@/lib/solana/multisig'
+import { getAta, USDC_MINT } from '@/lib/solana/spl-token'
 import CampaignPayButton from './CampaignPayButton'
 import CampaignPayBundle from './CampaignPayBundle'
 import CampaignRejectButton from './CampaignRejectButton'
@@ -164,6 +168,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [pauseLoading, setPauseLoading] = useState(false)
   const [pauseError, setPauseError] = useState('')
   const [finishOpen, setFinishOpen] = useState(false)
+  const [onChainRemaining, setOnChainRemaining] = useState<string | null>(null)
+  const { connection } = useConnection()
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -1247,14 +1253,39 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     fetchData()
   }, [fetchData, refreshTrigger])
 
+  useEffect(() => {
+    if (!multisigAddress || !stats) return
+    const fetchVaultBalance = async () => {
+      try {
+        const msigPda = new PublicKey(multisigAddress)
+        const vaultPda = getVaultPda(msigPda)
+        if (paymentToken === 'SOL') {
+          const bal = await connection.getBalance(vaultPda)
+          setOnChainRemaining(String(bal))
+        } else {
+          const mint = paymentToken === 'CUSTOM' && customTokenMint
+            ? new PublicKey(customTokenMint)
+            : USDC_MINT
+          const vaultAta = getAta(vaultPda, mint)
+          const account = await getAccount(connection, vaultAta)
+          setOnChainRemaining(String(account.amount))
+        }
+      } catch {
+        setOnChainRemaining(null)
+      }
+    }
+    fetchVaultBalance()
+  }, [connection, multisigAddress, paymentToken, customTokenMint, stats])
+
   if (loading) {
     return <div className="animate-pulse rounded-xl border border-zinc-200 p-6 border-k-border h-48" />
   }
 
   if (!stats) return null
 
+  const effectiveRemaining = onChainRemaining ?? stats.budgetRemainingLamports
   const budgetPct = Number(stats.totalBudgetLamports) > 0
-    ? ((Number(stats.totalBudgetLamports) - Number(stats.budgetRemainingLamports)) / Number(stats.totalBudgetLamports)) * 100
+    ? ((Number(stats.totalBudgetLamports) - Number(effectiveRemaining)) / Number(stats.totalBudgetLamports)) * 100
     : 0
 
   const myApprovedPayout = Number(stats.myApprovedPayoutLamports || '0')
@@ -1262,7 +1293,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const myBudgetCap = Number(stats.myBudgetCapLamports || '0')
   const capReached = myBudgetCap > 0 && myTotalEarned >= myBudgetCap
   const capProgress = myBudgetCap > 0 ? Math.min((myTotalEarned / myBudgetCap) * 100, 100) : 0
-  const budgetRemaining = Number(stats.budgetRemainingLamports || '0')
+  const budgetRemaining = Number(effectiveRemaining || '0')
   const cappedPayout = Math.min(myApprovedPayout, budgetRemaining)
   const minPayoutThreshold = Number(stats.minPayoutLamports || '0')
   const canRequestPayment = !isCreator && !isSharedViewer && cappedPayout > 0 && !capReached && (minPayoutThreshold === 0 || myApprovedPayout >= minPayoutThreshold)
@@ -1464,7 +1495,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         <CampaignFinishRefund
           taskId={taskId}
           multisigAddress={multisigAddress}
-          budgetRemainingLamports={stats?.budgetRemainingLamports || '0'}
+          budgetRemainingLamports={effectiveRemaining || '0'}
           paymentToken={paymentToken}
           customTokenMint={customTokenMint}
           customTokenSymbol={customTokenSymbol}
@@ -1486,7 +1517,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Remaining</p>
-            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(stats.budgetRemainingLamports, tInfo, 0)} {sym}</p>
+            <p className="text-lg font-semibold text-zinc-100">{formatTokenAmount(effectiveRemaining, tInfo, 0)} {sym}</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
             <p className="text-xs text-zinc-500">Total Views</p>

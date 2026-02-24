@@ -131,9 +131,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 6. Scale 0–1,000 → 0–10,000 and apply ±5% random deviation
+  // 6. Scale 0–1,000 → 0–10,000, apply ±5% deviation, and penalize non-blue-tick users by 90%
   const scaledScore = wallchainScore * 10
-  const totalScore = applyScoreDeviation(scaledScore)
+  let totalScore = applyScoreDeviation(scaledScore)
+  if (profile.verifiedType !== 'blue') {
+    totalScore = Math.round(totalScore * 0.10)
+  }
   const qualityScore = totalScore / 10_000
 
   // 7. Generate buffed profile image using X profile pic as base reference

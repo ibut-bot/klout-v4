@@ -138,7 +138,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       data: {
         status: 'REJECTED',
-        rejectionReason: 'Campaign was finished by the creator. Remaining budget has been refunded.',
+        rejectionReason: 'Campaign finished.',
       },
     })
   })
