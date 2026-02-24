@@ -116,6 +116,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
+  if (task.status === 'PAUSED') {
+    return Response.json(
+      { success: false, error: 'CAMPAIGN_PAUSED', message: 'This campaign is currently paused and not accepting submissions' },
+      { status: 400 }
+    )
+  }
+
   if (task.status !== 'OPEN') {
     return Response.json(
       { success: false, error: 'TASK_CLOSED', message: 'This campaign is no longer accepting submissions' },

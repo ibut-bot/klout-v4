@@ -100,6 +100,7 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: 'bg-zinc-700/50 text-zinc-400',
   DISPUTED: 'bg-red-500/20 text-red-400',
   CANCELLED: 'bg-zinc-700/50 text-zinc-500',
+  PAUSED: 'bg-amber-500/20 text-amber-400',
 }
 
 function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {

@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const skip = (page - 1) * limit
 
   const shareWhere: any = { sharedWithId: userId }
-  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
+  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'PAUSED'].includes(status)) {
     shareWhere.task = { status }
   }
 

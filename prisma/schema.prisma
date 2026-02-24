@@ -26,6 +26,7 @@ enum TaskStatus {
   COMPLETED
   DISPUTED
   CANCELLED
+  PAUSED
 
   @@schema("slopwork")
 }

@@ -117,6 +117,7 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: 'bg-zinc-700/50 text-zinc-400',
   DISPUTED: 'bg-red-500/20 text-red-400',
   CANCELLED: 'bg-zinc-700/50 text-zinc-500',
+  PAUSED: 'bg-amber-500/20 text-amber-400',
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -671,6 +672,8 @@ export default function TaskDetailPage() {
               customTokenMint={task.customTokenMint}
               customTokenSymbol={task.customTokenSymbol}
               customTokenDecimals={task.customTokenDecimals}
+              taskStatus={task.status}
+              onStatusChange={(newStatus) => { setTask({ ...task, status: newStatus }); fetchTask() }}
             />
           )}
 
@@ -685,6 +688,14 @@ export default function TaskDetailPage() {
                   <span>Contract:</span> <code className="text-xs text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded font-mono break-all">{task.customTokenMint}</code>
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Paused banner */}
+          {task.status === 'PAUSED' && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-300 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              <span className="font-medium">This campaign is paused and not accepting new submissions.</span>
             </div>
           )}
 

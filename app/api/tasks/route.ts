@@ -29,16 +29,14 @@ export async function GET(request: NextRequest) {
   if (taskType && ['QUOTE', 'COMPETITION', 'CAMPAIGN'].includes(taskType)) {
     where.taskType = taskType
   }
-  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
+  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED', 'PAUSED'].includes(status)) {
     if (taskType === 'CAMPAIGN') {
       if (status === 'COMPLETED') {
-        // Completed = explicitly completed OR budget exhausted
         where.OR = [
           { status: 'COMPLETED' },
           { campaignConfig: { budgetRemainingLamports: { lte: 0 } } },
         ]
       } else if (status === 'OPEN') {
-        // Open = status is OPEN AND budget is NOT exhausted
         where.status = 'OPEN'
         where.campaignConfig = { budgetRemainingLamports: { gt: 0 } }
       } else {

@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import CampaignPayButton from './CampaignPayButton'
 import CampaignPayBundle from './CampaignPayBundle'
 import CampaignRejectButton from './CampaignRejectButton'
+import CampaignFinishRefund from './CampaignFinishRefund'
 import { type PaymentTokenType, type TokenInfo, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -76,6 +77,8 @@ interface Props {
   customTokenMint?: string | null
   customTokenSymbol?: string | null
   customTokenDecimals?: number | null
+  taskStatus?: string
+  onStatusChange?: (newStatus: string) => void
 }
 
 function formatSol(lamports: string | number, decimals = 4): string {
@@ -110,7 +113,7 @@ const STATUS_BADGE: Record<string, string> = {
   PAYMENT_FAILED: 'bg-red-500/20 text-red-400',
 }
 
-export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals, taskStatus, onStatusChange }: Props) {
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const { authFetch } = useAuth()
@@ -158,6 +161,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [userModalPage, setUserModalPage] = useState(1)
   const [userModalTotalPages, setUserModalTotalPages] = useState(1)
   const [userModalTotal, setUserModalTotal] = useState(0)
+  const [pauseLoading, setPauseLoading] = useState(false)
+  const [pauseError, setPauseError] = useState('')
+  const [finishOpen, setFinishOpen] = useState(false)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -218,6 +224,28 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         setSharedUsers((prev) => prev.filter((u) => u.userId !== userId))
       }
     } catch {}
+  }
+
+  const handlePauseResume = async () => {
+    const action = taskStatus === 'PAUSED' ? 'resume' : 'pause'
+    setPauseLoading(true)
+    setPauseError('')
+    try {
+      const res = await authFetch(`/api/tasks/${taskId}/pause`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setPauseError(data.message || 'Failed to update campaign status')
+      } else {
+        onStatusChange?.(data.status)
+      }
+    } catch {
+      setPauseError('Network error')
+    }
+    setPauseLoading(false)
   }
 
   const fetchExportData = async () => {
@@ -1398,6 +1426,58 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         )}
         </>
       )}
+      {/* Campaign Actions (pause/resume/finish) */}
+      {isCreator && (taskStatus === 'OPEN' || taskStatus === 'PAUSED') && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handlePauseResume}
+            disabled={pauseLoading}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
+              taskStatus === 'PAUSED'
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-amber-600 text-white hover:bg-amber-700'
+            }`}
+          >
+            {pauseLoading
+              ? (taskStatus === 'PAUSED' ? 'Resuming...' : 'Pausing...')
+              : (taskStatus === 'PAUSED' ? 'Resume Campaign' : 'Pause Campaign')
+            }
+          </button>
+          <button
+            onClick={() => setFinishOpen(true)}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+          >
+            Finish &amp; Refund Remainder
+          </button>
+          {pauseError && <p className="text-xs text-red-400">{pauseError}</p>}
+          {taskStatus === 'PAUSED' && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              Campaign is paused — no new submissions accepted
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Finish & Refund Modal */}
+      {finishOpen && (
+        <CampaignFinishRefund
+          taskId={taskId}
+          multisigAddress={multisigAddress}
+          budgetRemainingLamports={stats?.budgetRemainingLamports || '0'}
+          paymentToken={paymentToken}
+          customTokenMint={customTokenMint}
+          customTokenSymbol={customTokenSymbol}
+          customTokenDecimals={customTokenDecimals}
+          onClose={() => setFinishOpen(false)}
+          onFinished={() => {
+            setFinishOpen(false)
+            onStatusChange?.('COMPLETED')
+            fetchData()
+          }}
+        />
+      )}
+
       {(isCreator || isSharedViewer) && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">

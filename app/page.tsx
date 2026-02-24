@@ -34,7 +34,7 @@ interface Task {
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'open' | 'completed'>('open')
+  const [filter, setFilter] = useState<'open' | 'paused' | 'completed'>('open')
   const { wallet, authFetch, isAuthenticated } = useAuth()
 
   useEffect(() => {
@@ -101,6 +101,12 @@ export default function Home() {
               Open
             </button>
             <button
+              onClick={() => setFilter('paused')}
+              className={`text-2xl font-semibold transition ${filter === 'paused' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
+            >
+              Paused
+            </button>
+            <button
               onClick={() => setFilter('completed')}
               className={`text-2xl font-semibold transition ${filter === 'completed' ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'}`}
             >
@@ -121,7 +127,7 @@ export default function Home() {
         ) : tasks.length === 0 ? (
           <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
             <p className="text-zinc-500">
-              {filter === 'open' ? 'No open campaigns yet. Be the first to post one!' : 'No completed campaigns yet.'}
+              {filter === 'open' ? 'No open campaigns yet. Be the first to post one!' : filter === 'paused' ? 'No paused campaigns.' : 'No completed campaigns yet.'}
             </p>
           </div>
         ) : (

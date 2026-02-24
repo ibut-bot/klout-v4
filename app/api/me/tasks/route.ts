@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       some: { submitter: { username: submitterUsername } },
     }
   }
-  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED'].includes(status)) {
+  if (status && ['OPEN', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED', 'CANCELLED', 'PAUSED'].includes(status)) {
     // For CAMPAIGN tasks with COMPLETED filter, also include budget-exhausted campaigns
     if (status === 'COMPLETED' && taskType === 'CAMPAIGN') {
       where.OR = [
