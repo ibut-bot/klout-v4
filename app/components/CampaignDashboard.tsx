@@ -151,7 +151,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
   const [postSearch, setPostSearch] = useState('')
   const [postSearchOpen, setPostSearchOpen] = useState(false)
   const [debouncedPostSearch, setDebouncedPostSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('PAYMENT_REQUESTED')
+  const [statusFilter, setStatusFilter] = useState('')
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef<HTMLDivElement>(null)
   const [submitterSearch, setSubmitterSearch] = useState('')

@@ -6,7 +6,7 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { generateBuffedProfileImage } from '@/lib/fal'
 import { getRandomQuote, getScoreTierTitle as getScoreLabel } from '@/lib/score-tiers'
 import { getTotalReferralCount, getCurrentTier, isReferralProgramActive } from '@/lib/referral'
-import { fetchWallchainScore, applyScoreDeviation } from '@/lib/wallchain'
+import { fetchWallchainScore, applyScoreDeviation, followRatioMultiplier } from '@/lib/wallchain'
 
 export const maxDuration = 60
 
@@ -115,12 +115,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 6. Scale 0–1,000 → 0–10,000, apply ±5% deviation, and penalize non-blue-tick users by 90%
+  // 6. Scale 0–1,000 → 0–10,000, apply ±5% deviation, penalties for no blue tick and follow ratio
   const scaledScore = wallchainScore * 10
   let totalScore = applyScoreDeviation(scaledScore)
   if (profile.verifiedType !== 'blue') {
     totalScore = Math.round(totalScore * 0.10)
   }
+  totalScore = Math.round(totalScore * followRatioMultiplier(profile.followersCount, profile.followingCount))
   const qualityScore = totalScore / 10_000
 
   // 7. Generate buffed profile image using X profile pic as base reference

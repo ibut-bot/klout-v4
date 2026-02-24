@@ -54,6 +54,22 @@ export function applyScoreDeviation(baseScore: number): number {
   return Math.max(0, Math.min(10_000, Math.round(baseScore * deviation)))
 }
 
+/**
+ * Penalty based on following/followers ratio:
+ *   ratio <= 0.5  → no penalty (×1.0)
+ *   ratio  = 0.5  → 25% penalty (×0.75)
+ *   ratio  = 1.0+ → 75% penalty (×0.25)
+ *   between 0.5–1.0 → linear gradient from ×0.75 → ×0.25
+ */
+export function followRatioMultiplier(followers: number, following: number): number {
+  if (followers === 0) return 0.25
+  const ratio = following / followers
+  if (ratio <= 0.5) return 1.0
+  if (ratio >= 1.0) return 0.25
+  const t = (ratio - 0.5) / 0.5
+  return 0.75 - t * 0.50
+}
+
 export async function closeBrowser(): Promise<void> {
   if (browserInstance) {
     await browserInstance.close()
