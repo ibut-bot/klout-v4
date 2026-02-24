@@ -58,8 +58,8 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
   const postTextClean = item.postText?.replace(/https:\/\/t\.co\/\w+/g, '').trim()
 
   return (
-    <div className="relative flex h-[calc(100vh-56px)] w-full snap-start items-center justify-center bg-black">
-      {/* Media */}
+    <div className="relative h-[calc(100vh-56px)] w-full snap-start overflow-hidden bg-black">
+      {/* Media — cover on mobile, contain on desktop */}
       {videoSrc ? (
         <video
           ref={videoRef}
@@ -69,28 +69,28 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
           muted={globalMuted}
           playsInline
           preload="auto"
-          className="h-full w-full object-contain"
+          className="absolute inset-0 h-full w-full object-cover sm:object-contain"
           onClick={handleVideoClick}
         />
       ) : imgSrc ? (
-        <img src={imgSrc} alt="" className="h-full w-full object-contain" />
+        <img src={imgSrc} alt="" className="absolute inset-0 h-full w-full object-cover sm:object-contain" />
       ) : (
-        <div className="flex items-center justify-center text-zinc-600">No media</div>
+        <div className="flex h-full items-center justify-center text-zinc-600">No media</div>
       )}
 
-      {/* Mute indicator for videos */}
+      {/* Mute indicator */}
       {videoSrc && (
         <button
           onClick={handleVideoClick}
-          className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white transition hover:bg-black/70"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white transition hover:bg-black/70 sm:right-4 sm:top-4 sm:h-9 sm:w-9"
         >
           {globalMuted ? (
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
             </svg>
           ) : (
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
             </svg>
           )}
@@ -98,26 +98,26 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
       )}
 
       {/* Bottom overlay */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pb-6 pt-20">
+      <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 pb-4 pt-16 sm:px-4 sm:pb-6 sm:pt-20">
         {/* Author */}
-        <div className="mb-3 flex items-center gap-3">
+        <div className="mb-2 flex items-center gap-2 sm:mb-3 sm:gap-3">
           {item.authorProfilePic ? (
-            <img src={item.authorProfilePic} alt="" className="h-10 w-10 rounded-full border-2 border-white/20 object-cover" />
+            <img src={item.authorProfilePic} alt="" className="h-8 w-8 shrink-0 rounded-full border-2 border-white/20 object-cover sm:h-10 sm:w-10" />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/20 bg-zinc-800 text-sm font-bold text-zinc-400">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-white/20 bg-zinc-800 text-xs font-bold text-zinc-400 sm:h-10 sm:w-10 sm:text-sm">
               {(item.authorUsername || '??').slice(0, 2).toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-white sm:text-sm">
               {item.authorName || item.authorUsername || 'Anonymous'}
             </p>
             {item.authorUsername && (
-              <p className="truncate text-xs text-zinc-400">@{item.authorUsername}</p>
+              <p className="truncate text-[11px] text-zinc-400 sm:text-xs">@{item.authorUsername}</p>
             )}
           </div>
           {item.winnerPlace && (
-            <span className="ml-auto shrink-0 rounded-full bg-yellow-500/20 px-2.5 py-1 text-xs font-bold text-yellow-400">
+            <span className="shrink-0 rounded-full bg-yellow-500/20 px-2 py-0.5 text-[10px] font-bold text-yellow-400 sm:px-2.5 sm:py-1 sm:text-xs">
               {item.winnerPlace <= 3
                 ? ['1st', '2nd', '3rd'][item.winnerPlace - 1]
                 : `${item.winnerPlace}th`} Place
@@ -127,62 +127,63 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
 
         {/* Post text */}
         {postTextClean && (
-          <p className="mb-3 line-clamp-3 text-sm leading-relaxed text-zinc-200">
+          <p className="mb-2 line-clamp-2 text-xs leading-snug text-zinc-200 sm:mb-3 sm:line-clamp-3 sm:text-sm sm:leading-relaxed">
             {postTextClean}
           </p>
         )}
 
-        {/* Competition + metrics row */}
-        <div className="flex items-center justify-between">
+        {/* Competition tag */}
+        <div className="mb-1.5 sm:mb-0">
           <Link
             href={`/tasks/${item.competition.id}`}
-            className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-300 backdrop-blur-sm transition hover:bg-white/20"
+            className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-300 backdrop-blur-sm transition hover:bg-white/20 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
           >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
             </svg>
-            <span className="max-w-[140px] truncate">{item.competition.title}</span>
+            <span className="max-w-[120px] truncate sm:max-w-[180px]">{item.competition.title}</span>
           </Link>
+        </div>
 
-          <div className="flex items-center gap-4 text-xs text-zinc-400">
-            {item.viewCount > 0 && (
-              <span className="flex items-center gap-1">
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                {item.viewCount.toLocaleString()}
-              </span>
-            )}
-            {item.likeCount > 0 && (
-              <span className="flex items-center gap-1">
-                <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-                {item.likeCount.toLocaleString()}
-              </span>
-            )}
-            {item.retweetCount > 0 && (
-              <span className="flex items-center gap-1">
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {item.retweetCount.toLocaleString()}
-              </span>
-            )}
-            {item.postUrl && (
-              <a
-                href={item.postUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 transition hover:text-white"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-              </a>
-            )}
-          </div>
+        {/* Metrics row */}
+        <div className="flex items-center gap-3 text-[11px] text-zinc-400 sm:gap-4 sm:text-xs">
+          {item.viewCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              {item.viewCount.toLocaleString()}
+            </span>
+          )}
+          {item.likeCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              {item.likeCount.toLocaleString()}
+            </span>
+          )}
+          {item.retweetCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {item.retweetCount.toLocaleString()}
+            </span>
+          )}
+          {item.postUrl && (
+            <a
+              href={item.postUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto text-zinc-400 transition hover:text-white"
+            >
+              <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </a>
+          )}
         </div>
       </div>
     </div>
