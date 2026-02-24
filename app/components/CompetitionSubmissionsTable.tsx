@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { extractXPostUrl, extractTweetId } from './XPostEmbed'
 import SelectWinnerButton, { type WinnerBid } from './SelectWinnerButton'
+import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 
 interface Bid {
   id: string
@@ -52,6 +54,21 @@ interface CompetitionSubmissionsTableProps {
   onSelectBidder?: (bidderId: string) => void
 }
 
+const PLACE_LABELS = ['1st', '2nd', '3rd']
+function placeLabel(p: number) {
+  return p <= 3 ? PLACE_LABELS[p - 1] : `${p}th`
+}
+
+function resolvePostInfo(sub: SubmissionRow) {
+  if (sub.postUrl && sub.xPostId) return { url: sub.postUrl, id: sub.xPostId }
+  const fallbackUrl = extractXPostUrl(sub.description || '')
+  if (fallbackUrl) {
+    const fallbackId = extractTweetId(fallbackUrl)
+    return { url: fallbackUrl, id: fallbackId }
+  }
+  return null
+}
+
 export default function CompetitionSubmissionsTable({
   submissions,
   bids,
@@ -62,6 +79,10 @@ export default function CompetitionSubmissionsTable({
 }: CompetitionSubmissionsTableProps) {
   const [sortCol, setSortCol] = useState<SortCol>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [openPickId, setOpenPickId] = useState<string | null>(null)
+
+  const pt = (task.paymentToken as PaymentTokenType) || 'SOL'
+  const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
 
   const toggleSort = (col: SortCol) => {
     if (sortCol === col) {
@@ -73,15 +94,12 @@ export default function CompetitionSubmissionsTable({
   }
 
   const maxW = task.maxWinners || 1
-  const isMultiWinner = maxW > 1
   const awardedPlaces = bids.filter(b => b.winnerPlace != null).map(b => b.winnerPlace!)
-  const nextOpenPlace = isMultiWinner
-    ? Array.from({ length: maxW }, (_, i) => i + 1).find(p => !awardedPlaces.includes(p))
-    : awardedPlaces.includes(1) ? undefined : 1
+  const openPlaces = Array.from({ length: maxW }, (_, i) => i + 1).filter(p => !awardedPlaces.includes(p))
 
   const canAwardWinners = isCreator
-    && (isMultiWinner ? ['OPEN', 'IN_PROGRESS'].includes(task.status) : task.status === 'OPEN')
-    && nextOpenPlace !== undefined
+    && (maxW > 1 ? ['OPEN', 'IN_PROGRESS'].includes(task.status) : task.status === 'OPEN')
+    && openPlaces.length > 0
 
   const prizeForPlace = (place: number) => {
     if (task.prizeStructure && Array.isArray(task.prizeStructure)) {
@@ -117,8 +135,8 @@ export default function CompetitionSubmissionsTable({
     return rows
   }, [submissions, sortCol, sortDir])
 
-  const SortHeader = ({ col, children }: { col: SortCol; children: React.ReactNode }) => (
-    <th className="pb-2 pr-4 font-medium text-zinc-500">
+  const SortHeader = ({ col, children, className }: { col: SortCol; children: React.ReactNode; className?: string }) => (
+    <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 ${className || ''}`}>
       <button
         onClick={() => toggleSort(col)}
         className="inline-flex cursor-pointer select-none items-center gap-1 hover:text-zinc-300 transition-colors"
@@ -155,132 +173,156 @@ export default function CompetitionSubmissionsTable({
       <h3 className="mb-3 text-sm font-semibold text-white">
         All Entries ({submissions.length})
       </h3>
-      <div className="overflow-x-auto rounded-lg border border-k-border bg-surface">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-visible rounded-xl border border-k-border bg-surface">
+        <table className="w-full">
           <thead>
-            <tr className="border-b border-k-border">
+            <tr className="border-b border-k-border bg-zinc-900/40">
               <SortHeader col="submitter">Submitter</SortHeader>
-              <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">Post</th>
               <SortHeader col="views">Views</SortHeader>
               <SortHeader col="likes">Likes</SortHeader>
               <SortHeader col="retweets">Retweets</SortHeader>
-              <th className="pb-2 pr-4 font-medium text-zinc-500">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">Status</th>
               <SortHeader col="date">Submitted</SortHeader>
-              {canAwardWinners && <th className="pb-2 font-medium text-zinc-500">Action</th>}
+              {canAwardWinners && (
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500">Action</th>
+              )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-k-border/50">
             {sorted.map((sub) => {
               const bid = sub.bid
               if (!bid) return null
               const matchedBid = bids.find(b => b.id === bid.id)
               const winPlace = matchedBid?.winnerPlace
               const bidStatus = matchedBid?.status || bid.status
-
-              const statusLabel = winPlace
-                ? `${winPlace <= 3 ? ['1st', '2nd', '3rd'][winPlace - 1] : `${winPlace}th`} Place`
-                : bidStatus === 'REJECTED'
-                  ? 'Rejected'
-                  : 'Pending'
-              const statusColor = winPlace
-                ? 'text-green-400'
-                : bidStatus === 'REJECTED'
-                  ? 'text-red-400'
-                  : 'text-amber-400'
-
+              const postInfo = resolvePostInfo(sub)
               const showAction = canAwardWinners && bidStatus === 'PENDING'
+              const isPickOpen = openPickId === sub.id
 
               return (
                 <tr
                   key={sub.id}
-                  className="border-b border-k-border/50 last:border-0 hover:bg-surface-hover transition-colors cursor-pointer"
+                  className="hover:bg-surface-hover transition-colors cursor-pointer"
                   onClick={() => onSelectBidder?.(bid.bidderId)}
                 >
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center gap-2">
+                  {/* Submitter */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
                       {bid.bidderProfilePic ? (
-                        <img src={bid.bidderProfilePic} alt="" className="h-6 w-6 rounded-full object-cover" />
+                        <img src={bid.bidderProfilePic} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-k-border" />
                       ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-medium text-zinc-300">
-                          {(bid.bidderWallet || '').slice(0, 2)}
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold text-zinc-400 ring-1 ring-k-border">
+                          {(bid.bidderUsername || bid.bidderWallet || '??').slice(0, 2).toUpperCase()}
                         </div>
                       )}
-                      <span className="truncate text-xs text-zinc-200">
-                        {bid.bidderUsername || `${(bid.bidderWallet || '').slice(0, 4)}...${(bid.bidderWallet || '').slice(-4)}`}
-                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-zinc-100">
+                          {bid.bidderUsername || `${(bid.bidderWallet || '').slice(0, 4)}...${(bid.bidderWallet || '').slice(-4)}`}
+                        </p>
+                        {bid.bidderUsername && (
+                          <p className="truncate text-[11px] text-zinc-500">
+                            {(bid.bidderWallet || '').slice(0, 4)}...{(bid.bidderWallet || '').slice(-4)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="py-3 pr-4">
-                    {sub.postUrl ? (
+
+                  {/* Post */}
+                  <td className="px-4 py-3">
+                    {postInfo ? (
                       <a
-                        href={sub.postUrl}
+                        href={postInfo.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-accent hover:underline"
+                        className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {sub.xPostId ? `...${sub.xPostId.slice(-8)}` : 'View Post'}
+                        <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                        <span className="font-mono text-xs">{postInfo.id || 'View'}</span>
                       </a>
                     ) : (
-                      <span className="text-xs text-zinc-500">—</span>
+                      <span className="text-xs text-zinc-600">No post</span>
                     )}
                   </td>
-                  <td className="py-3 pr-4 text-xs text-zinc-300">
-                    {sub.viewCount != null ? sub.viewCount.toLocaleString() : '—'}
+
+                  {/* Metrics */}
+                  <td className="px-4 py-3 text-sm tabular-nums text-zinc-300">
+                    {sub.viewCount != null ? sub.viewCount.toLocaleString() : <span className="text-zinc-600">—</span>}
                   </td>
-                  <td className="py-3 pr-4 text-xs text-zinc-300">
-                    {sub.likeCount != null ? sub.likeCount.toLocaleString() : '—'}
+                  <td className="px-4 py-3 text-sm tabular-nums text-zinc-300">
+                    {sub.likeCount != null ? sub.likeCount.toLocaleString() : <span className="text-zinc-600">—</span>}
                   </td>
-                  <td className="py-3 pr-4 text-xs text-zinc-300">
-                    {sub.retweetCount != null ? sub.retweetCount.toLocaleString() : '—'}
+                  <td className="px-4 py-3 text-sm tabular-nums text-zinc-300">
+                    {sub.retweetCount != null ? sub.retweetCount.toLocaleString() : <span className="text-zinc-600">—</span>}
                   </td>
-                  <td className="py-3 pr-4">
-                    <span className={`text-xs font-medium ${statusColor}`}>{statusLabel}</span>
+
+                  {/* Status */}
+                  <td className="px-4 py-3">
+                    {winPlace ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-semibold text-green-400">
+                        🏆 {placeLabel(winPlace)}
+                      </span>
+                    ) : bidStatus === 'REJECTED' ? (
+                      <span className="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-400">
+                        Rejected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
+                        Pending
+                      </span>
+                    )}
                   </td>
-                  <td className="py-3 pr-4 text-xs text-zinc-400" title={new Date(sub.createdAt).toLocaleString()}>
+
+                  {/* Submitted */}
+                  <td className="px-4 py-3 text-xs text-zinc-500" title={new Date(sub.createdAt).toLocaleString()}>
                     {relTime(sub.createdAt)}
                   </td>
+
+                  {/* Action */}
                   {canAwardWinners && (
-                    <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                      {showAction && matchedBid && (
-                        isMultiWinner ? (
-                          <div className="flex flex-wrap gap-1">
-                            {Array.from({ length: maxW }, (_, i) => i + 1)
-                              .filter(p => !awardedPlaces.includes(p))
-                              .slice(0, 3)
-                              .map(place => (
-                                <SelectWinnerButton
-                                  key={place}
-                                  bid={matchedBid as unknown as WinnerBid}
-                                  taskId={task.id}
-                                  taskType={task.taskType}
-                                  taskMultisigAddress={task.multisigAddress}
-                                  winnerPlace={place}
-                                  prizeAmountLamports={prizeForPlace(place) || task.budgetLamports}
-                                  paymentToken={task.paymentToken}
-                                  customTokenMint={task.customTokenMint}
-                                  customTokenSymbol={task.customTokenSymbol}
-                                  customTokenDecimals={task.customTokenDecimals}
-                                  onDone={onRefresh}
-                                />
-                              ))}
-                          </div>
-                        ) : (
-                          <SelectWinnerButton
-                            bid={matchedBid as unknown as WinnerBid}
-                            taskId={task.id}
-                            taskType={task.taskType}
-                            taskMultisigAddress={task.multisigAddress}
-                            winnerPlace={1}
-                            prizeAmountLamports={prizeForPlace(1) || task.budgetLamports}
-                            paymentToken={task.paymentToken}
-                            customTokenMint={task.customTokenMint}
-                            customTokenSymbol={task.customTokenSymbol}
-                            customTokenDecimals={task.customTokenDecimals}
-                            onDone={onRefresh}
-                          />
-                        )
-                      )}
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      {showAction && matchedBid ? (
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => setOpenPickId(isPickOpen ? null : sub.id)}
+                            className="rounded-lg border border-green-600/40 bg-green-600/10 px-3 py-1.5 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
+                          >
+                            Pick Winner ▾
+                          </button>
+                          {isPickOpen && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setOpenPickId(null)} />
+                              <div className="absolute right-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
+                                {openPlaces.map(place => {
+                                  const prize = prizeForPlace(place) || task.budgetLamports
+                                  const formatted = `${formatTokenAmount(prize, tInfo, 2)} ${tInfo.symbol}`
+                                  return (
+                                    <div key={place} className="px-1 py-0.5">
+                                      <SelectWinnerButton
+                                        bid={matchedBid as unknown as WinnerBid}
+                                        taskId={task.id}
+                                        taskType={task.taskType}
+                                        taskMultisigAddress={task.multisigAddress}
+                                        winnerPlace={place}
+                                        prizeAmountLamports={prize}
+                                        paymentToken={task.paymentToken}
+                                        customTokenMint={task.customTokenMint}
+                                        customTokenSymbol={task.customTokenSymbol}
+                                        customTokenDecimals={task.customTokenDecimals}
+                                        onDone={() => { setOpenPickId(null); onRefresh() }}
+                                      />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : winPlace ? (
+                        <span className="text-xs text-zinc-600">Awarded</span>
+                      ) : null}
                     </td>
                   )}
                 </tr>

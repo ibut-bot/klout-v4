@@ -148,6 +148,7 @@ export default function TaskDetailPage() {
   const [compPauseLoading, setCompPauseLoading] = useState(false)
   const [compPauseError, setCompPauseError] = useState('')
   const [compFinishOpen, setCompFinishOpen] = useState(false)
+  const [compMenuOpen, setCompMenuOpen] = useState(false)
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
@@ -195,7 +196,29 @@ export default function TaskDetailPage() {
   const fetchBids = useCallback(async () => {
     const res = await fetch(`/api/tasks/${id}/bids`)
     const data = await res.json()
-    if (data.success) setBids(data.bids)
+    if (data.success) {
+      setBids(data.bids)
+      if (data.taskType === 'COMPETITION') {
+        const subs: SubmissionData[] = data.bids
+          .filter((b: any) => b.hasSubmission && b.submission)
+          .map((b: any) => ({
+            ...b.submission,
+            bid: {
+              id: b.id,
+              bidderId: b.bidderId,
+              bidderWallet: b.bidderWallet,
+              bidderUsername: b.bidderUsername,
+              bidderProfilePic: b.bidderProfilePic,
+              amountLamports: b.amountLamports,
+              multisigAddress: b.multisigAddress,
+              vaultAddress: b.vaultAddress,
+              proposalIndex: b.proposalIndex,
+              status: b.status,
+            },
+          }))
+        setSubmissions(subs)
+      }
+    }
   }, [id])
 
   const fetchSubmissions = useCallback(async () => {
@@ -554,37 +577,43 @@ export default function TaskDetailPage() {
         </div>
       )}
 
-      {/* Competition: Creator action bar (pause/resume + stop & refund) */}
+      {/* Competition: Paused banner + subtle management dropdown */}
+      {isCompetition && isCreator && task.status === 'PAUSED' && (
+        <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-300">
+          Competition is paused — no new entries accepted.
+        </div>
+      )}
       {isCompetition && isCreator && ['OPEN', 'IN_PROGRESS', 'PAUSED'].includes(task.status) && (
-        <div className="mb-6">
-          {task.status === 'PAUSED' && (
-            <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-300">
-              Competition is paused — no new entries accepted.
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="mb-4 flex justify-end">
+          <div className="relative">
             <button
-              onClick={handleCompPauseResume}
-              disabled={compPauseLoading}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-                task.status === 'PAUSED'
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'border border-amber-500/30 text-amber-400 hover:bg-amber-500/10'
-              }`}
+              onClick={() => setCompMenuOpen(!compMenuOpen)}
+              className="rounded-lg border border-k-border px-3 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200"
             >
-              {compPauseLoading
-                ? (task.status === 'PAUSED' ? 'Resuming...' : 'Pausing...')
-                : (task.status === 'PAUSED' ? 'Resume Competition' : 'Pause Competition')
-              }
+              Manage ▾
             </button>
-            <button
-              onClick={() => setCompFinishOpen(true)}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-            >
-              Stop &amp; Refund Remainder
-            </button>
-            {compPauseError && <p className="text-xs text-red-400">{compPauseError}</p>}
+            {compMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setCompMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
+                  <button
+                    onClick={() => { handleCompPauseResume(); setCompMenuOpen(false) }}
+                    disabled={compPauseLoading}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 transition hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    {task.status === 'PAUSED' ? '▶ Resume Competition' : '⏸ Pause Competition'}
+                  </button>
+                  <button
+                    onClick={() => { setCompFinishOpen(true); setCompMenuOpen(false) }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 transition hover:bg-surface-hover"
+                  >
+                    ⏹ Stop & Refund Remainder
+                  </button>
+                </div>
+              </>
+            )}
           </div>
+          {compPauseError && <p className="ml-2 text-xs text-red-400">{compPauseError}</p>}
 
           {compFinishOpen && task.multisigAddress && (
             <CompetitionFinishRefund

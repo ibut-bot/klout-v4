@@ -467,7 +467,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
   }
 
   return (
-    <div className="rounded-xl border border-k-border bg-surface overflow-hidden">
+    <Link href={`/tasks/${task.id}`} className="block rounded-xl border border-k-border bg-surface overflow-hidden hover:border-accent/30 transition-colors">
       {/* Image Section */}
       <div className="relative h-[300px] sm:h-[420px] lg:h-[552px] bg-zinc-900">
         {editingImagePosition && task.imageUrl ? (
@@ -490,13 +490,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
             {editable && (
             <div className="absolute bottom-2 right-2 flex gap-1">
               <button
-                onClick={() => setEditingImagePosition(true)}
+                onClick={(e) => { e.preventDefault(); setEditingImagePosition(true) }}
                 className="rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm"
               >
                 Reposition
               </button>
               <button
-                onClick={() => setEditMode('image')}
+                onClick={(e) => { e.preventDefault(); setEditMode('image') }}
                 className="rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm"
               >
                 Change
@@ -508,7 +508,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
           <div className="flex h-full items-center justify-center text-zinc-600">
             {editable ? (
             <button
-              onClick={() => setEditMode('image')}
+              onClick={(e) => { e.preventDefault(); setEditMode('image') }}
               className="flex flex-col items-center gap-1 text-zinc-500 hover:text-accent transition"
             >
               <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -524,17 +524,17 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
 
         {/* Image upload overlay */}
         {editMode === 'image' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60">
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60" onClick={(e) => e.preventDefault()}>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-hover disabled:opacity-50">
+            <button onClick={(e) => { e.preventDefault(); fileInputRef.current?.click() }} disabled={uploading} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-hover disabled:opacity-50">
               {uploading ? 'Uploading...' : 'Upload New'}
             </button>
             {task.imageUrl && (
-              <button onClick={handleRemoveImage} disabled={uploading} className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
+              <button onClick={(e) => { e.preventDefault(); handleRemoveImage() }} disabled={uploading} className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
                 Remove
               </button>
             )}
-            <button onClick={() => setEditMode('none')} className="rounded-lg bg-zinc-700 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600">
+            <button onClick={(e) => { e.preventDefault(); setEditMode('none') }} className="rounded-lg bg-zinc-700 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600">
               Cancel
             </button>
           </div>
@@ -556,7 +556,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className="p-4" onClick={editMode !== 'none' ? (e) => e.preventDefault() : undefined}>
         {editMode === 'details' ? (
           /* Edit Form */
           <div className="space-y-3">
@@ -798,12 +798,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
           /* Normal View */
           <>
             <div className="flex items-start justify-between gap-2">
-              <Link href={`/tasks/${task.id}`} className="hover:underline min-w-0">
+              <div className="min-w-0">
                 <h3 className="font-semibold text-zinc-100 truncate">{task.title}</h3>
-              </Link>
+              </div>
               {editable && (
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault()
                   setEditDescription(task.description)
                   setEditHeading(task.campaignConfig?.heading || '')
                   setEditDos((task.campaignConfig?.guidelines?.dos || []).length > 0 ? task.campaignConfig!.guidelines.dos : [''])
@@ -851,36 +852,35 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               <span>{new Date(task.createdAt).toLocaleDateString()}</span>
             </div>
 
-            <Link
-              href={`/tasks/${task.id}`}
-              className="mt-3 block w-full rounded-lg bg-accent py-2 text-center text-sm font-semibold text-black transition hover:bg-accent-hover"
-            >
-              View Campaign
-            </Link>
           </>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
 
 export default function DashboardPage() {
   const { isAuthenticated, connected, wallet, authFetch } = useAuth()
   const [myTasks, setMyTasks] = useState<Task[]>([])
+  const [myCompetitions, setMyCompetitions] = useState<Task[]>([])
   const [myBids, setMyBids] = useState<Bid[]>([])
   const [sharedTasks, setSharedTasks] = useState<Task[]>([])
   const [loadingTasks, setLoadingTasks] = useState(true)
+  const [loadingCompetitions, setLoadingCompetitions] = useState(true)
   const [loadingBids, setLoadingBids] = useState(true)
   const [loadingShared, setLoadingShared] = useState(true)
-  const [activeTab, setActiveTab] = useState<'tasks' | 'bids' | 'shared'>('tasks')
+  const [activeTab, setActiveTab] = useState<'tasks' | 'competitions' | 'bids' | 'shared'>('tasks')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     if (!isAuthenticated) return
 
+    const statusParam = statusFilter !== 'all' ? `&status=${statusFilter}` : ''
+
     const fetchTasks = async () => {
       setLoadingTasks(true)
       try {
-        const res = await authFetch('/api/me/tasks?limit=50&taskType=CAMPAIGN')
+        const res = await authFetch(`/api/me/tasks?limit=50&taskType=CAMPAIGN${statusParam}`)
         const data = await res.json()
         if (data.success) {
           setMyTasks(data.tasks)
@@ -892,10 +892,25 @@ export default function DashboardPage() {
       }
     }
 
+    const fetchCompetitions = async () => {
+      setLoadingCompetitions(true)
+      try {
+        const res = await authFetch(`/api/me/tasks?limit=50&taskType=COMPETITION${statusParam}`)
+        const data = await res.json()
+        if (data.success) {
+          setMyCompetitions(data.tasks)
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoadingCompetitions(false)
+      }
+    }
+
     const fetchBids = async () => {
       setLoadingBids(true)
       try {
-        const res = await authFetch('/api/me/bids?limit=50&taskType=CAMPAIGN')
+        const res = await authFetch(`/api/me/bids?limit=50&taskType=CAMPAIGN${statusParam}`)
         const data = await res.json()
         if (data.success) {
           setMyBids(data.bids)
@@ -910,7 +925,7 @@ export default function DashboardPage() {
     const fetchShared = async () => {
       setLoadingShared(true)
       try {
-        const res = await authFetch('/api/me/shared-campaigns?limit=50')
+        const res = await authFetch(`/api/me/shared-campaigns?limit=50${statusParam}`)
         const data = await res.json()
         if (data.success) {
           setSharedTasks(data.tasks)
@@ -923,9 +938,10 @@ export default function DashboardPage() {
     }
 
     fetchTasks()
+    fetchCompetitions()
     fetchBids()
     fetchShared()
-  }, [isAuthenticated, authFetch])
+  }, [isAuthenticated, authFetch, statusFilter])
 
   if (!isAuthenticated) {
     return (
@@ -940,6 +956,23 @@ export default function DashboardPage() {
     <div>
       <div className="mb-8" />
 
+      {/* Status Filter */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {['open', 'paused', 'completed'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(statusFilter === s ? 'all' : s)}
+            className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+              statusFilter === s
+                ? 'bg-accent text-black'
+                : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {/* Tabs */}
       <div className="mb-6 flex gap-2 border-b border-k-border">
         <button
@@ -951,6 +984,16 @@ export default function DashboardPage() {
           }`}
         >
           My Campaigns ({myTasks.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('competitions')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'competitions'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          My Competitions ({myCompetitions.length})
         </button>
         <button
           onClick={() => setActiveTab('bids')}
@@ -1002,6 +1045,44 @@ export default function DashboardPage() {
                   authFetch={authFetch}
                   onTaskUpdate={(taskId, updates) => {
                     setMyTasks(prev => prev.map(t =>
+                      t.id === taskId ? { ...t, ...updates } : t
+                    ))
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* My Competitions Tab */}
+      {activeTab === 'competitions' && (
+        <section>
+          {loadingCompetitions ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="h-36 animate-pulse rounded-xl bg-surface" />
+              ))}
+            </div>
+          ) : myCompetitions.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-k-border p-8 text-center">
+              <p className="text-zinc-500 mb-4">You haven&apos;t created any competitions yet.</p>
+              <Link
+                href="/tasks/new"
+                className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
+              >
+                Create Your First Competition
+              </Link>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {myCompetitions.map((task) => (
+                <CampaignCard
+                  key={task.id}
+                  task={task}
+                  authFetch={authFetch}
+                  onTaskUpdate={(taskId, updates) => {
+                    setMyCompetitions(prev => prev.map(t =>
                       t.id === taskId ? { ...t, ...updates } : t
                     ))
                   }}
