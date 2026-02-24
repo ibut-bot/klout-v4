@@ -125,48 +125,8 @@ export async function POST(request: NextRequest) {
   totalScore = Math.round(totalScore * followRatioMultiplier(profile.followersCount, profile.followingCount))
   const qualityScore = totalScore / 10_000
 
-  // 7. Generate buffed profile image using X profile pic as base reference
-  let buffedImageUrl: string | null = null
-  try {
-    buffedImageUrl = await generateBuffedProfileImage(profile.profileImageUrl, profile.username, totalScore)
-  } catch (err) {
-    console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
-  }
-
-  // 8. Mark referral as completed and assign tier/position (user now has a Klout score)
-  try {
-    const pendingReferral = await prisma.referral.findUnique({
-      where: { referredUserId: userId },
-    })
-    if (pendingReferral && !pendingReferral.completedAt) {
-      const totalCompleted = await getTotalReferralCount()
-      if (isReferralProgramActive(totalCompleted)) {
-        const position = totalCompleted + 1
-        const tier = getCurrentTier(totalCompleted)
-        if (tier) {
-          await prisma.referral.update({
-            where: { id: pendingReferral.id },
-            data: {
-              completedAt: new Date(),
-              globalPosition: position,
-              tierNumber: tier.tier,
-              referrerFeePct: tier.referrerFeePct,
-            },
-          })
-        }
-      } else {
-        // Program ended — mark completed but no fee share
-        await prisma.referral.update({
-          where: { id: pendingReferral.id },
-          data: { completedAt: new Date() },
-        })
-      }
-    }
-  } catch {
-    // Non-fatal: don't block score calculation
-  }
-
-  // 9. Store in database
+  // 7. Store in database immediately (without image — generated async below)
+  const tierQuote = getRandomQuote(totalScore)
   const scoreData = await prisma.xScoreData.create({
     data: {
       userId,
@@ -192,20 +152,69 @@ export async function POST(request: NextRequest) {
       geoMultiplier: 0,
       qualityScore,
       totalScore,
-      buffedImageUrl,
-      tierQuote: getRandomQuote(totalScore),
+      buffedImageUrl: null,
+      tierQuote,
       feeTxSignature: feeTxSig,
     },
   })
 
+  // 8. Fire off image generation + referral handling in background (don't block response)
+  const scoreId = scoreData.id
+  const profileImageUrl = profile.profileImageUrl
+  const username = profile.username
+
+  Promise.resolve().then(async () => {
+    try {
+      const buffedImageUrl = await generateBuffedProfileImage(profileImageUrl, username, totalScore)
+      if (buffedImageUrl) {
+        await prisma.xScoreData.update({ where: { id: scoreId }, data: { buffedImageUrl } })
+        console.log('[klout-score] Buffed image generated and saved for', username)
+      }
+    } catch (err) {
+      console.error('[klout-score] Buffed image generation failed (non-fatal):', err)
+    }
+
+    try {
+      const pendingReferral = await prisma.referral.findUnique({
+        where: { referredUserId: userId },
+      })
+      if (pendingReferral && !pendingReferral.completedAt) {
+        const totalCompleted = await getTotalReferralCount()
+        if (isReferralProgramActive(totalCompleted)) {
+          const position = totalCompleted + 1
+          const tier = getCurrentTier(totalCompleted)
+          if (tier) {
+            await prisma.referral.update({
+              where: { id: pendingReferral.id },
+              data: {
+                completedAt: new Date(),
+                globalPosition: position,
+                tierNumber: tier.tier,
+                referrerFeePct: tier.referrerFeePct,
+              },
+            })
+          }
+        } else {
+          await prisma.referral.update({
+            where: { id: pendingReferral.id },
+            data: { completedAt: new Date() },
+          })
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+  })
+
+  // 9. Return score immediately (image will populate async)
   return Response.json({
     success: true,
     score: {
       id: scoreData.id,
       totalScore: scoreData.totalScore,
       label: getScoreLabel(scoreData.totalScore),
-      buffedImageUrl: scoreData.buffedImageUrl,
-      tierQuote: scoreData.tierQuote,
+      buffedImageUrl: null,
+      tierQuote,
       breakdown: {
         reach: { score: 0, followers: profile.followersCount },
         engagement: { score: 0, avgLikes: 0, avgRetweets: 0, avgReplies: 0, avgViews: 0, tweetsAnalyzed: 0 },

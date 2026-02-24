@@ -298,6 +298,28 @@ function MyScoreTab() {
       .finally(() => setLoadingExisting(false));
   }, [isAuthenticated, authFetch]);
 
+  // Poll for buffed image if score exists but image hasn't been generated yet
+  useEffect(() => {
+    if (!scoreResult || scoreResult.buffedImageUrl || !isAuthenticated) return;
+    let cancelled = false;
+    const poll = async () => {
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        if (cancelled) return;
+        try {
+          const res = await authFetch("/api/klout-score");
+          const data = await res.json();
+          if (data.success && data.score?.buffedImageUrl) {
+            setScoreResult(data.score);
+            return;
+          }
+        } catch {}
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [scoreResult?.id, scoreResult?.buffedImageUrl, isAuthenticated, authFetch]);
+
   const handleLinkX = useCallback(async () => {
     setLinkingX(true);
     try {
@@ -441,7 +463,12 @@ function MyScoreTab() {
                 className="w-full object-contain"
               />
             ) : (
-              <div className="w-full aspect-square bg-zinc-800" />
+              <div className="w-full aspect-square bg-zinc-800 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="h-6 w-6 mx-auto mb-2 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  <p className="text-xs text-zinc-500">Generating your image...</p>
+                </div>
+              </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 px-5 pb-4 flex items-end justify-between">
