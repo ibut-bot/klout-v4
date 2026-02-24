@@ -2,40 +2,91 @@ import puppeteer, { type Browser } from 'puppeteer-core'
 
 const CHROME_PATH = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const WALLCHAIN_API = 'https://api.wallchain.xyz/extension/x_score/score'
-const WALLCHAIN_TIMEOUT_MS = 25_000
+const DIRECT_FETCH_TIMEOUT_MS = 8_000
+const PUPPETEER_TIMEOUT_MS = 25_000
 
 let browserInstance: Browser | null = null
+let browserLaunchPromise: Promise<Browser> | null = null
 
 async function getBrowser(): Promise<Browser> {
-  if (browserInstance) {
-    try {
-      if (browserInstance.connected) return browserInstance
-    } catch { /* browser crashed */ }
-    try { await browserInstance.close() } catch {}
-    browserInstance = null
+  if (browserInstance?.connected) return browserInstance
+
+  if (browserLaunchPromise) return browserLaunchPromise
+
+  browserLaunchPromise = (async () => {
+    if (browserInstance) {
+      try { await browserInstance.close() } catch {}
+      browserInstance = null
+    }
+
+    browserInstance = await puppeteer.launch({
+      executablePath: CHROME_PATH,
+      headless: 'shell',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+      ],
+    })
+
+    return browserInstance
+  })().finally(() => { browserLaunchPromise = null })
+
+  return browserLaunchPromise
+}
+
+function parseWallchainResponse(text: string): number {
+  let data: any
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error(`Klout score fetch returned an unexpected response — please try again: ${text.substring(0, 200)}`)
   }
 
-  browserInstance = await puppeteer.launch({
-    executablePath: CHROME_PATH,
-    headless: 'shell',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',
-    ],
-  })
+  if (typeof data.score !== 'number') {
+    throw new Error(`Klout score fetch returned an incomplete response — please try again: ${JSON.stringify(data).substring(0, 200)}`)
+  }
 
-  return browserInstance
+  return data.score
 }
 
 export async function fetchWallchainScore(xUsername: string): Promise<number> {
+  const url = `${WALLCHAIN_API}/${encodeURIComponent(xUsername)}`
+
+  // Fast path: direct fetch (works when Cloudflare isn't challenging)
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), DIRECT_FETCH_TIMEOUT_MS)
+
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+      },
+    })
+    clearTimeout(timer)
+
+    if (res.ok) {
+      const text = await res.text()
+      if (!text.includes('Just a moment') && !text.includes('challenge-platform') && !text.includes('<!DOCTYPE')) {
+        console.log('[wallchain] Direct fetch succeeded')
+        return parseWallchainResponse(text)
+      }
+    }
+    console.log('[wallchain] Direct fetch got Cloudflare challenge, falling back to Puppeteer')
+  } catch (err: any) {
+    console.log('[wallchain] Direct fetch failed, falling back to Puppeteer:', err.message)
+  }
+
+  // Slow path: Puppeteer to bypass Cloudflare
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Klout score fetch timed out')), WALLCHAIN_TIMEOUT_MS)
+    setTimeout(() => reject(new Error('Klout score fetch timed out')), PUPPETEER_TIMEOUT_MS)
   )
-  return Promise.race([fetchWallchainScoreInner(xUsername), timeout])
+  return Promise.race([fetchViaP(url), timeout])
 }
 
-async function fetchWallchainScoreInner(xUsername: string): Promise<number> {
+async function fetchViaP(url: string): Promise<number> {
   const browser = await getBrowser()
   const page = await browser.newPage()
 
@@ -44,7 +95,6 @@ async function fetchWallchainScoreInner(xUsername: string): Promise<number> {
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
     )
 
-    const url = `${WALLCHAIN_API}/${encodeURIComponent(xUsername)}`
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
 
     let challengeSolved = false
@@ -62,19 +112,7 @@ async function fetchWallchainScoreInner(xUsername: string): Promise<number> {
     }
 
     const text = await page.evaluate(() => document.body.innerText)
-
-    let data: any
-    try {
-      data = JSON.parse(text)
-    } catch {
-      throw new Error(`Klout score fetch returned an unexpected response — please try again: ${text.substring(0, 200)}`)
-    }
-
-    if (typeof data.score !== 'number') {
-      throw new Error(`Klout score fetch returned an incomplete response — please try again: ${JSON.stringify(data).substring(0, 200)}`)
-    }
-
-    return data.score
+    return parseWallchainResponse(text)
   } finally {
     await page.close().catch(() => {})
   }
