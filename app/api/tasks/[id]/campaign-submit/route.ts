@@ -349,9 +349,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 8b. Bot detection: reject if post views are 2x or more the user's follower count
+  // 8b. Bot detection: reject if post views are 5x or more the user's follower count
   const followersCount = latestScoreData?.followersCount ?? 0
-  if (followersCount > 0 && postMetrics.viewCount >= 2 * followersCount) {
+  if (followersCount > 0 && postMetrics.viewCount >= 5 * followersCount) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
       data: {
@@ -361,13 +361,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         commentCount: postMetrics.commentCount,
         viewsReadAt: now,
         status: 'REJECTED',
-        rejectionReason: `Suspicious activity detected: post views (${postMetrics.viewCount}) exceed 2x your follower count (${followersCount}).`,
+        rejectionReason: `Post views (${postMetrics.viewCount}) exceed 5x follower count (${followersCount}).`,
       },
     })
     return Response.json({
       success: false,
       error: 'BOT_ACTIVITY_DETECTED',
-      message: `Submission rejected: post views (${postMetrics.viewCount}) are disproportionately high relative to your follower count (${followersCount}).`,
+      message: 'Suspicious activity detected.',
     }, { status: 400 })
   }
 

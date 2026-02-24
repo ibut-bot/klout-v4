@@ -1698,9 +1698,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         {s.status.replace(/_/g, ' ')}
                       </span>
                       {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
-                        <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`} title={s.rejectionReason}>
+                        <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`}>
                           {s.status === 'CREATOR_REJECTED' ? 'Creator: ' : ''}
-                          {s.rejectionReason.length > 50 ? s.rejectionReason.slice(0, 50) + '...' : s.rejectionReason}
+                          {s.rejectionReason}
                         </p>
                       )}
                     </td>
@@ -2025,9 +2025,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 {s.status.replace(/_/g, ' ')}
                               </span>
                               {(s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED') && s.rejectionReason && (
-                                <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`} title={s.rejectionReason}>
+                                <p className={`mt-0.5 text-xs ${s.status === 'CREATOR_REJECTED' ? 'text-orange-400' : 'text-red-500'}`}>
                                   {s.status === 'CREATOR_REJECTED' ? 'Creator: ' : ''}
-                                  {s.rejectionReason.length > 50 ? s.rejectionReason.slice(0, 50) + '...' : s.rejectionReason}
+                                  {s.rejectionReason}
                                 </p>
                               )}
                             </td>
