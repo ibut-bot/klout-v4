@@ -131,6 +131,7 @@ export default function TaskForm() {
   // Competition-specific fields
   const [maxWinners, setMaxWinners] = useState(1)
   const [prizeAmounts, setPrizeAmounts] = useState<string[]>([''])
+  const [isPublicFeed, setIsPublicFeed] = useState(false)
 
   const updatePrizeCount = (count: number) => {
     setMaxWinners(count)
@@ -306,6 +307,7 @@ export default function TaskForm() {
 
       const competitionFields = taskType === 'COMPETITION' ? {
         maxWinners,
+        isPublicFeed,
         paymentToken,
         ...(paymentToken === 'CUSTOM' && customTokenMeta ? {
           customTokenMint: customTokenMeta.mint,
@@ -578,6 +580,25 @@ export default function TaskForm() {
             <span className="text-sm font-bold text-accent">{totalPrizeSol > 0 ? totalPrizeSol.toFixed(4) : '0'} {tokenLabel}</span>
           </div>
           <p className="mt-1 text-xs text-zinc-500">This total will be locked in an escrow vault when you create the competition.</p>
+        </div>
+      )}
+
+      {taskType === 'COMPETITION' && (
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div
+              role="switch"
+              aria-checked={isPublicFeed}
+              onClick={() => setIsPublicFeed(!isPublicFeed)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${isPublicFeed ? 'bg-accent' : 'bg-zinc-700'}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${isPublicFeed ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+            <div>
+              <span className="text-sm font-medium text-zinc-200">Show entries in public feed</span>
+              <p className="text-xs text-zinc-500">Allow competition entries to appear on the Klout social feed</p>
+            </div>
+          </label>
         </div>
       )}
 

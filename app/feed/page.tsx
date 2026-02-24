@@ -1,0 +1,317 @@
+'use client'
+
+import { useEffect, useState, useRef, useCallback } from 'react'
+import Link from 'next/link'
+
+interface PostMedia {
+  type: string
+  url?: string
+  previewImageUrl?: string
+  videoUrl?: string
+}
+
+interface FeedItem {
+  id: string
+  postUrl: string | null
+  xPostId: string | null
+  postText: string | null
+  postMedia: PostMedia[]
+  authorName: string | null
+  authorUsername: string | null
+  authorProfilePic: string | null
+  viewCount: number
+  likeCount: number
+  retweetCount: number
+  commentCount: number
+  createdAt: string
+  winnerPlace: number | null
+  competition: {
+    id: string
+    title: string
+    imageUrl: string | null
+  }
+}
+
+const proxyVideo = (vUrl: string) => `/api/video-proxy?url=${encodeURIComponent(vUrl)}`
+
+function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; isVisible: boolean; globalMuted: boolean; onUnmute: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+    vid.muted = globalMuted
+    if (isVisible) {
+      vid.play().catch(() => {})
+    } else {
+      vid.pause()
+    }
+  }, [isVisible, globalMuted])
+
+  const media = item.postMedia?.[0]
+  const isVideo = media && (media.type === 'video' || media.type === 'animated_gif')
+  const videoSrc = isVideo && media.videoUrl ? proxyVideo(media.videoUrl) : null
+  const imgSrc = media?.url || media?.previewImageUrl
+
+  const handleVideoClick = () => onUnmute()
+
+  const postTextClean = item.postText?.replace(/https:\/\/t\.co\/\w+/g, '').trim()
+
+  return (
+    <div className="relative flex h-[calc(100vh-56px)] w-full snap-start items-center justify-center bg-black">
+      {/* Media */}
+      {videoSrc ? (
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          poster={media?.previewImageUrl}
+          loop
+          muted={globalMuted}
+          playsInline
+          preload="auto"
+          className="h-full w-full object-contain"
+          onClick={handleVideoClick}
+        />
+      ) : imgSrc ? (
+        <img src={imgSrc} alt="" className="h-full w-full object-contain" />
+      ) : (
+        <div className="flex items-center justify-center text-zinc-600">No media</div>
+      )}
+
+      {/* Mute indicator for videos */}
+      {videoSrc && (
+        <button
+          onClick={handleVideoClick}
+          className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white transition hover:bg-black/70"
+        >
+          {globalMuted ? (
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+          ) : (
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+          )}
+        </button>
+      )}
+
+      {/* Bottom overlay */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pb-6 pt-20">
+        {/* Author */}
+        <div className="mb-3 flex items-center gap-3">
+          {item.authorProfilePic ? (
+            <img src={item.authorProfilePic} alt="" className="h-10 w-10 rounded-full border-2 border-white/20 object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/20 bg-zinc-800 text-sm font-bold text-zinc-400">
+              {(item.authorUsername || '??').slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">
+              {item.authorName || item.authorUsername || 'Anonymous'}
+            </p>
+            {item.authorUsername && (
+              <p className="truncate text-xs text-zinc-400">@{item.authorUsername}</p>
+            )}
+          </div>
+          {item.winnerPlace && (
+            <span className="ml-auto shrink-0 rounded-full bg-yellow-500/20 px-2.5 py-1 text-xs font-bold text-yellow-400">
+              {item.winnerPlace <= 3
+                ? ['1st', '2nd', '3rd'][item.winnerPlace - 1]
+                : `${item.winnerPlace}th`} Place
+            </span>
+          )}
+        </div>
+
+        {/* Post text */}
+        {postTextClean && (
+          <p className="mb-3 line-clamp-3 text-sm leading-relaxed text-zinc-200">
+            {postTextClean}
+          </p>
+        )}
+
+        {/* Competition + metrics row */}
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/tasks/${item.competition.id}`}
+            className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-300 backdrop-blur-sm transition hover:bg-white/20"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+            </svg>
+            <span className="max-w-[140px] truncate">{item.competition.title}</span>
+          </Link>
+
+          <div className="flex items-center gap-4 text-xs text-zinc-400">
+            {item.viewCount > 0 && (
+              <span className="flex items-center gap-1">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                {item.viewCount.toLocaleString()}
+              </span>
+            )}
+            {item.likeCount > 0 && (
+              <span className="flex items-center gap-1">
+                <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                {item.likeCount.toLocaleString()}
+              </span>
+            )}
+            {item.retweetCount > 0 && (
+              <span className="flex items-center gap-1">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {item.retweetCount.toLocaleString()}
+              </span>
+            )}
+            {item.postUrl && (
+              <a
+                href={item.postUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 transition hover:text-white"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function FeedPage() {
+  const [items, setItems] = useState<FeedItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [visibleId, setVisibleId] = useState<string | null>(null)
+  const [globalMuted, setGlobalMuted] = useState(true)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  const fetchFeed = useCallback(async (cursor?: string) => {
+    try {
+      const params = new URLSearchParams({ limit: '10' })
+      if (cursor) params.set('cursor', cursor)
+      const res = await fetch(`/api/feed?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setItems(prev => cursor ? [...prev, ...data.feed] : data.feed)
+        setNextCursor(data.nextCursor)
+        setHasMore(data.hasMore)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchFeed()
+  }, [fetchFeed])
+
+  // Intersection observer for autoplay/pause
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisibleId(entry.target.getAttribute('data-feed-id'))
+          }
+        }
+      },
+      { threshold: 0.6 }
+    )
+
+    const refs = cardRefs.current
+    refs.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [items])
+
+  // Infinite scroll sentinel
+  useEffect(() => {
+    if (!hasMore || !sentinelRef.current) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextCursor && hasMore) {
+          fetchFeed(nextCursor)
+        }
+      },
+      { rootMargin: '400px' }
+    )
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [nextCursor, hasMore, fetchFeed])
+
+  if (loading && items.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-56px)] items-center justify-center bg-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
+          <span className="text-sm text-zinc-500">Loading feed...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!loading && items.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-56px)] flex-col items-center justify-center bg-black px-4 text-center">
+        <svg className="mb-4 h-16 w-16 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+        <h2 className="mb-2 text-lg font-semibold text-zinc-300">No posts yet</h2>
+        <p className="text-sm text-zinc-500">
+          Competition entries will appear here when creators enable the public feed.
+        </p>
+        <Link
+          href="/tasks"
+          className="mt-6 rounded-lg bg-accent px-6 py-2.5 text-sm font-medium text-black transition hover:bg-accent/90"
+        >
+          Browse Competitions
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="h-[calc(100vh-56px)] snap-y snap-mandatory overflow-y-auto bg-black"
+    >
+      {items.map((item) => (
+        <div
+          key={item.id}
+          data-feed-id={item.id}
+          ref={(el) => {
+            if (el) cardRefs.current.set(item.id, el)
+            else cardRefs.current.delete(item.id)
+          }}
+        >
+          <FeedCard item={item} isVisible={visibleId === item.id} globalMuted={globalMuted} onUnmute={() => setGlobalMuted(m => !m)} />
+        </div>
+      ))}
+
+      {/* Sentinel for infinite scroll */}
+      <div ref={sentinelRef} className="h-1" />
+
+      {loading && items.length > 0 && (
+        <div className="flex h-20 items-center justify-center bg-black">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400" />
+        </div>
+      )}
+    </div>
+  )
+}

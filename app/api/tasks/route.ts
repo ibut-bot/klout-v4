@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure, isPublicFeed } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -472,6 +472,7 @@ export async function POST(request: NextRequest) {
         multisigAddress, vaultAddress,
         maxWinners: resolvedMaxWinners,
         ...(resolvedPrizeStructure ? { prizeStructure: resolvedPrizeStructure } : {}),
+        isPublicFeed: !!isPublicFeed,
         paymentToken: resolvedPaymentToken as any,
         ...(resolvedPaymentToken === 'CUSTOM' ? {
           customTokenMint: customTokenMint,

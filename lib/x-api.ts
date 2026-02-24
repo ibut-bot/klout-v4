@@ -259,6 +259,7 @@ export interface PostMedia {
   type: 'photo' | 'video' | 'animated_gif'
   url?: string            // direct URL for photos
   previewImageUrl?: string // thumbnail for videos/gifs
+  videoUrl?: string       // direct MP4 URL for videos/gifs
 }
 
 /** Fetch post metrics, content, and media from X API */
@@ -275,7 +276,7 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
   const params = new URLSearchParams({
     'tweet.fields': 'public_metrics,text,author_id,attachments,created_at',
     'expansions': 'attachments.media_keys',
-    'media.fields': 'url,preview_image_url,type',
+    'media.fields': 'url,preview_image_url,type,variants',
   })
 
   let res: Response
@@ -327,11 +328,21 @@ export async function getPostMetrics(postId: string, accessToken: string): Promi
   const includes = json.includes
 
   // Parse media from includes
-  const media: PostMedia[] = (includes?.media ?? []).map((m: any) => ({
-    type: m.type as PostMedia['type'],
-    url: m.url || undefined,
-    previewImageUrl: m.preview_image_url || undefined,
-  }))
+  const media: PostMedia[] = (includes?.media ?? []).map((m: any) => {
+    let videoUrl: string | undefined
+    if ((m.type === 'video' || m.type === 'animated_gif') && m.variants?.length) {
+      const mp4s = m.variants
+        .filter((v: any) => v.content_type === 'video/mp4')
+        .sort((a: any, b: any) => (b.bit_rate ?? 0) - (a.bit_rate ?? 0))
+      videoUrl = mp4s[0]?.url || m.variants[0]?.url
+    }
+    return {
+      type: m.type as PostMedia['type'],
+      url: m.url || undefined,
+      previewImageUrl: m.preview_image_url || undefined,
+      videoUrl,
+    }
+  })
 
   return {
     viewCount: data.public_metrics?.impression_count ?? 0,

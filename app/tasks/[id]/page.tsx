@@ -109,7 +109,7 @@ interface SubmissionData {
   postUrl?: string | null
   xPostId?: string | null
   postText?: string | null
-  postMedia?: { type: string; url?: string; previewImageUrl?: string }[] | null
+  postMedia?: { type: string; url?: string; previewImageUrl?: string; videoUrl?: string }[] | null
   postAuthorName?: string | null
   postAuthorUsername?: string | null
   postAuthorProfilePic?: string | null
@@ -154,6 +154,7 @@ export default function TaskDetailPage() {
   const [compPauseError, setCompPauseError] = useState('')
   const [compFinishOpen, setCompFinishOpen] = useState(false)
   const [compMenuOpen, setCompMenuOpen] = useState(false)
+  const [pinnedPickOpen, setPinnedPickOpen] = useState(false)
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
@@ -746,50 +747,40 @@ export default function TaskDetailPage() {
               </div>
             )}
             {canSelectWinner && displayBid && nextOpenPlace !== undefined && (
-              isMultiWinner ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-zinc-400">Award a place to this entry:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from({ length: maxW }, (_, i) => i + 1)
-                      .filter(p => !awardedPlaces.includes(p))
-                      .map(place => {
-                        const placeLabels = ['1st', '2nd', '3rd']
-                        const label = place <= 3 ? placeLabels[place - 1] : `${place}th`
-                        const amount = prizeForPlace(place) || task.budgetLamports
-                        return (
-                          <SelectWinnerButton
-                            key={place}
-                            bid={displayBid as WinnerBid}
-                            taskId={task.id}
-                            taskType={task.taskType}
-                            taskMultisigAddress={task.multisigAddress}
-                            winnerPlace={place}
-                            prizeAmountLamports={amount}
-                            paymentToken={task.paymentToken}
-                            customTokenMint={task.customTokenMint}
-                            customTokenSymbol={task.customTokenSymbol}
-                            customTokenDecimals={task.customTokenDecimals}
-                            onDone={refreshAll}
-                          />
-                        )
-                      })}
-                  </div>
-                </div>
-              ) : (
-                <SelectWinnerButton
-                  bid={displayBid as WinnerBid}
-                  taskId={task.id}
-                  taskType={task.taskType}
-                  taskMultisigAddress={task.multisigAddress}
-                  winnerPlace={1}
-                  prizeAmountLamports={prizeForPlace(1) || task.budgetLamports}
-                  paymentToken={task.paymentToken}
-                  customTokenMint={task.customTokenMint}
-                  customTokenSymbol={task.customTokenSymbol}
-                  customTokenDecimals={task.customTokenDecimals}
-                  onDone={refreshAll}
-                />
-              )
+              <div className="relative inline-block">
+                <button
+                  onClick={() => setPinnedPickOpen(!pinnedPickOpen)}
+                  className="rounded-lg border border-green-600/40 bg-green-600/10 px-4 py-2 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
+                >
+                  Pick Winner ▾
+                </button>
+                {pinnedPickOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setPinnedPickOpen(false)} />
+                    <div className="absolute left-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
+                      {Array.from({ length: maxW }, (_, i) => i + 1)
+                        .filter(p => !awardedPlaces.includes(p))
+                        .map(place => (
+                          <div key={place} className="px-1 py-0.5">
+                            <SelectWinnerButton
+                              bid={displayBid as WinnerBid}
+                              taskId={task.id}
+                              taskType={task.taskType}
+                              taskMultisigAddress={task.multisigAddress}
+                              winnerPlace={place}
+                              prizeAmountLamports={prizeForPlace(place) || task.budgetLamports}
+                              paymentToken={task.paymentToken}
+                              customTokenMint={task.customTokenMint}
+                              customTokenSymbol={task.customTokenSymbol}
+                              customTokenDecimals={task.customTokenDecimals}
+                              onDone={() => { setPinnedPickOpen(false); refreshAll() }}
+                            />
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
           )
@@ -873,7 +864,7 @@ export default function TaskDetailPage() {
               <h2 className="mb-3 text-sm font-semibold text-white">
                 Entries ({visibleSubmissions.length})
               </h2>
-              <div className="max-h-[560px] space-y-1 overflow-y-auto">
+              <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto">
                 {visibleSubmissions.map((sub) => {
                   const bid = sub.bid
                   if (!bid) return null

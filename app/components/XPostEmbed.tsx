@@ -18,6 +18,7 @@ interface PostMedia {
   type: string
   url?: string
   previewImageUrl?: string
+  videoUrl?: string
 }
 
 interface XPostEmbedProps {
@@ -41,6 +42,7 @@ export default function XPostEmbed({
 }: XPostEmbedProps) {
   const [oembedHtml, setOembedHtml] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [videoError, setVideoError] = useState<Record<number, boolean>>({})
   const tweetId = extractTweetId(url)
   const fallbackUsername = url.match(X_POST_REGEX)?.[2]
   const displayUsername = authorUsername || fallbackUsername
@@ -65,7 +67,8 @@ export default function XPostEmbed({
 
   if (!tweetId) return null
 
-  const images = postMedia?.filter(m => m.url) ?? []
+  const proxyVideo = (vUrl: string) => `/api/video-proxy?url=${encodeURIComponent(vUrl)}`
+  const mediaItems = postMedia?.filter(m => m.url || m.videoUrl || m.previewImageUrl) ?? []
 
   return (
     <div className={className}>
@@ -101,16 +104,48 @@ export default function XPostEmbed({
                   {postText.replace(/https:\/\/t\.co\/\w+/g, '').trim()}
                 </p>
               )}
-              {images.length > 0 && (
-                <div className={`mb-3 overflow-hidden rounded-xl border border-zinc-800 ${images.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''}`}>
-                  {images.map((m, i) => (
-                    <img
-                      key={i}
-                      src={m.url}
-                      alt=""
-                      className={`w-full object-cover ${images.length === 1 ? 'max-h-[400px]' : 'h-48'}`}
-                    />
-                  ))}
+              {mediaItems.length > 0 && (
+                <div className={`mb-3 overflow-hidden rounded-xl border border-zinc-800 ${mediaItems.length > 1 && !mediaItems.some(m => m.videoUrl) ? 'grid grid-cols-2 gap-0.5' : ''}`}>
+                  {mediaItems.map((m, i) => {
+                    const isVideo = m.type === 'video' || m.type === 'animated_gif'
+                    const canPlay = isVideo && m.videoUrl && !videoError[i]
+
+                    if (canPlay) {
+                      return (
+                        <video
+                          key={i}
+                          src={proxyVideo(m.videoUrl!)}
+                          poster={m.previewImageUrl}
+                          controls
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          preload="auto"
+                          className="w-full bg-black"
+                          onError={() => setVideoError(prev => ({ ...prev, [i]: true }))}
+                        />
+                      )
+                    }
+
+                    const imgSrc = m.url || m.previewImageUrl
+                    if (!imgSrc) return null
+
+                    if (isVideo) {
+                      return (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="relative block">
+                          <img src={imgSrc} alt="" className="w-full" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+                              <svg className="h-7 w-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                            </div>
+                          </div>
+                        </a>
+                      )
+                    }
+
+                    return <img key={i} src={imgSrc} alt="" className="w-full" />
+                  })}
                 </div>
               )}
             </>

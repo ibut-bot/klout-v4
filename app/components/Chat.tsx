@@ -290,7 +290,7 @@ export default function Chat({ taskId, isCreator, bidders = [], selectedBidderId
     : null
 
   return (
-    <div className="flex h-[600px] flex-col rounded-xl border border-k-border">
+    <div className="flex h-[calc(100vh-200px)] min-h-[600px] flex-col rounded-xl border border-k-border">
       <div className="border-b border-k-border px-4 py-3">
         <h3 className="text-sm font-semibold text-white">
             {isCreator ? 'Private Messages' : 'Messages with Task Creator'}
