@@ -305,6 +305,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minKloutScore.toLocaleString()}</p>
           </div>
         )}
+        <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+          <p className="text-[11px] text-zinc-500">Your Klout Score</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-100">{Math.round(kloutScore).toLocaleString()}</p>
+          <p className="mt-0.5 text-[10px] text-zinc-500">
+            <a href="/my-score" className="text-accent hover:underline">View details</a>
+          </p>
+        </div>
       </div>
 
       {/* Follow requirement */}
@@ -372,7 +379,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         ) : capReached ? (
           <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm space-y-1">
             <p className="font-medium text-amber-400">You&apos;ve reached your earning cap for this campaign</p>
-            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo)} of your {formatTokenAmount(myBudgetCap, tInfo)} {sym} limit. Increase your Klout score to unlock a higher cap.</p>
+            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo, 2)} of your {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym} limit. Increase your Klout score to unlock a higher cap.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">

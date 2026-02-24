@@ -13,6 +13,14 @@ export async function POST(
   const { userId } = auth
   const { id, bidId } = await params
 
+  let body: any = {}
+  try {
+    body = await request.json()
+  } catch {
+    // Body is optional for backward compatibility (single-winner)
+  }
+  const { winnerPlace } = body
+
   const task = await prisma.task.findUnique({ where: { id } })
   if (!task) {
     return Response.json({ success: false, error: 'NOT_FOUND', message: 'Task not found' }, { status: 404 })
@@ -25,9 +33,14 @@ export async function POST(
     )
   }
 
-  if (task.status !== 'OPEN') {
+  const isCompetition = task.taskType === 'COMPETITION'
+  const isMultiWinner = isCompetition && task.maxWinners > 1
+
+  // For multi-winner competitions, allow accepting while OPEN or IN_PROGRESS
+  const allowedStatuses = isMultiWinner ? ['OPEN', 'IN_PROGRESS'] : ['OPEN']
+  if (!allowedStatuses.includes(task.status)) {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Task is ${task.status}, can only accept bids on OPEN tasks` },
+      { success: false, error: 'INVALID_STATUS', message: `Task is ${task.status}, can only accept bids on ${allowedStatuses.join(' or ')} tasks` },
       { status: 400 }
     )
   }
@@ -44,9 +57,6 @@ export async function POST(
     )
   }
 
-  const isCompetition = task.taskType === 'COMPETITION'
-
-  // For competition tasks, a submission must exist
   if (isCompetition) {
     const submission = await prisma.submission.findFirst({ where: { bidId } })
     if (!submission) {
@@ -57,59 +67,132 @@ export async function POST(
     }
   }
 
-  // Get all pending bids so we can notify rejected bidders
-  const pendingBids = await prisma.bid.findMany({
-    where: { taskId: id, status: 'PENDING', id: { not: bidId } },
-    select: { bidderId: true },
-  })
+  // Multi-winner: validate winnerPlace
+  let resolvedPlace: number | null = null
+  if (isMultiWinner) {
+    resolvedPlace = Number(winnerPlace)
+    if (!Number.isInteger(resolvedPlace) || resolvedPlace < 1 || resolvedPlace > task.maxWinners) {
+      return Response.json(
+        { success: false, error: 'INVALID_PLACE', message: `winnerPlace must be between 1 and ${task.maxWinners}` },
+        { status: 400 }
+      )
+    }
+    const existingWinner = await prisma.bid.findFirst({
+      where: { taskId: id, winnerPlace: resolvedPlace },
+    })
+    if (existingWinner) {
+      return Response.json(
+        { success: false, error: 'PLACE_TAKEN', message: `Place ${resolvedPlace} has already been awarded` },
+        { status: 400 }
+      )
+    }
+  } else if (isCompetition) {
+    resolvedPlace = 1
+  }
 
-  // For competition tasks, the bid goes straight to ACCEPTED (creator will then fund + approve in one step)
-  // For quote tasks, bid goes to ACCEPTED as before (creator funds separately)
-  await prisma.$transaction([
-    // Accept this bid
-    prisma.bid.update({ where: { id: bidId }, data: { status: 'ACCEPTED' } }),
-    // Reject all other pending bids
-    prisma.bid.updateMany({
-      where: { taskId: id, status: 'PENDING', id: { not: bidId } },
-      data: { status: 'REJECTED' },
-    }),
-    // Update task
-    prisma.task.update({
-      where: { id },
-      data: { status: 'IN_PROGRESS', winningBidId: bidId },
-    }),
-  ])
+  // Count how many winners already exist (for multi-winner)
+  const existingWinnerCount = isMultiWinner
+    ? await prisma.bid.count({ where: { taskId: id, winnerPlace: { not: null } } })
+    : 0
+  const isFirstWinner = existingWinnerCount === 0
+  const isLastWinner = isMultiWinner && existingWinnerCount + 1 >= task.maxWinners
 
-  // Notify winning bidder
+  const txOps: any[] = [
+    prisma.bid.update({
+      where: { id: bidId },
+      data: {
+        status: 'ACCEPTED',
+        ...(resolvedPlace ? { winnerPlace: resolvedPlace } : {}),
+      },
+    }),
+  ]
+
+  if (isMultiWinner) {
+    // Only reject remaining bids when all winner slots are filled
+    if (isLastWinner) {
+      txOps.push(
+        prisma.bid.updateMany({
+          where: { taskId: id, status: 'PENDING' },
+          data: { status: 'REJECTED' },
+        })
+      )
+    }
+    const taskUpdate: any = {}
+    if (isFirstWinner) taskUpdate.status = 'IN_PROGRESS'
+    if (resolvedPlace === 1) taskUpdate.winningBidId = bidId
+    if (isLastWinner && !isFirstWinner) {
+      // Don't override status if already IN_PROGRESS -- it stays IN_PROGRESS,
+      // task goes to COMPLETED after all payments are recorded in approve-payment
+    }
+    if (Object.keys(taskUpdate).length > 0) {
+      txOps.push(prisma.task.update({ where: { id }, data: taskUpdate }))
+    }
+  } else {
+    // Single winner: original behavior
+    txOps.push(
+      prisma.bid.updateMany({
+        where: { taskId: id, status: 'PENDING', id: { not: bidId } },
+        data: { status: 'REJECTED' },
+      }),
+      prisma.task.update({
+        where: { id },
+        data: { status: 'IN_PROGRESS', winningBidId: bidId },
+      })
+    )
+  }
+
+  await prisma.$transaction(txOps)
+
+  // Get pending bids for rejection notifications (only when last winner)
+  if (!isMultiWinner || isLastWinner) {
+    const pendingBids = isLastWinner
+      ? await prisma.bid.findMany({
+          where: { taskId: id, status: 'REJECTED', winnerPlace: null },
+          select: { bidderId: true },
+        })
+      : await prisma.bid.findMany({
+          where: { taskId: id, status: 'REJECTED', id: { not: bidId } },
+          select: { bidderId: true },
+        })
+
+    for (const rejected of pendingBids) {
+      createNotification({
+        userId: rejected.bidderId,
+        type: 'BID_REJECTED',
+        title: isCompetition ? 'Submission not selected' : 'Bid not selected',
+        body: isCompetition
+          ? `Another submission was selected for "${task.title}"`
+          : `Another bid was selected for "${task.title}"`,
+        linkUrl: `/tasks/${id}`,
+      })
+    }
+  }
+
+  const placeLabel = resolvedPlace
+    ? resolvedPlace <= 3
+      ? ['1st', '2nd', '3rd'][resolvedPlace - 1]
+      : `${resolvedPlace}th`
+    : null
+
   createNotification({
     userId: bid.bidderId,
     type: 'BID_ACCEPTED',
-    title: isCompetition ? 'Your submission was selected!' : 'Your bid was accepted!',
+    title: isCompetition
+      ? `Your submission won ${placeLabel} place!`
+      : 'Your bid was accepted!',
     body: isCompetition
-      ? `Your submission on "${task.title}" was selected as the winner`
+      ? `Your submission on "${task.title}" was selected as ${placeLabel} place winner`
       : `Your bid on "${task.title}" has been accepted`,
     linkUrl: `/tasks/${id}`,
   })
 
-  // Notify rejected bidders
-  for (const rejected of pendingBids) {
-    createNotification({
-      userId: rejected.bidderId,
-      type: 'BID_REJECTED',
-      title: isCompetition ? 'Submission not selected' : 'Bid not selected',
-      body: isCompetition
-        ? `Another submission was selected for "${task.title}"`
-        : `Another bid was selected for "${task.title}"`,
-      linkUrl: `/tasks/${id}`,
-    })
-  }
-
   return Response.json({
     success: true,
     message: isCompetition
-      ? 'Submission selected. Fund the vault and approve payment to complete.'
+      ? `${placeLabel} place selected. Process payment to complete.`
       : 'Bid accepted. Task is now in progress.',
     bidId,
+    winnerPlace: resolvedPlace,
     taskType: task.taskType,
     multisigAddress: bid.multisigAddress,
     vaultAddress: bid.vaultAddress,

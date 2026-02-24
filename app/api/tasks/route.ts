@@ -86,6 +86,8 @@ export async function GET(request: NextRequest) {
       minKloutScore: t.campaignConfig?.minKloutScore ?? null,
       imageUrl: t.imageUrl,
       imageTransform: t.imageTransform,
+      maxWinners: t.maxWinners,
+      prizeStructure: t.prizeStructure,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -203,6 +205,56 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'INVALID_GUIDELINES', message: 'guidelines must have dos and donts arrays' },
         { status: 400 }
       )
+    }
+  }
+
+  // Validate competition prize structure
+  let resolvedMaxWinners = 1
+  let resolvedPrizeStructure: { place: number; amountLamports: string }[] | null = null
+  if (isCompetition) {
+    if (maxWinners !== undefined && maxWinners !== null) {
+      resolvedMaxWinners = Number(maxWinners)
+      if (!Number.isInteger(resolvedMaxWinners) || resolvedMaxWinners < 1 || resolvedMaxWinners > 10) {
+        return Response.json(
+          { success: false, error: 'INVALID_MAX_WINNERS', message: 'maxWinners must be an integer between 1 and 10' },
+          { status: 400 }
+        )
+      }
+    }
+    if (resolvedMaxWinners > 1) {
+      if (!Array.isArray(prizeStructure) || prizeStructure.length !== resolvedMaxWinners) {
+        return Response.json(
+          { success: false, error: 'INVALID_PRIZE_STRUCTURE', message: `prizeStructure must be an array with exactly ${resolvedMaxWinners} entries` },
+          { status: 400 }
+        )
+      }
+      let prizeSum = BigInt(0)
+      for (let i = 0; i < prizeStructure.length; i++) {
+        const entry = prizeStructure[i]
+        if (!entry || entry.place !== i + 1) {
+          return Response.json(
+            { success: false, error: 'INVALID_PRIZE_STRUCTURE', message: `prizeStructure entry ${i} must have place=${i + 1}` },
+            { status: 400 }
+          )
+        }
+        try {
+          const amt = BigInt(entry.amountLamports)
+          if (amt <= BigInt(0)) throw new Error('non-positive')
+          prizeSum += amt
+        } catch {
+          return Response.json(
+            { success: false, error: 'INVALID_PRIZE_STRUCTURE', message: `prizeStructure entry ${i} must have a positive amountLamports` },
+            { status: 400 }
+          )
+        }
+      }
+      if (prizeSum !== BigInt(budgetLamports)) {
+        return Response.json(
+          { success: false, error: 'PRIZE_BUDGET_MISMATCH', message: 'Sum of prize amounts must equal budgetLamports' },
+          { status: 400 }
+        )
+      }
+      resolvedPrizeStructure = prizeStructure.map((e: any) => ({ place: e.place, amountLamports: String(e.amountLamports) }))
     }
   }
 
@@ -393,7 +445,11 @@ export async function POST(request: NextRequest) {
       budgetLamports: parsedBudget,
       taskType: resolvedTaskType as any,
       paymentTxSignature,
-      ...(isCompetition ? { multisigAddress, vaultAddress } : {}),
+      ...(isCompetition ? {
+        multisigAddress, vaultAddress,
+        maxWinners: resolvedMaxWinners,
+        ...(resolvedPrizeStructure ? { prizeStructure: resolvedPrizeStructure } : {}),
+      } : {}),
       ...(deadlineAt ? { deadlineAt } : {}),
       ...(imageUrl ? { imageUrl } : {}),
       ...(imageTransform ? { imageTransform } : {}),

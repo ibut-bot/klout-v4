@@ -68,6 +68,8 @@ interface Task {
   creatorWallet: string
   creatorUsername?: string | null
   creatorProfilePic?: string | null
+  maxWinners?: number
+  prizeStructure?: { place: number; amountLamports: string }[] | null
   winningBid: {
     id: string
     amountLamports: string
@@ -98,6 +100,7 @@ interface Bid {
   vaultAddress: string | null
   proposalIndex?: number | null
   status: string
+  winnerPlace?: number | null
   hasSubmission?: boolean
   createdAt: string
 }
@@ -498,34 +501,84 @@ export default function TaskDetailPage() {
         </div>
       )}
 
+      {/* Competition: Prize Structure */}
+      {isCompetition && task.prizeStructure && (task.prizeStructure as any[]).length > 1 && (
+        <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-amber-400">Prize Structure</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {(task.prizeStructure as { place: number; amountLamports: string }[]).map((p) => {
+              const placeLabels = ['1st', '2nd', '3rd']
+              const label = p.place <= 3 ? placeLabels[p.place - 1] : `${p.place}th`
+              const winnerBid = bids.find(b => b.winnerPlace === p.place)
+              const isAwarded = !!winnerBid
+              return (
+                <div key={p.place} className={`rounded-lg border p-3 text-center ${isAwarded ? 'border-green-500/30 bg-green-500/10' : 'border-k-border bg-surface'}`}>
+                  <p className="text-xs text-zinc-400">{label} Place</p>
+                  <p className="text-sm font-bold text-white">{formatSol(p.amountLamports)}</p>
+                  {isAwarded && (
+                    <p className="mt-1 truncate text-[10px] text-green-400">
+                      {winnerBid.bidderUsername || `${winnerBid.bidderWallet.slice(0, 4)}...`}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Competition mode: Narrow sidebar (entries) + Chat with pinned submission */}
       {isCompetition && (() => {
-        // For bidders, always show their own submission; for creators, show selected bidder's submission
         const displayBid = isCreator 
           ? bids.find(b => b.bidderId === selectedBidderId)
           : myBid
         const displaySub = displayBid 
           ? submissions.find(s => s.bidId === displayBid.id) 
           : null
-        const canSelectWinner = isCreator && task.status === 'OPEN' && displayBid?.status === 'PENDING'
 
-        // Filter submissions: creators see all, bidders only see their own
+        const maxW = task.maxWinners || 1
+        const isMultiWinner = maxW > 1
+        const awardedPlaces = bids.filter(b => b.winnerPlace != null).map(b => b.winnerPlace!)
+        const nextOpenPlace = isMultiWinner
+          ? Array.from({ length: maxW }, (_, i) => i + 1).find(p => !awardedPlaces.includes(p))
+          : 1
+        const canSelectWinner = isCreator
+          && (isMultiWinner ? ['OPEN', 'IN_PROGRESS'].includes(task.status) : task.status === 'OPEN')
+          && displayBid?.status === 'PENDING'
+          && nextOpenPlace !== undefined
+
+        const prizeForPlace = (place: number) => {
+          if (task.prizeStructure && Array.isArray(task.prizeStructure)) {
+            const entry = (task.prizeStructure as { place: number; amountLamports: string }[]).find(p => p.place === place)
+            return entry?.amountLamports
+          }
+          return task.budgetLamports
+        }
+
         const visibleSubmissions = isCreator 
           ? submissions 
           : submissions.filter(s => s.bidId === myBid?.id)
 
-        // Build pinned content for the chat panel
         const pinnedContent = displaySub ? (
-          <div className="rounded-lg border border-k-border bg-surface p-3 border-k-border bg-surface">
+          <div className="rounded-lg border border-k-border bg-surface p-3">
             <p className="mb-2 text-xs font-medium text-zinc-500">Submission</p>
-            <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300 text-zinc-300">
+            {displayBid?.winnerPlace && (
+              <div className="mb-2">
+                <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-400">
+                  {displayBid.winnerPlace <= 3
+                    ? ['1st', '2nd', '3rd'][displayBid.winnerPlace - 1]
+                    : `${displayBid.winnerPlace}th`} Place Winner
+                </span>
+              </div>
+            )}
+            <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300">
               {displaySub.description}
             </p>
             {displaySub.attachments && displaySub.attachments.length > 0 && (
               <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {(displaySub.attachments as any[]).map((att: any, i: number) =>
                   att.contentType?.startsWith('video/') ? (
-                    <div key={i} className="overflow-hidden rounded-lg border border-k-border border-k-border">
+                    <div key={i} className="overflow-hidden rounded-lg border border-k-border">
                       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                       <video
                         src={att.url}
@@ -538,33 +591,61 @@ export default function TaskDetailPage() {
                       <p className="truncate px-2 py-1 text-xs text-zinc-500">{att.filename || 'Video'}</p>
                     </div>
                   ) : att.contentType?.startsWith('image/') ? (
-                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-k-border border-k-border">
+                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-k-border">
                       <img src={att.url} alt={att.filename || ''} className="h-28 w-full object-cover" />
                       <p className="truncate px-2 py-1 text-xs text-zinc-500">{att.filename || 'Image'}</p>
                     </a>
                   ) : (
-                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex h-20 items-center justify-center rounded-lg border border-k-border text-xs text-accent underline border-k-border">
+                    <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="flex h-20 items-center justify-center rounded-lg border border-k-border text-xs text-accent underline">
                       {att.filename || 'Download'}
                     </a>
                   )
                 )}
               </div>
             )}
-            {canSelectWinner && displayBid && (
-              <SelectWinnerButton
-                bid={displayBid as WinnerBid}
-                taskId={task.id}
-                taskType={task.taskType}
-                taskMultisigAddress={task.multisigAddress}
-                onDone={refreshAll}
-              />
+            {canSelectWinner && displayBid && nextOpenPlace !== undefined && (
+              isMultiWinner ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-zinc-400">Award a place to this entry:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: maxW }, (_, i) => i + 1)
+                      .filter(p => !awardedPlaces.includes(p))
+                      .map(place => {
+                        const placeLabels = ['1st', '2nd', '3rd']
+                        const label = place <= 3 ? placeLabels[place - 1] : `${place}th`
+                        const amount = prizeForPlace(place) || task.budgetLamports
+                        return (
+                          <SelectWinnerButton
+                            key={place}
+                            bid={displayBid as WinnerBid}
+                            taskId={task.id}
+                            taskType={task.taskType}
+                            taskMultisigAddress={task.multisigAddress}
+                            winnerPlace={place}
+                            prizeAmountLamports={amount}
+                            onDone={refreshAll}
+                          />
+                        )
+                      })}
+                  </div>
+                </div>
+              ) : (
+                <SelectWinnerButton
+                  bid={displayBid as WinnerBid}
+                  taskId={task.id}
+                  taskType={task.taskType}
+                  taskMultisigAddress={task.multisigAddress}
+                  winnerPlace={1}
+                  prizeAmountLamports={prizeForPlace(1) || task.budgetLamports}
+                  onDone={refreshAll}
+                />
+              )
             )}
           </div>
         ) : null
 
         return (
-          <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[180px_1fr]' : ''}`}>
-            {/* Narrow sidebar: entry list - only shown to creator */}
+          <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[200px_1fr]' : ''}`}>
             {isCreator && (
             <div>
               <h2 className="mb-3 text-sm font-semibold text-white">
@@ -574,7 +655,9 @@ export default function TaskDetailPage() {
                 {visibleSubmissions.map((sub) => {
                   const bid = sub.bid
                   if (!bid) return null
+                  const matchedBid = bids.find(b => b.id === bid.id)
                   const isActive = bid.bidderId === selectedBidderId
+                  const winPlace = matchedBid?.winnerPlace
                   return (
                     <button
                       key={sub.id}
@@ -582,7 +665,9 @@ export default function TaskDetailPage() {
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
                         isActive
                           ? 'bg-accent text-black'
-                          : 'hover:bg-surface-hover hover:bg-surface-hover'
+                          : winPlace
+                            ? 'bg-green-500/10 hover:bg-green-500/20'
+                            : 'hover:bg-surface-hover'
                       }`}
                     >
                       {bid.bidderProfilePic ? (
@@ -591,7 +676,7 @@ export default function TaskDetailPage() {
                         <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
                           isActive
                             ? 'bg-accent/30 text-accent'
-                            : 'bg-zinc-800 text-zinc-600 bg-zinc-800 text-zinc-300'
+                            : 'bg-zinc-800 text-zinc-300'
                         }`}>
                           {bid.bidderWallet.slice(0, 2)}
                         </div>
@@ -601,10 +686,17 @@ export default function TaskDetailPage() {
                           {bid.bidderUsername || `${bid.bidderWallet.slice(0, 4)}...${bid.bidderWallet.slice(-4)}`}
                         </p>
                         <p className={`truncate text-[10px] ${isActive ? 'opacity-70' : 'text-zinc-400'}`}>
-                          {new Date(sub.createdAt).toLocaleDateString()}
+                          {winPlace
+                            ? `${winPlace <= 3 ? ['1st', '2nd', '3rd'][winPlace - 1] : `${winPlace}th`} Place`
+                            : new Date(sub.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      {(messageCounts[bid.bidderId] || 0) > 0 && (
+                      {winPlace && (
+                        <span className="shrink-0 rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
+                          #{winPlace}
+                        </span>
+                      )}
+                      {!winPlace && (messageCounts[bid.bidderId] || 0) > 0 && (
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${isActive ? 'opacity-70' : 'text-amber-500'}`}>
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
@@ -619,7 +711,6 @@ export default function TaskDetailPage() {
             </div>
             )}
 
-            {/* Chat panel with pinned submission */}
             {isAuthenticated && (isCreator || isBidder) ? (
               <Chat
                 taskId={task.id}
@@ -630,7 +721,7 @@ export default function TaskDetailPage() {
                 pinnedContent={pinnedContent}
               />
             ) : (
-              <div className="flex items-center justify-center rounded-xl border border-k-border p-8 border-k-border">
+              <div className="flex items-center justify-center rounded-xl border border-k-border p-8">
                 <p className="text-sm text-zinc-500">Sign in to view messages and submissions.</p>
               </div>
             )}

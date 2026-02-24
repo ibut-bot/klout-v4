@@ -178,6 +178,8 @@ model Task {
   customTokenDecimals Int?
   customTokenLogoUri  String?
   winningBidId        String?    @unique
+  maxWinners          Int        @default(1)
+  prizeStructure      Json?      // [{place:1, amountLamports:"500000000"}, {place:2, amountLamports:"300000000"}]
   deadlineAt          DateTime?
   imageUrl            String?
   imageTransform      Json?      // { scale: number, x: number, y: number } for image positioning
@@ -210,6 +212,7 @@ model Bid {
   fundingTxSig     String?
   proposalIndex    Int?
   paymentTxSig     String?
+  winnerPlace      Int?
   status           BidStatus @default(PENDING)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt

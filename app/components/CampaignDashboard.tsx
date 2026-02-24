@@ -1557,7 +1557,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               <div>
                 <div className="flex justify-between text-zinc-400 mb-1">
                   <span>Earning cap:</span>
-                  <span className="font-medium text-zinc-100">{formatTokenAmount(myTotalEarned, tInfo)} / {formatTokenAmount(myBudgetCap, tInfo)} {sym}</span>
+                  <span className="font-medium text-zinc-100">{formatTokenAmount(myTotalEarned, tInfo, 2)} / {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym}</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
                   <div
@@ -1574,16 +1574,16 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             <div className="flex justify-between text-zinc-400">
               <span>Approved (unpaid):</span>
               <span className="font-medium text-zinc-100">
-                {formatTokenAmount(myApprovedPayout, tInfo)} {sym}
+                {formatTokenAmount(myApprovedPayout, tInfo, 2)} {sym}
                 {myApprovedPayout > 0 && cappedPayout < myApprovedPayout && (
-                  <span className="text-amber-400"> (capped to {formatTokenAmount(cappedPayout, tInfo)} {sym})</span>
+                  <span className="text-amber-400"> (capped to {formatTokenAmount(cappedPayout, tInfo, 2)} {sym})</span>
                 )}
               </span>
             </div>
             {minPayoutThreshold > 0 && (
               <div className="flex justify-between text-zinc-400">
                 <span>Min payout threshold:</span>
-                <span className="font-medium text-zinc-100">{formatTokenAmount(minPayoutThreshold, tInfo)} {sym}</span>
+                <span className="font-medium text-zinc-100">{formatTokenAmount(minPayoutThreshold, tInfo, 2)} {sym}</span>
               </div>
             )}
             {minPayoutThreshold > 0 && myApprovedPayout > 0 && myApprovedPayout < minPayoutThreshold && (

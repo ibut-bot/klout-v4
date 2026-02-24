@@ -40,6 +40,7 @@ export async function GET(
       vaultAddress: b.vaultAddress,
       proposalIndex: b.proposalIndex,
       status: b.status,
+      winnerPlace: b.winnerPlace,
       hasSubmission: b.submissions.length > 0,
       createdAt: b.createdAt.toISOString(),
     })),

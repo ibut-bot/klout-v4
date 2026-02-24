@@ -128,6 +128,21 @@ export default function TaskForm() {
   const [donts, setDonts] = useState<string[]>([''])
   const [collateralLink, setCollateralLink] = useState('')
 
+  // Competition-specific fields
+  const [maxWinners, setMaxWinners] = useState(1)
+  const [prizeAmounts, setPrizeAmounts] = useState<string[]>([''])
+
+  const updatePrizeCount = (count: number) => {
+    setMaxWinners(count)
+    setPrizeAmounts(prev => {
+      const next = [...prev]
+      while (next.length < count) next.push('')
+      return next.slice(0, count)
+    })
+  }
+
+  const totalPrizeSol = prizeAmounts.reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+
   // Image upload
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -191,8 +206,16 @@ export default function TaskForm() {
         throw new Error('Please enter a valid token mint address first')
       }
       const multiplier = (taskType === 'CAMPAIGN') ? tokenInfo.multiplier : LAMPORTS_PER_SOL
-      const budgetLamports = Math.round(parseFloat(budget) * multiplier)
-      if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
+
+      let budgetLamports: number
+      if (taskType === 'COMPETITION') {
+        budgetLamports = Math.round(totalPrizeSol * LAMPORTS_PER_SOL)
+        if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Total prize amount must be positive')
+        if (prizeAmounts.some(v => !v || parseFloat(v) <= 0)) throw new Error('All prize amounts must be positive')
+      } else {
+        budgetLamports = Math.round(parseFloat(budget) * multiplier)
+        if (isNaN(budgetLamports) || budgetLamports <= 0) throw new Error('Invalid budget')
+      }
 
       // Upload image first if provided
       let imageUrl: string | null = null
@@ -281,6 +304,16 @@ export default function TaskForm() {
         },
       } : {}
 
+      const competitionFields = taskType === 'COMPETITION' ? {
+        maxWinners,
+        ...(maxWinners > 1 ? {
+          prizeStructure: prizeAmounts.map((v, i) => ({
+            place: i + 1,
+            amountLamports: Math.round(parseFloat(v) * LAMPORTS_PER_SOL),
+          })),
+        } : {}),
+      } : {}
+
       const res = await authFetch('/api/tasks', {
         method: 'POST',
         body: JSON.stringify({
@@ -288,6 +321,7 @@ export default function TaskForm() {
           paymentTxSignature: signature,
           ...vaultDetails,
           ...campaignFields,
+          ...competitionFields,
           ...((taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && durationDays ? { durationDays: parseInt(durationDays) } : {}),
           ...(imageUrl ? { imageUrl } : {}),
           ...(imageUrl && (imageTransform.scale !== 1 || imageTransform.x !== 0 || imageTransform.y !== 0) ? { imageTransform } : {}),
@@ -299,7 +333,7 @@ export default function TaskForm() {
 
       router.push(`/tasks/${data.task.id}`)
     } catch (e: any) {
-      setError(e.message || 'Failed to create campaign')
+      setError(e.message || `Failed to create ${taskType === 'COMPETITION' ? 'competition' : 'campaign'}`)
       setStep('form')
     } finally {
       setLoading(false)
@@ -312,6 +346,33 @@ export default function TaskForm() {
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">{error}</div>
       )}
 
+      {/* Task Type Selector */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Type</label>
+        <div className="flex gap-2">
+          {(['CAMPAIGN', 'COMPETITION'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTaskType(t)}
+              className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+                taskType === t
+                  ? t === 'COMPETITION'
+                    ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                    : 'border-accent bg-accent/10 text-accent'
+                  : 'border-k-border bg-surface text-zinc-400 hover:border-zinc-500'
+              }`}
+            >
+              {t === 'CAMPAIGN' ? 'Campaign' : 'Competition'}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          {taskType === 'CAMPAIGN'
+            ? 'Pay-per-view campaign. Participants earn based on engagement.'
+            : 'Contest with prizes. Participants submit work and you pick winners.'}
+        </p>
+      </div>
 
       <div>
         <label className="mb-1.5 block text-sm font-medium text-zinc-200">Title</label>
@@ -341,73 +402,71 @@ export default function TaskForm() {
       )}
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-zinc-200">Campaign Details</label>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">{taskType === 'COMPETITION' ? 'Competition Details' : 'Campaign Details'}</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the campaign in detail..."
+          placeholder={taskType === 'COMPETITION' ? 'Describe the competition, rules, and what you expect from submissions...' : 'Describe the campaign in detail...'}
           rows={5}
           required
           className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
         />
       </div>
 
-      {taskType === 'CAMPAIGN' && (
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Campaign Image</label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-            className="hidden"
-          />
-          {imagePreview ? (
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Position and zoom your image for the campaign card</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
-                  >
-                    Replace
-                  </button>
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="rounded-lg bg-red-500/20 px-2 py-1 text-xs text-red-400 hover:bg-red-500/30"
-                  >
-                    Remove
-                  </button>
-                </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-200">{taskType === 'COMPETITION' ? 'Competition Image' : 'Campaign Image'}</label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="hidden"
+        />
+        {imagePreview ? (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-zinc-400">Position and zoom your image for the card</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-lg bg-zinc-800 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-700"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="rounded-lg bg-red-500/20 px-2 py-1 text-xs text-red-400 hover:bg-red-500/30"
+                >
+                  Remove
+                </button>
               </div>
-              <ImagePositionEditor
-                imageUrl={imagePreview}
-                initialTransform={imageTransform}
-                onTransformChange={handleTransformChange}
-                height="h-[280px]"
-                showControls={true}
-              />
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-500 hover:border-accent/40 hover:text-accent transition"
-            >
-              <div className="text-center">
-                <svg className="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="mt-1 block text-xs">Upload campaign image</span>
-              </div>
-            </button>
-          )}
-          <p className="mt-1 text-xs text-zinc-500">Optional. This image will be shown on the campaign card. You can position and zoom it.</p>
-        </div>
-      )}
+            <ImagePositionEditor
+              imageUrl={imagePreview}
+              initialTransform={imageTransform}
+              onTransformChange={handleTransformChange}
+              height="h-[280px]"
+              showControls={true}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-32 w-full items-center justify-center rounded-lg border-2 border-dashed border-k-border text-zinc-500 hover:border-accent/40 hover:text-accent transition"
+          >
+            <div className="text-center">
+              <svg className="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="mt-1 block text-xs">Upload {taskType === 'COMPETITION' ? 'competition' : 'campaign'} image</span>
+            </div>
+          </button>
+        )}
+        <p className="mt-1 text-xs text-zinc-500">Optional. This image will be shown on the card. You can position and zoom it.</p>
+      </div>
 
       {taskType === 'CAMPAIGN' && (
         <div>
@@ -462,44 +521,98 @@ export default function TaskForm() {
         </div>
       )}
 
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <label className="block text-sm font-medium text-zinc-200">Budget ({taskType === 'CAMPAIGN' ? tokenLabel : 'SOL'})</label>
-          {taskType === 'CAMPAIGN' && walletBalance !== null && (
-            <span className="text-xs text-zinc-400">
-              Balance: {balanceLoading ? '...' : <span className="text-zinc-200">{parseFloat(walletBalance).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>} {tokenLabel}
-            </span>
-          )}
-        </div>
-        <div className="relative">
+      {/* Competition: Prize Structure */}
+      {taskType === 'COMPETITION' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Number of Winners</label>
           <input
             type="number"
-            step="0.01"
-            min="0.01"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            placeholder="0.5"
-            required
-            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 pr-16 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            step="1"
+            min="1"
+            max="10"
+            value={maxWinners}
+            onChange={(e) => updatePrizeCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+            className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
           />
-          {taskType === 'CAMPAIGN' && walletBalance !== null && parseFloat(walletBalance) > 0 && (
-            <button
-              type="button"
-              onClick={() => setBudget(walletBalance)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-accent/15 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/25 transition"
-            >
-              Max
-            </button>
-          )}
+          <p className="mt-1 text-xs text-zinc-500">How many winners you will select (1-10).</p>
         </div>
-        <p className="mt-1 text-xs text-zinc-500">
-          {taskType === 'CAMPAIGN'
-            ? `This ${tokenLabel} budget will be locked in an escrow vault. A ${CAMPAIGN_CREATION_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL campaign creation fee applies.`
-            : taskType === 'COMPETITION'
-              ? `This ${tokenLabel} budget will be locked in an escrow vault when you post the campaign.`
+      )}
+
+      {taskType === 'COMPETITION' && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-200">Prize Amounts (SOL)</label>
+          <div className="space-y-2">
+            {prizeAmounts.map((amt, i) => {
+              const placeLabels = ['1st', '2nd', '3rd']
+              const label = i < 3 ? `${placeLabels[i]} Place` : `${i + 1}th Place`
+              return (
+                <div key={i}>
+                  <label className="mb-1 block text-xs text-zinc-400">{label}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={amt}
+                    onChange={(e) => {
+                      const next = [...prizeAmounts]
+                      next[i] = e.target.value
+                      setPrizeAmounts(next)
+                    }}
+                    placeholder="0.5"
+                    required
+                    className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+                  />
+                </div>
+              )
+            })}
+          </div>
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-surface p-3 border border-k-border">
+            <span className="text-sm font-medium text-zinc-300">Total Budget</span>
+            <span className="text-sm font-bold text-accent">{totalPrizeSol > 0 ? totalPrizeSol.toFixed(4) : '0'} SOL</span>
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">This total will be locked in an escrow vault when you create the competition.</p>
+        </div>
+      )}
+
+      {/* Campaign: Budget */}
+      {taskType !== 'COMPETITION' && (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="block text-sm font-medium text-zinc-200">Budget ({taskType === 'CAMPAIGN' ? tokenLabel : 'SOL'})</label>
+            {taskType === 'CAMPAIGN' && walletBalance !== null && (
+              <span className="text-xs text-zinc-400">
+                Balance: {balanceLoading ? '...' : <span className="text-zinc-200">{parseFloat(walletBalance).toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>} {tokenLabel}
+              </span>
+            )}
+          </div>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="0.5"
+              required
+              className="w-full rounded-lg border border-k-border bg-surface px-4 py-2.5 pr-16 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+            {taskType === 'CAMPAIGN' && walletBalance !== null && parseFloat(walletBalance) > 0 && (
+              <button
+                type="button"
+                onClick={() => setBudget(walletBalance)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-accent/15 px-2.5 py-1 text-xs font-semibold text-accent hover:bg-accent/25 transition"
+              >
+                Max
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">
+            {taskType === 'CAMPAIGN'
+              ? `This ${tokenLabel} budget will be locked in an escrow vault. A ${CAMPAIGN_CREATION_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL campaign creation fee applies.`
               : `A fee of ${TASK_FEE_LAMPORTS / LAMPORTS_PER_SOL} SOL will be charged to post this campaign.`}
-        </p>
-      </div>
+          </p>
+        </div>
+      )}
 
       {taskType === 'CAMPAIGN' && (
         <>
@@ -761,13 +874,17 @@ export default function TaskForm() {
       <button
         type="submit"
         disabled={loading || !isAuthenticated}
-        className="w-full rounded-lg bg-accent py-3 text-sm font-semibold text-black transition hover:bg-accent-hover disabled:opacity-50"
+        className={`w-full rounded-lg py-3 text-sm font-semibold text-black transition disabled:opacity-50 ${
+          taskType === 'COMPETITION'
+            ? 'bg-amber-500 hover:bg-amber-400'
+            : 'bg-accent hover:bg-accent-hover'
+        }`}
       >
         {loading
           ? step === 'paying'
-            ? (taskType === 'COMPETITION' || taskType === 'CAMPAIGN') ? 'Creating escrow vault...' : 'Paying posting fee...'
-            : 'Creating campaign...'
-          : 'Launch Campaign'}
+            ? 'Creating escrow vault...'
+            : taskType === 'COMPETITION' ? 'Creating competition...' : 'Creating campaign...'
+          : taskType === 'COMPETITION' ? 'Launch Competition' : 'Launch Campaign'}
       </button>
     </form>
   )

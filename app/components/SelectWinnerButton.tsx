@@ -23,6 +23,7 @@ export interface WinnerBid {
   vaultAddress: string | null
   proposalIndex: number | null
   status: string
+  winnerPlace?: number | null
   bidderWallet: string
   bidderUsername?: string | null
   bidderProfilePic?: string | null
@@ -33,7 +34,14 @@ interface SelectWinnerButtonProps {
   taskId: string
   taskType: string
   taskMultisigAddress?: string | null
+  winnerPlace?: number
+  prizeAmountLamports?: string
   onDone?: () => void
+}
+
+const PLACE_LABELS = ['1st', '2nd', '3rd']
+function placeLabel(place: number): string {
+  return place <= 3 ? PLACE_LABELS[place - 1] : `${place}th`
 }
 
 export default function SelectWinnerButton({
@@ -41,6 +49,8 @@ export default function SelectWinnerButton({
   taskId,
   taskType,
   taskMultisigAddress,
+  winnerPlace,
+  prizeAmountLamports,
   onDone,
 }: SelectWinnerButtonProps) {
   const { authFetch } = useAuth()
@@ -53,6 +63,7 @@ export default function SelectWinnerButton({
   const [paymentSig, setPaymentSig] = useState<string | null>(null)
 
   const isCompetition = taskType === 'COMPETITION'
+  const paymentAmount = prizeAmountLamports || bid.amountLamports
 
   const payWinner = async () => {
     if (!publicKey || !signTransaction || !taskMultisigAddress || !PLATFORM_WALLET) return
@@ -60,7 +71,7 @@ export default function SelectWinnerButton({
     setStep('paying')
     const multisigPda = new PublicKey(taskMultisigAddress)
     const winnerWallet = new PublicKey(bid.bidderWallet)
-    const lamports = Number(bid.amountLamports)
+    const lamports = Number(paymentAmount)
 
     const { signature } = await createProposalApproveExecuteWA(
       connection,
@@ -69,7 +80,7 @@ export default function SelectWinnerButton({
       winnerWallet,
       lamports,
       new PublicKey(PLATFORM_WALLET),
-      `slopwork-payout-${taskId}`,
+      `slopwork-payout-${taskId}-place${winnerPlace || 1}`,
     )
 
     const payRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/approve-payment`, {
@@ -93,7 +104,10 @@ export default function SelectWinnerButton({
     try {
       if (isCompetition) {
         setStep('accepting')
-        const acceptRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/accept`, { method: 'POST' })
+        const acceptRes = await authFetch(`/api/tasks/${taskId}/bids/${bid.id}/accept`, {
+          method: 'POST',
+          body: JSON.stringify({ winnerPlace: winnerPlace || 1 }),
+        })
         const acceptData = await acceptRes.json()
         if (!acceptData.success) throw new Error(acceptData.message)
 
@@ -190,11 +204,14 @@ export default function SelectWinnerButton({
     return 'Processing...'
   }
 
-  // Show success state
+  const label = winnerPlace
+    ? `Award ${placeLabel(winnerPlace)} Place & Pay (${formatSol(paymentAmount)})`
+    : `Select Winner & Pay (${formatSol(paymentAmount)})`
+
   if (paymentSig) {
     return (
       <div className="rounded-lg bg-green-500/10 p-3 text-sm text-green-400">
-        Payment successful!{' '}
+        {winnerPlace ? `${placeLabel(winnerPlace)} place payment successful!` : 'Payment successful!'}{' '}
         <a
           href={`https://orb.helius.dev/tx/${paymentSig}`}
           target="_blank"
@@ -208,7 +225,6 @@ export default function SelectWinnerButton({
     )
   }
 
-  // Show error + retry
   if (needsRetry && error) {
     return (
       <div className="space-y-2">
@@ -220,13 +236,12 @@ export default function SelectWinnerButton({
           disabled={busy}
           className="rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
-          {busy ? getButtonText() : `Retry Payment (${formatSol(bid.amountLamports)})`}
+          {busy ? getButtonText() : `Retry Payment (${formatSol(paymentAmount)})`}
         </button>
       </div>
     )
   }
 
-  // Show select button
   return (
     <div>
       {error && (
@@ -239,7 +254,7 @@ export default function SelectWinnerButton({
         disabled={busy}
         className="rounded-lg bg-green-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
       >
-        {busy ? getButtonText() : `Select Winner & Pay (${formatSol(bid.amountLamports)})`}
+        {busy ? getButtonText() : label}
       </button>
     </div>
   )

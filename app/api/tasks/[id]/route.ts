@@ -96,6 +96,8 @@ export async function GET(
         : null,
       bidCount: task._count.bids,
       messageCount: task._count.messages,
+      maxWinners: task.maxWinners,
+      prizeStructure: task.prizeStructure,
       imageUrl: task.imageUrl,
       imageTransform: task.imageTransform,
       deadlineAt: task.deadlineAt ? task.deadlineAt.toISOString() : null,

@@ -26,12 +26,15 @@ interface Task {
   budgetRemainingLamports?: string | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
+  maxWinners?: number
+  prizeStructure?: { place: number; amountLamports: string }[] | null
   deadlineAt?: string | null
   createdAt: string
 }
 
 const STATUSES = ['all', 'open', 'paused', 'completed']
 
+type TaskTypeTab = 'CAMPAIGN' | 'COMPETITION'
 type ViewMode = 'all' | 'my_tasks' | 'my_bids' | 'shared'
 
 export default function TasksPage() {
@@ -39,6 +42,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
+  const [taskTypeTab, setTaskTypeTab] = useState<TaskTypeTab>('CAMPAIGN')
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -50,8 +54,7 @@ export default function TasksPage() {
       let data: any
 
       if (viewMode === 'my_tasks' && isAuthenticated) {
-        // Fetch user's created tasks
-        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: 'CAMPAIGN' })
+        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: taskTypeTab })
         if (status !== 'all') params.set('status', status)
         const res = await authFetch(`/api/me/tasks?${params}`)
         data = await res.json()
@@ -105,8 +108,7 @@ export default function TasksPage() {
           data = bidsData
         }
       } else {
-        // Fetch all marketplace tasks (campaigns only)
-        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: 'CAMPAIGN' })
+        const params = new URLSearchParams({ page: String(page), limit: '20', taskType: taskTypeTab })
         if (status !== 'all') params.set('status', status)
         const res = await fetch(`/api/tasks?${params}`)
         data = await res.json()
@@ -125,7 +127,7 @@ export default function TasksPage() {
 
   useEffect(() => {
     fetchTasks()
-  }, [status, page, viewMode, isAuthenticated])
+  }, [status, page, viewMode, isAuthenticated, taskTypeTab])
 
   const handleImageTransformSave = useCallback(async (taskId: string, transform: ImageTransform) => {
     if (!isAuthenticated) return
@@ -150,8 +152,32 @@ export default function TasksPage() {
 
   return (
     <div>
+      {/* Task Type Tabs */}
+      <div className="mb-6 flex gap-1 rounded-lg bg-surface p-1 border border-k-border w-fit">
+        <button
+          onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('all') }}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            taskTypeTab === 'CAMPAIGN'
+              ? 'bg-accent text-black'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Campaigns
+        </button>
+        <button
+          onClick={() => { setTaskTypeTab('COMPETITION'); setPage(1); setStatus('all') }}
+          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+            taskTypeTab === 'COMPETITION'
+              ? 'bg-amber-500 text-black'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Competitions
+        </button>
+      </div>
+
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-white">Browse Campaigns</h1>
+        <h1 className="text-2xl font-bold text-white">{taskTypeTab === 'COMPETITION' ? 'Browse Competitions' : 'Browse Campaigns'}</h1>
         
         {/* View Mode Toggle (only when authenticated) */}
         {isAuthenticated && (
@@ -164,7 +190,7 @@ export default function TasksPage() {
                   : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
               }`}
             >
-              All Campaigns
+              {taskTypeTab === 'COMPETITION' ? 'All Competitions' : 'All Campaigns'}
             </button>
             <button
               onClick={() => { setViewMode('my_tasks'); setPage(1); setStatus('all') }}
@@ -174,7 +200,7 @@ export default function TasksPage() {
                   : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
               }`}
             >
-              My Campaigns
+              {taskTypeTab === 'COMPETITION' ? 'My Competitions' : 'My Campaigns'}
             </button>
             <button
               onClick={() => { setViewMode('my_bids'); setPage(1); setStatus('all') }}
@@ -244,17 +270,17 @@ export default function TasksPage() {
       ) : tasks.length === 0 ? (
         <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
           <p className="text-zinc-500 mb-4">
-            {viewMode === 'my_tasks' && 'You haven\'t created any campaigns yet.'}
-            {viewMode === 'my_bids' && 'You haven\'t submitted to any campaigns yet.'}
-            {viewMode === 'shared' && 'No campaigns have been shared with you yet.'}
-            {viewMode === 'all' && 'No campaigns found.'}
+            {viewMode === 'my_tasks' && `You haven't created any ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} yet.`}
+            {viewMode === 'my_bids' && `You haven't submitted to any ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} yet.`}
+            {viewMode === 'shared' && `No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} have been shared with you yet.`}
+            {viewMode === 'all' && `No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} found.`}
           </p>
           {viewMode === 'my_tasks' && (
             <Link
               href="/tasks/new"
               className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black hover:bg-accent-hover"
             >
-              Create Your First Campaign
+              {taskTypeTab === 'COMPETITION' ? 'Create Your First Competition' : 'Create Your First Campaign'}
             </Link>
           )}
         </div>

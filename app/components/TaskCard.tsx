@@ -62,6 +62,8 @@ interface TaskCardProps {
   minKloutScore?: number | null
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
+  maxWinners?: number
+  prizeStructure?: { place: number; amountLamports: string }[] | null
   deadlineAt?: string | null
   createdAt: string
   isCreator?: boolean
@@ -98,7 +100,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, maxWinners, prizeStructure, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -135,7 +137,8 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
     return () => clearInterval(interval)
   }, [deadlineAt, budgetExhausted])
 
-  const hasCampaignImage = isCampaign && imageUrl
+  const isCompetition = taskType === 'COMPETITION'
+  const hasCardImage = (isCampaign || isCompetition) && imageUrl
 
   const handleSavePosition = useCallback(() => {
     if (onImageTransformSave) {
@@ -144,8 +147,14 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
     setEditingPosition(false)
   }, [id, pendingTransform, onImageTransformSave])
 
-  // Campaign card with full-bleed image
-  if (hasCampaignImage) {
+  const placeLabels = ['1st', '2nd', '3rd']
+  const formatPrizeSol = (lamports: string) => {
+    const sol = Number(lamports) / 1e9
+    return sol < 0.01 ? sol.toPrecision(2) : sol.toFixed(2)
+  }
+
+  // Card with full-bleed image (campaign or competition)
+  if (hasCardImage) {
     // Show position editor mode
     if (editingPosition && imageUrl) {
       return (
@@ -218,24 +227,45 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
 
           {/* Content on overlay */}
           <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col p-4 pt-0">
-            <h3 className="text-lg font-bold text-white group-hover:text-accent transition-colors line-clamp-1 mb-1">
+            {isCompetition && (
+              <span className="mb-1.5 w-fit rounded-full bg-amber-500/20 backdrop-blur-sm px-2.5 py-0.5 text-xs font-semibold text-amber-400">
+                Competition
+              </span>
+            )}
+            <h3 className={`text-lg font-bold text-white transition-colors line-clamp-1 mb-1 ${isCompetition ? 'group-hover:text-amber-400' : 'group-hover:text-accent'}`}>
               {title}
             </h3>
             <p className="line-clamp-2 text-sm text-zinc-300/80 mb-3">{heading || description}</p>
 
-            {/* Budget Progress Bar */}
-            <div className="mb-3">
-              <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="text-zinc-400 font-medium">Budget Used</span>
-                <span className="font-semibold text-zinc-300">{budgetUsedPercent}%</span>
+            {/* Competition: prize breakdown */}
+            {isCompetition && prizeStructure && prizeStructure.length > 1 ? (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {prizeStructure.map((p, i) => (
+                  <span key={p.place} className="rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-medium text-zinc-200">
+                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrizeSol(p.amountLamports)} SOL
+                  </span>
+                ))}
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 backdrop-blur-sm">
-                <div
-                  className="h-full rounded-full bg-accent transition-all duration-500"
-                  style={{ width: `${budgetUsedPercent}%` }}
-                />
+            ) : isCompetition ? (
+              <div className="mb-3">
+                <span className="rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-medium text-zinc-200">
+                  {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
+                </span>
               </div>
-            </div>
+            ) : (
+              <div className="mb-3">
+                <div className="mb-1.5 flex items-center justify-between text-xs">
+                  <span className="text-zinc-400 font-medium">Budget Used</span>
+                  <span className="font-semibold text-zinc-300">{budgetUsedPercent}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 backdrop-blur-sm">
+                  <div
+                    className="h-full rounded-full bg-accent transition-all duration-500"
+                    style={{ width: `${budgetUsedPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Footer meta */}
             <div className="flex items-center justify-between text-sm">
@@ -291,7 +321,14 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
       <div className="rounded-2xl border border-k-border bg-surface overflow-hidden transition-all hover:border-accent/40 hover:shadow-lg hover:shadow-accent/5">
         <div className="p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
-            <h3 className="text-base font-semibold text-white group-hover:text-accent transition-colors line-clamp-1">{title}</h3>
+            <div className="flex items-center gap-2 min-w-0">
+              {isCompetition && (
+                <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                  Competition
+                </span>
+              )}
+              <h3 className={`text-base font-semibold text-white transition-colors line-clamp-1 ${isCompetition ? 'group-hover:text-amber-400' : 'group-hover:text-accent'}`}>{title}</h3>
+            </div>
             <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] || ''}`}>
               {status.replace('_', ' ')}
             </span>
@@ -308,6 +345,24 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             </span>
           </div>
           
+          {/* Competition: prize breakdown */}
+          {isCompetition && prizeStructure && prizeStructure.length > 1 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {prizeStructure.map((p, i) => (
+                <span key={p.place} className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+                  {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrizeSol(p.amountLamports)} SOL
+                </span>
+              ))}
+            </div>
+          )}
+          {isCompetition && (!prizeStructure || prizeStructure.length <= 1) && (
+            <div className="mb-3">
+              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+                {maxWinners && maxWinners > 1 ? `${maxWinners} winners` : '1 winner'}
+              </span>
+            </div>
+          )}
+
           {/* Budget Progress Bar for Campaigns */}
           {isCampaign && (
             <div className="mb-3">

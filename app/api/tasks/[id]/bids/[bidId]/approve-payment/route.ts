@@ -30,8 +30,6 @@ export async function POST(
 
   const { approveTxSignature, executeTxSignature, paymentTxSignature: singleTxSig } = body
 
-  // For competition tasks, a single paymentTxSignature covers proposal+approve+execute.
-  // For quote tasks, approveTxSignature and executeTxSignature are separate.
   const effectiveExecuteSig = singleTxSig || executeTxSignature
   if (!effectiveExecuteSig) {
     return Response.json(
@@ -40,17 +38,11 @@ export async function POST(
     )
   }
 
-  const task = await prisma.task.findUnique({
-    where: { id },
-    include: { winningBid: true },
-    // paymentToken & customTokenMint are on Task model already
-  })
-
+  const task = await prisma.task.findUnique({ where: { id } })
   if (!task) {
     return Response.json({ success: false, error: 'NOT_FOUND', message: 'Task not found' }, { status: 404 })
   }
 
-  // Only the task creator can approve payment
   if (task.creatorId !== userId) {
     return Response.json(
       { success: false, error: 'FORBIDDEN', message: 'Only the task creator can approve payment' },
@@ -58,25 +50,44 @@ export async function POST(
     )
   }
 
-  if (!task.winningBid || task.winningBid.id !== bidId) {
-    return Response.json(
-      { success: false, error: 'NOT_WINNING_BID', message: 'This is not the winning bid' },
-      { status: 400 }
-    )
-  }
-
   const isCompetition = task.taskType === 'COMPETITION'
-  const allowedStatuses = isCompetition
-    ? ['ACCEPTED']  // Competition: payment happens right after accepting (skips FUNDED/PAYMENT_REQUESTED)
-    : ['PAYMENT_REQUESTED']
-  if (!allowedStatuses.includes(task.winningBid.status)) {
+  const isMultiWinner = isCompetition && task.maxWinners > 1
+
+  // Find the bid being paid
+  const bid = await prisma.bid.findUnique({ where: { id: bidId } })
+  if (!bid || bid.taskId !== id) {
     return Response.json(
-      { success: false, error: 'INVALID_STATUS', message: `Bid is ${task.winningBid.status}, must be ${allowedStatuses.join(' or ')}` },
-      { status: 400 }
+      { success: false, error: 'BID_NOT_FOUND', message: 'Bid not found for this task' },
+      { status: 404 }
     )
   }
 
-  // Verify the execute transaction exists and succeeded on-chain
+  // For multi-winner competitions, any ACCEPTED bid with a winnerPlace can be paid
+  // For single-winner, must be the winningBid
+  if (isMultiWinner) {
+    if (bid.status !== 'ACCEPTED' || !bid.winnerPlace) {
+      return Response.json(
+        { success: false, error: 'INVALID_BID', message: 'This bid has not been selected as a winner' },
+        { status: 400 }
+      )
+    }
+  } else {
+    if (!task.winningBidId || task.winningBidId !== bidId) {
+      return Response.json(
+        { success: false, error: 'NOT_WINNING_BID', message: 'This is not the winning bid' },
+        { status: 400 }
+      )
+    }
+    const allowedStatuses = isCompetition ? ['ACCEPTED'] : ['PAYMENT_REQUESTED']
+    if (!allowedStatuses.includes(bid.status)) {
+      return Response.json(
+        { success: false, error: 'INVALID_STATUS', message: `Bid is ${bid.status}, must be ${allowedStatuses.join(' or ')}` },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Verify the transaction on-chain
   try {
     const connection = getConnection()
     const tx = await connection.getParsedTransaction(effectiveExecuteSig, {
@@ -102,33 +113,49 @@ export async function POST(
     )
   }
 
-  await prisma.$transaction([
+  // For multi-winner: check if this completes all winner payments
+  let allWinnersPaid = false
+  if (isMultiWinner) {
+    const completedCount = await prisma.bid.count({
+      where: { taskId: id, winnerPlace: { not: null }, status: 'COMPLETED' },
+    })
+    // +1 for this bid being marked COMPLETED now
+    allWinnersPaid = completedCount + 1 >= task.maxWinners
+  }
+
+  const txOps: any[] = [
     prisma.bid.update({
       where: { id: bidId },
       data: { status: 'COMPLETED', paymentTxSig: effectiveExecuteSig },
     }),
-    prisma.task.update({
-      where: { id },
-      data: { status: 'COMPLETED' },
-    }),
-  ])
+  ]
 
-  // Record referral earning if the bidder was referred
+  if (isMultiWinner) {
+    if (allWinnersPaid) {
+      txOps.push(prisma.task.update({ where: { id }, data: { status: 'COMPLETED' } }))
+    }
+  } else {
+    txOps.push(prisma.task.update({ where: { id }, data: { status: 'COMPLETED' } }))
+  }
+
+  await prisma.$transaction(txOps)
+
+  // Record referral earning
   try {
-    const refInfo = await getReferralInfoForUser(task.winningBid.bidderId)
+    const refInfo = await getReferralInfoForUser(bid.bidderId)
     if (refInfo) {
-      const payoutAmount = Number(task.winningBid.amountLamports)
+      const payoutAmount = Number(bid.amountLamports)
       const split = calculateReferralSplit(payoutAmount, refInfo.referrerFeePct)
       if (split.referrerAmount > 0) {
         await recordReferralEarning({
           referralId: refInfo.referralId,
           referrerId: refInfo.referrerId,
-          referredUserId: task.winningBid.bidderId,
+          referredUserId: bid.bidderId,
           taskId: id,
           bidId,
           tokenType: (task.paymentToken || 'SOL') as 'SOL' | 'USDC' | 'CUSTOM',
           tokenMint: task.customTokenMint || undefined,
-          totalAmount: task.winningBid.amountLamports as unknown as bigint,
+          totalAmount: bid.amountLamports as unknown as bigint,
           referrerAmount: BigInt(split.referrerAmount),
           platformAmount: BigInt(split.platformAmount),
           txSignature: effectiveExecuteSig,
@@ -139,9 +166,8 @@ export async function POST(
     // Non-fatal
   }
 
-  // Notify bidder that payment has been approved
   createNotification({
-    userId: task.winningBid.bidderId,
+    userId: bid.bidderId,
     type: 'PAYMENT_APPROVED',
     title: 'Payment approved!',
     body: `Payment for "${task.title}" has been approved and executed`,
@@ -150,7 +176,9 @@ export async function POST(
 
   return Response.json({
     success: true,
-    message: 'Payment approved and executed. Task completed!',
+    message: allWinnersPaid
+      ? 'All winners paid. Task completed!'
+      : 'Payment approved and executed.',
     paymentTxSignature: effectiveExecuteSig,
   })
 }
