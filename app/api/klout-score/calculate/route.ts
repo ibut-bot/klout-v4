@@ -6,28 +6,12 @@ import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { generateBuffedProfileImage } from '@/lib/fal'
 import { getRandomQuote, getScoreTierTitle as getScoreLabel } from '@/lib/score-tiers'
 import { getTotalReferralCount, getCurrentTier, isReferralProgramActive } from '@/lib/referral'
+import { fetchWallchainScore, applyScoreDeviation } from '@/lib/wallchain'
 
 export const maxDuration = 60
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const KLOUT_SCORE_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_KLOUT_SCORE_FEE_LAMPORTS || 10_000_000)
-const WALLCHAIN_API_BASE = 'https://dev.api.wallchains.com'
-
-async function fetchWallchainScore(xUsername: string): Promise<number> {
-  const res = await fetch(
-    `${WALLCHAIN_API_BASE}/extension/x_score/score/${encodeURIComponent(xUsername)}`
-  )
-  if (!res.ok) {
-    throw new Error(`Wallchain API error (${res.status})`)
-  }
-  const data = await res.json()
-  return data.score // 0–1,000
-}
-
-function applyScoreDeviation(baseScore: number): number {
-  const deviation = 1 + (Math.random() * 0.10 - 0.05) // ±5%
-  return Math.max(0, Math.min(10_000, Math.round(baseScore * deviation)))
-}
 
 /**
  * POST /api/klout-score/calculate
