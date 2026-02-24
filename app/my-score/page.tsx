@@ -342,6 +342,9 @@ function MyScoreTab() {
         method: "POST",
         body: JSON.stringify({ feeTxSig: sig }),
       });
+      if (!res.ok && !res.headers.get("content-type")?.includes("application/json")) {
+        throw new Error(`Server error (${res.status}). Please try again.`);
+      }
       const data = await res.json();
 
       if (!data.success) {

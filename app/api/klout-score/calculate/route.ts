@@ -21,6 +21,7 @@ const KLOUT_SCORE_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_KLOUT_SCORE_FEE_
  * with a ±5% random deviation applied.
  */
 export async function POST(request: NextRequest) {
+  try {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
   const { userId } = auth
@@ -215,4 +216,11 @@ export async function POST(request: NextRequest) {
       qualityScore,
     },
   }, { status: 201 })
+  } catch (err: any) {
+    console.error('[klout-score/calculate] Unhandled error:', err)
+    return Response.json(
+      { success: false, error: 'INTERNAL_ERROR', message: err?.message || 'An unexpected error occurred' },
+      { status: 500 }
+    )
+  }
 }
