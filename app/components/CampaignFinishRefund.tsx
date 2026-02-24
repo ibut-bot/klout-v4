@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
-import { createProposalApproveExecuteWA } from '@/lib/solana/multisig'
-import { createProposalApproveExecuteSplWA, USDC_MINT } from '@/lib/solana/spl-token'
+import { getVaultPda, createProposalApproveExecuteWA } from '@/lib/solana/multisig'
+import { createProposalApproveExecuteSplWA, USDC_MINT, getVaultSplBalance } from '@/lib/solana/spl-token'
 import { type PaymentTokenType, formatTokenAmount, resolveTokenInfo } from '@/lib/token-utils'
 
 interface Props {
@@ -34,13 +34,39 @@ export default function CampaignFinishRefund({
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const wallet = useWallet()
-  const [step, setStep] = useState<'confirm' | 'refunding' | 'finalizing'>('confirm')
+  const [step, setStep] = useState<'loading' | 'confirm' | 'refunding' | 'finalizing'>('loading')
   const [error, setError] = useState('')
+  const [vaultBalance, setVaultBalance] = useState<number>(0)
 
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
-  const remaining = Number(budgetRemainingLamports)
-  const hasRemaining = remaining > 0
-  const displayAmount = formatTokenAmount(budgetRemainingLamports, tInfo, 2)
+  const dbRemaining = Number(budgetRemainingLamports)
+  const refundAmount = Math.min(vaultBalance, dbRemaining)
+  const hasRefund = refundAmount > 0
+  const displayAmount = formatTokenAmount(String(refundAmount), tInfo, 2)
+
+  useEffect(() => {
+    const fetchVaultBalance = async () => {
+      try {
+        const msigPda = new PublicKey(multisigAddress)
+        if (paymentToken === 'SOL') {
+          const vaultPda = getVaultPda(msigPda)
+          const balance = await connection.getBalance(vaultPda)
+          setVaultBalance(balance)
+        } else {
+          const mint = paymentToken === 'CUSTOM' && customTokenMint
+            ? new PublicKey(customTokenMint)
+            : USDC_MINT
+          const decimals = customTokenDecimals ?? 6
+          const { balance } = await getVaultSplBalance(connection, msigPda, mint, decimals)
+          setVaultBalance(Math.floor(balance * 10 ** decimals))
+        }
+      } catch {
+        setVaultBalance(0)
+      }
+      setStep('confirm')
+    }
+    fetchVaultBalance()
+  }, [connection, multisigAddress, paymentToken, customTokenMint, customTokenDecimals])
 
   const handleFinish = async () => {
     if (!wallet.publicKey || !wallet.signTransaction) return
@@ -48,7 +74,7 @@ export default function CampaignFinishRefund({
 
     let refundTxSig: string | undefined
 
-    if (hasRemaining) {
+    if (hasRefund) {
       setStep('refunding')
       try {
         const walletSigner = { publicKey: wallet.publicKey, signTransaction: wallet.signTransaction }
@@ -59,7 +85,7 @@ export default function CampaignFinishRefund({
           result = await createProposalApproveExecuteWA(
             connection, walletSigner, msigPda,
             wallet.publicKey,
-            remaining,
+            refundAmount,
             undefined,
           )
         } else {
@@ -69,7 +95,7 @@ export default function CampaignFinishRefund({
           result = await createProposalApproveExecuteSplWA(
             connection, walletSigner, msigPda,
             wallet.publicKey,
-            remaining,
+            refundAmount,
             undefined,
             undefined,
             mint,
@@ -108,15 +134,28 @@ export default function CampaignFinishRefund({
       <div className="w-full max-w-md rounded-2xl border border-k-border bg-zinc-900 p-6 shadow-xl" onClick={e => e.stopPropagation()}>
         <h3 className="mb-4 text-lg font-bold text-white">Finish Campaign &amp; Refund</h3>
 
+        {step === 'loading' && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <p className="text-sm text-zinc-300">Checking vault balance...</p>
+          </div>
+        )}
+
         {step === 'confirm' && (
           <>
             <div className="space-y-3 text-sm text-zinc-300">
-              {hasRemaining ? (
+              {hasRefund ? (
                 <p>
-                  This will withdraw the remaining <span className="font-semibold text-accent">{displayAmount} {tInfo.symbol}</span> from the escrow vault back to your wallet and mark the campaign as completed.
+                  This will withdraw <span className="font-semibold text-accent">{displayAmount} {tInfo.symbol}</span> from the escrow vault back to your wallet and mark the campaign as completed.
                 </p>
               ) : (
-                <p>The campaign budget is fully allocated. This will mark the campaign as completed.</p>
+                <p>The vault has no remaining funds to refund. This will mark the campaign as completed.</p>
+              )}
+              {hasRefund && vaultBalance !== dbRemaining && (
+                <p className="text-xs text-zinc-500">
+                  On-chain vault balance: {formatTokenAmount(String(vaultBalance), tInfo, 4)} {tInfo.symbol}
+                  {vaultBalance > dbRemaining && ' (includes pending payment obligations)'}
+                </p>
               )}
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
                 <p className="font-medium mb-1">What happens:</p>
@@ -124,7 +163,7 @@ export default function CampaignFinishRefund({
                   <li>No more submissions will be accepted</li>
                   <li>Approved submissions that haven&apos;t requested payment will be auto-rejected</li>
                   <li>Payment-requested submissions can still be paid out</li>
-                  {hasRemaining && <li>Remaining budget is refunded to your wallet</li>}
+                  {hasRefund && <li>Remaining budget is refunded to your wallet</li>}
                 </ul>
               </div>
             </div>
@@ -140,7 +179,7 @@ export default function CampaignFinishRefund({
                 onClick={handleFinish}
                 className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
               >
-                {hasRemaining ? `Finish & Refund ${displayAmount} ${tInfo.symbol}` : 'Finish Campaign'}
+                {hasRefund ? `Finish & Refund ${displayAmount} ${tInfo.symbol}` : 'Finish Campaign'}
               </button>
             </div>
           </>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import ImagePositionEditor, { getImageTransformStyle, type ImageTransform } from '../../components/ImagePositionEditor'
+import XPostEmbed, { extractXPostUrl } from '../../components/XPostEmbed'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType, type TokenInfo } from '@/lib/token-utils'
 
 function useCountdown(deadlineAt: string | null | undefined) {
@@ -559,7 +560,13 @@ export default function TaskDetailPage() {
           ? submissions 
           : submissions.filter(s => s.bidId === myBid?.id)
 
-        const pinnedContent = displaySub ? (
+        const pinnedContent = displaySub ? (() => {
+          const xUrl = extractXPostUrl(displaySub.description || '')
+          const descWithoutUrl = xUrl
+            ? (displaySub.description || '').replace(xUrl, '').trim()
+            : (displaySub.description || '')
+
+          return (
           <div className="rounded-lg border border-k-border bg-surface p-3">
             <p className="mb-2 text-xs font-medium text-zinc-500">Submission</p>
             {displayBid?.winnerPlace && (
@@ -571,9 +578,14 @@ export default function TaskDetailPage() {
                 </span>
               </div>
             )}
-            <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300">
-              {displaySub.description}
-            </p>
+            {xUrl && (
+              <XPostEmbed url={xUrl} className="mb-3" />
+            )}
+            {descWithoutUrl && (
+              <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300">
+                {descWithoutUrl}
+              </p>
+            )}
             {displaySub.attachments && displaySub.attachments.length > 0 && (
               <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {(displaySub.attachments as any[]).map((att: any, i: number) =>
@@ -642,7 +654,8 @@ export default function TaskDetailPage() {
               )
             )}
           </div>
-        ) : null
+          )
+        })() : null
 
         return (
           <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[200px_1fr]' : ''}`}>
