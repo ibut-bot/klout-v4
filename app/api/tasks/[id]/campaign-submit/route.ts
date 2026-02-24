@@ -30,6 +30,15 @@ function isTechnicalRejection(reason: string | null): boolean {
   return TECHNICAL_ERROR_PATTERNS.some(re => re.test(reason))
 }
 
+function getBotViewThreshold(kloutScore: number): number {
+  if (kloutScore <= 0) return 1
+  if (kloutScore >= 10000) return 10
+  // Piecewise linear: 0→1x, 1000→1x, 5000→3x, 10000→10x
+  if (kloutScore <= 1000) return 1
+  if (kloutScore <= 5000) return 1 + (kloutScore - 1000) / (5000 - 1000) * (3 - 1)
+  return 3 + (kloutScore - 5000) / (10000 - 5000) * (10 - 3)
+}
+
 interface RouteContext {
   params: Promise<{ id: string }>
 }
@@ -364,9 +373,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 8b. Bot detection: reject if post views are 5x or more the user's follower count
+  // 8b. Bot detection: reject if post views exceed a Klout-score-based multiple of follower count
   const followersCount = latestScoreData?.followersCount ?? 0
-  if (followersCount > 0 && postMetrics.viewCount >= 5 * followersCount) {
+  const kloutScoreForBot = latestScoreData?.totalScore ?? 0
+  const botViewMultiplier = getBotViewThreshold(kloutScoreForBot)
+  if (followersCount > 0 && postMetrics.viewCount >= botViewMultiplier * followersCount) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
       data: {
@@ -376,7 +387,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         commentCount: postMetrics.commentCount,
         viewsReadAt: now,
         status: 'REJECTED',
-        rejectionReason: `Post views (${postMetrics.viewCount}) exceed 5x follower count (${followersCount}).`,
+        rejectionReason: `Post views (${postMetrics.viewCount}) exceed ${botViewMultiplier}x follower count (${followersCount}).`,
       },
     })
     return Response.json({
