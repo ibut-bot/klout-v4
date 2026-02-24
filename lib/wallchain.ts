@@ -2,11 +2,18 @@ import puppeteer, { type Browser } from 'puppeteer-core'
 
 const CHROME_PATH = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const WALLCHAIN_API = 'https://api.wallchain.xyz/extension/x_score/score'
+const WALLCHAIN_TIMEOUT_MS = 25_000
 
 let browserInstance: Browser | null = null
 
 async function getBrowser(): Promise<Browser> {
-  if (browserInstance && browserInstance.connected) return browserInstance
+  if (browserInstance) {
+    try {
+      if (browserInstance.connected) return browserInstance
+    } catch { /* browser crashed */ }
+    try { await browserInstance.close() } catch {}
+    browserInstance = null
+  }
 
   browserInstance = await puppeteer.launch({
     executablePath: CHROME_PATH,
@@ -22,6 +29,13 @@ async function getBrowser(): Promise<Browser> {
 }
 
 export async function fetchWallchainScore(xUsername: string): Promise<number> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Klout score fetch timed out')), WALLCHAIN_TIMEOUT_MS)
+  )
+  return Promise.race([fetchWallchainScoreInner(xUsername), timeout])
+}
+
+async function fetchWallchainScoreInner(xUsername: string): Promise<number> {
   const browser = await getBrowser()
   const page = await browser.newPage()
 
@@ -31,21 +45,38 @@ export async function fetchWallchainScore(xUsername: string): Promise<number> {
     )
 
     const url = `${WALLCHAIN_API}/${encodeURIComponent(xUsername)}`
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 })
 
-    for (let i = 0; i < 30; i++) {
+    let challengeSolved = false
+    for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 500))
       const content = await page.content()
       if (!content.includes('Just a moment') && !content.includes('challenge-platform')) {
+        challengeSolved = true
         break
       }
     }
 
+    if (!challengeSolved) {
+      throw new Error('Klout score fetch failed — please try again')
+    }
+
     const text = await page.evaluate(() => document.body.innerText)
-    const data = JSON.parse(text)
+
+    let data: any
+    try {
+      data = JSON.parse(text)
+    } catch {
+      throw new Error(`Klout score fetch returned an unexpected response — please try again: ${text.substring(0, 200)}`)
+    }
+
+    if (typeof data.score !== 'number') {
+      throw new Error(`Klout score fetch returned an incomplete response — please try again: ${JSON.stringify(data).substring(0, 200)}`)
+    }
+
     return data.score
   } finally {
-    await page.close()
+    await page.close().catch(() => {})
   }
 }
 

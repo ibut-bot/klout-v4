@@ -8,7 +8,7 @@ import { getRandomQuote, getScoreTierTitle as getScoreLabel } from '@/lib/score-
 import { getTotalReferralCount, getCurrentTier, isReferralProgramActive } from '@/lib/referral'
 import { fetchWallchainScore, applyScoreDeviation, followRatioMultiplier } from '@/lib/wallchain'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS || ''
 const KLOUT_SCORE_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_KLOUT_SCORE_FEE_LAMPORTS || 10_000_000)
