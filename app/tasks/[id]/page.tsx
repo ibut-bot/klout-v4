@@ -43,6 +43,7 @@ import SelectWinnerButton, { type WinnerBid } from '../../components/SelectWinne
 import CampaignDashboard from '../../components/CampaignDashboard'
 import CampaignSubmitForm from '../../components/CampaignSubmitForm'
 import CompetitionFinishRefund from '../../components/CompetitionFinishRefund'
+import CompetitionSubmissionsTable from '../../components/CompetitionSubmissionsTable'
 
 interface Task {
   id: string
@@ -105,6 +106,13 @@ interface SubmissionData {
   bidId: string
   description: string
   attachments: any[] | null
+  postUrl?: string | null
+  xPostId?: string | null
+  viewCount?: number | null
+  likeCount?: number | null
+  retweetCount?: number | null
+  commentCount?: number | null
+  metricsReadAt?: string | null
   createdAt: string
   bid?: any
 }
@@ -652,6 +660,14 @@ export default function TaskDetailPage() {
             {xUrl && (
               <XPostEmbed url={xUrl} className="mb-3" />
             )}
+            {displaySub.viewCount != null && (
+              <div className="mb-3 flex flex-wrap gap-3 rounded-lg border border-k-border bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400">
+                <span title="Views">👁 {displaySub.viewCount.toLocaleString()}</span>
+                <span title="Likes">♥ {(displaySub.likeCount ?? 0).toLocaleString()}</span>
+                <span title="Retweets">🔁 {(displaySub.retweetCount ?? 0).toLocaleString()}</span>
+                <span title="Comments">💬 {(displaySub.commentCount ?? 0).toLocaleString()}</span>
+              </div>
+            )}
             {descWithoutUrl && (
               <p className="mb-2 whitespace-pre-wrap text-sm text-zinc-300">
                 {descWithoutUrl}
@@ -737,6 +753,17 @@ export default function TaskDetailPage() {
         })() : null
 
         return (
+          <>
+          {isCreator && (
+            <CompetitionSubmissionsTable
+              submissions={submissions}
+              bids={bids}
+              task={task}
+              isCreator={isCreator}
+              onRefresh={refreshAll}
+              onSelectBidder={setSelectedBidderId}
+            />
+          )}
           <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[200px_1fr]' : ''}`}>
             {isCreator && (
             <div>
@@ -818,6 +845,7 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
+          </>
         )
       })()}
 

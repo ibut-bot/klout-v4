@@ -295,14 +295,21 @@ model Notification {
 }
 
 model Submission {
-  id          String   @id @default(uuid())
-  bidId       String
-  description String
-  attachments Json?    // Array of { url, key, contentType, size, filename }
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String    @id @default(uuid())
+  bidId         String
+  description   String
+  attachments   Json?     // Array of { url, key, contentType, size, filename }
+  postUrl       String?
+  xPostId       String?
+  viewCount     Int?
+  likeCount     Int?
+  retweetCount  Int?
+  commentCount  Int?
+  metricsReadAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  bid         Bid      @relation(fields: [bidId], references: [id])
+  bid           Bid       @relation(fields: [bidId], references: [id])
 
   @@index([bidId])
   @@schema("slopwork")

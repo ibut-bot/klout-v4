@@ -57,6 +57,13 @@ export async function GET(
       bidId: s.bidId,
       description: s.description,
       attachments: s.attachments,
+      postUrl: s.postUrl,
+      xPostId: s.xPostId,
+      viewCount: s.viewCount,
+      likeCount: s.likeCount,
+      retweetCount: s.retweetCount,
+      commentCount: s.commentCount,
+      metricsReadAt: s.metricsReadAt?.toISOString() ?? null,
       createdAt: s.createdAt.toISOString(),
       bid: {
         id: s.bid.id,

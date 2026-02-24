@@ -4,25 +4,11 @@ import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { createNotification } from '@/lib/notifications'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
+import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS
-const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.COMPETITION_ENTRY_FEE_LAMPORTS || 1000000) // 0.001 SOL default
+const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.COMPETITION_ENTRY_FEE_LAMPORTS || 1000000)
 
-/**
- * POST /api/tasks/:id/compete
- *
- * Combined bid + submission endpoint for competition mode.
- * Creates a bid and submission atomically in one API call.
- * Requires a small on-chain fee payment (0.001 SOL) for spam prevention.
- *
- * Body:
- *   description      - Submission description (also used as bid description)
- *   attachments?     - Array of attachment objects
- *   entryFeeTxSignature - On-chain tx signature for the entry fee payment
- *
- * Note: amountLamports is automatically set to the task's budgetLamports.
- *       Participants do not specify an amount — the competition budget is fixed by the creator.
- */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -47,7 +33,6 @@ export async function POST(
 
   const { description, attachments, entryFeeTxSignature } = body
 
-  // --- Validate required fields ---
   if (!description || !entryFeeTxSignature) {
     return Response.json(
       { success: false, error: 'MISSING_FIELDS', message: 'Required: description, entryFeeTxSignature' },
@@ -62,14 +47,25 @@ export async function POST(
     )
   }
 
-  // --- Validate task ---
+  // Extract X post URL from description (first line is always the URL)
+  const descTrimmed = description.trim()
+  const firstLine = descTrimmed.split('\n')[0].trim()
+  const xPostId = extractPostId(firstLine)
+
+  if (!xPostId) {
+    return Response.json(
+      { success: false, error: 'INVALID_POST_URL', message: 'Description must start with a valid X (Twitter) post URL' },
+      { status: 400 }
+    )
+  }
+
   const task = await prisma.task.findUnique({ where: { id } })
   if (!task) {
     return Response.json({ success: false, error: 'NOT_FOUND', message: 'Task not found' }, { status: 404 })
   }
   if (task.taskType !== 'COMPETITION') {
     return Response.json(
-      { success: false, error: 'WRONG_TASK_TYPE', message: 'This endpoint is only for COMPETITION tasks. Use POST /api/tasks/:id/bids for QUOTE tasks.' },
+      { success: false, error: 'WRONG_TASK_TYPE', message: 'This endpoint is only for COMPETITION tasks.' },
       { status: 400 }
     )
   }
@@ -92,7 +88,6 @@ export async function POST(
     )
   }
 
-  // Check for duplicate entry
   const existingBid = await prisma.bid.findFirst({
     where: { taskId: id, bidderId: userId },
   })
@@ -100,6 +95,52 @@ export async function POST(
     return Response.json(
       { success: false, error: 'DUPLICATE_ENTRY', message: 'You have already submitted an entry for this competition' },
       { status: 409 }
+    )
+  }
+
+  // Require linked X account for ownership verification
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { xUserId: true, xUsername: true },
+  })
+  if (!user?.xUserId) {
+    return Response.json(
+      { success: false, error: 'X_ACCOUNT_REQUIRED', message: 'You must link your X (Twitter) account before submitting a competition entry. Go to your profile to connect it.' },
+      { status: 400 }
+    )
+  }
+
+  // Fetch post metrics and verify ownership/date via X API
+  let postMetrics: Awaited<ReturnType<typeof getPostMetrics>>
+  try {
+    const accessToken = await getValidXToken(userId)
+    if (!accessToken) {
+      return Response.json(
+        { success: false, error: 'X_TOKEN_EXPIRED', message: 'Your X session has expired. Please re-link your X account in your profile.' },
+        { status: 400 }
+      )
+    }
+    postMetrics = await getPostMetrics(xPostId, accessToken)
+  } catch (e: any) {
+    return Response.json(
+      { success: false, error: 'X_API_ERROR', message: e.message || 'Failed to fetch post data from X. Please try again.' },
+      { status: 400 }
+    )
+  }
+
+  // Ownership check
+  if (postMetrics.authorId !== user.xUserId) {
+    return Response.json(
+      { success: false, error: 'POST_NOT_OWNED', message: 'This post does not belong to your linked X account.' },
+      { status: 400 }
+    )
+  }
+
+  // Date check: post must be created after competition was created
+  if (new Date(postMetrics.createdAt) < task.createdAt) {
+    return Response.json(
+      { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the competition started. Please submit a post created after the competition launch.' },
+      { status: 400 }
     )
   }
 
@@ -119,7 +160,6 @@ export async function POST(
     )
   }
 
-  // Validate attachments
   let parsedAttachments = null
   if (attachments) {
     if (!Array.isArray(attachments)) {
@@ -137,21 +177,29 @@ export async function POST(
     parsedAttachments = attachments
   }
 
-  // --- Create bid + submission atomically ---
+  const postUrl = firstLine
+
   const [bid, submission] = await prisma.$transaction(async (tx) => {
     const bid = await tx.bid.create({
       data: {
         taskId: id,
         bidderId: userId,
         amountLamports: task.budgetLamports,
-        description: description.trim(),
+        description: descTrimmed,
       },
     })
 
     const submission = await tx.submission.create({
       data: {
         bidId: bid.id,
-        description: description.trim(),
+        description: descTrimmed,
+        postUrl,
+        xPostId,
+        viewCount: postMetrics.viewCount,
+        likeCount: postMetrics.likeCount,
+        retweetCount: postMetrics.retweetCount,
+        commentCount: postMetrics.commentCount,
+        metricsReadAt: new Date(),
         ...(parsedAttachments ? { attachments: parsedAttachments } : {}),
       },
     })
@@ -159,13 +207,11 @@ export async function POST(
     return [bid, submission] as const
   })
 
-  // Notify task creator
-  const solAmount = (Number(task.budgetLamports) / 1e9).toFixed(4)
   createNotification({
     userId: task.creatorId,
     type: 'SUBMISSION_RECEIVED',
     title: 'New competition entry',
-    body: `Someone submitted work for "${task.title}" (${solAmount} SOL)`,
+    body: `@${user.xUsername || 'Someone'} submitted an entry for "${task.title}"`,
     linkUrl: `/tasks/${id}`,
   })
 
@@ -183,6 +229,12 @@ export async function POST(
       id: submission.id,
       bidId: submission.bidId,
       description: submission.description,
+      postUrl: submission.postUrl,
+      xPostId: submission.xPostId,
+      viewCount: submission.viewCount,
+      likeCount: submission.likeCount,
+      retweetCount: submission.retweetCount,
+      commentCount: submission.commentCount,
       attachments: submission.attachments,
       createdAt: submission.createdAt.toISOString(),
     },

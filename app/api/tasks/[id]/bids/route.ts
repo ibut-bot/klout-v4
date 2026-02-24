@@ -28,22 +28,38 @@ export async function GET(
   return Response.json({
     success: true,
     taskType: task.taskType,
-    bids: bids.map((b) => ({
-      id: b.id,
-      bidderId: b.bidderId,
-      bidderWallet: b.bidder.walletAddress,
-      bidderUsername: b.bidder.username,
-      bidderProfilePic: b.bidder.profilePicUrl,
-      amountLamports: b.amountLamports.toString(),
-      description: b.description,
-      multisigAddress: b.multisigAddress,
-      vaultAddress: b.vaultAddress,
-      proposalIndex: b.proposalIndex,
-      status: b.status,
-      winnerPlace: b.winnerPlace,
-      hasSubmission: b.submissions.length > 0,
-      createdAt: b.createdAt.toISOString(),
-    })),
+    bids: bids.map((b) => {
+      const sub = b.submissions[0] ?? null
+      return {
+        id: b.id,
+        bidderId: b.bidderId,
+        bidderWallet: b.bidder.walletAddress,
+        bidderUsername: b.bidder.username,
+        bidderProfilePic: b.bidder.profilePicUrl,
+        amountLamports: b.amountLamports.toString(),
+        description: b.description,
+        multisigAddress: b.multisigAddress,
+        vaultAddress: b.vaultAddress,
+        proposalIndex: b.proposalIndex,
+        status: b.status,
+        winnerPlace: b.winnerPlace,
+        hasSubmission: !!sub,
+        submission: sub ? {
+          id: sub.id,
+          description: sub.description,
+          postUrl: sub.postUrl,
+          xPostId: sub.xPostId,
+          viewCount: sub.viewCount,
+          likeCount: sub.likeCount,
+          retweetCount: sub.retweetCount,
+          commentCount: sub.commentCount,
+          metricsReadAt: sub.metricsReadAt?.toISOString() ?? null,
+          attachments: sub.attachments,
+          createdAt: sub.createdAt.toISOString(),
+        } : null,
+        createdAt: b.createdAt.toISOString(),
+      }
+    }),
   })
 }
 

@@ -118,9 +118,10 @@ interface CampaignCardProps {
   task: Task
   onTaskUpdate: (taskId: string, updates: Partial<Task>) => void
   authFetch: (url: string, options?: RequestInit) => Promise<Response>
+  editable?: boolean
 }
 
-function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
+function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: CampaignCardProps) {
   const pt: PaymentTokenType = task.paymentToken || 'SOL'
   const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
   const sym = tInfo.symbol
@@ -486,7 +487,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
               className="h-full w-full object-cover"
               style={getImageTransformStyle(task.imageTransform as ImageTransform)}
             />
-            {/* Image action buttons */}
+            {editable && (
             <div className="absolute bottom-2 right-2 flex gap-1">
               <button
                 onClick={() => setEditingImagePosition(true)}
@@ -501,6 +502,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch }: CampaignCardProps) {
                 Change
               </button>
             </div>
+            )}
           </>
         ) : (
           <div className="flex h-full items-center justify-center text-zinc-600">
