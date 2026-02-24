@@ -196,7 +196,7 @@ export async function POST(
         postUrl,
         xPostId,
         postText: postMetrics.text,
-        postMedia: postMetrics.media.length > 0 ? postMetrics.media : undefined,
+        postMedia: postMetrics.media.length > 0 ? (postMetrics.media as any) : undefined,
         postAuthorName: user.xUsername ? `@${user.xUsername}` : undefined,
         postAuthorUsername: user.xUsername,
         postAuthorProfilePic: user.profilePicUrl,

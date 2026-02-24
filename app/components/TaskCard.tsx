@@ -126,7 +126,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   const budgetRemaining = budgetRemainingLamports ? Number(budgetRemainingLamports) : budgetTotal
   const budgetUsedPercent = budgetTotal > 0 ? Math.round(((budgetTotal - budgetRemaining) / budgetTotal) * 100) : 0
   const budgetExhausted = isCampaign && budgetRemaining <= 0
-  const participantCount = submissionCount ?? bidCount
+  const participantCount = taskType === 'COMPETITION' ? bidCount : (submissionCount ?? bidCount)
 
   useEffect(() => {
     if (!deadlineAt || budgetExhausted) return

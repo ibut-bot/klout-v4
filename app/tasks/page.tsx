@@ -178,7 +178,7 @@ export default function TasksPage() {
           All
         </button>
         <button
-          onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('all') }}
+          onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('OPEN') }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
             taskTypeTab === 'CAMPAIGN'
               ? 'bg-accent text-black'
@@ -188,7 +188,7 @@ export default function TasksPage() {
           Campaigns
         </button>
         <button
-          onClick={() => { setTaskTypeTab('COMPETITION'); setPage(1); setStatus('all') }}
+          onClick={() => { setTaskTypeTab('COMPETITION'); setPage(1); setStatus('OPEN') }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
             taskTypeTab === 'COMPETITION'
               ? 'bg-amber-500 text-black'
