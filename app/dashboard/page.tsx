@@ -532,17 +532,17 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
 
         {/* Image upload overlay */}
         {editMode === 'image' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60" onClick={(e) => e.preventDefault()}>
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60" onClick={(e) => e.stopPropagation()}>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-            <button onClick={(e) => { e.preventDefault(); fileInputRef.current?.click() }} disabled={uploading} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-hover disabled:opacity-50">
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-hover disabled:opacity-50">
               {uploading ? 'Uploading...' : 'Upload New'}
             </button>
             {task.imageUrl && (
-              <button onClick={(e) => { e.preventDefault(); handleRemoveImage() }} disabled={uploading} className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
+              <button onClick={() => handleRemoveImage()} disabled={uploading} className="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
                 Remove
               </button>
             )}
-            <button onClick={(e) => { e.preventDefault(); setEditMode('none') }} className="rounded-lg bg-zinc-700 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600">
+            <button onClick={() => setEditMode('none')} className="rounded-lg bg-zinc-700 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-600">
               Cancel
             </button>
           </div>
