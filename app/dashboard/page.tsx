@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../hooks/useAuth'
 import Link from 'next/link'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -130,6 +131,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
   const { connection } = useConnection()
   const wallet = useWallet()
   const { publicKey, sendTransaction } = wallet
+  const router = useRouter()
 
   const [editMode, setEditMode] = useState<'none' | 'image' | 'details'>('none')
   const [uploading, setUploading] = useState(false)
@@ -475,7 +477,14 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
   }
 
   return (
-    <Link href={`/tasks/${task.id}`} className="block rounded-xl border border-k-border bg-surface overflow-hidden hover:border-accent/30 transition-colors">
+    <div
+      onClick={(e) => {
+        if (editMode !== 'none' || editingImagePosition) return
+        if ((e.target as HTMLElement).closest('button, input, textarea, select, a')) return
+        router.push(`/tasks/${task.id}`)
+      }}
+      className="block cursor-pointer rounded-xl border border-k-border bg-surface overflow-hidden hover:border-accent/30 transition-colors"
+    >
       {/* Image Section */}
       <div className="relative h-[300px] sm:h-[420px] lg:h-[552px] bg-zinc-900">
         {editingImagePosition && task.imageUrl ? (
@@ -498,13 +507,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
             {editable && (
             <div className="absolute bottom-2 right-2 flex gap-1">
               <button
-                onClick={(e) => { e.preventDefault(); setEditingImagePosition(true) }}
+                onClick={() => setEditingImagePosition(true)}
                 className="rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm"
               >
                 Reposition
               </button>
               <button
-                onClick={(e) => { e.preventDefault(); setEditMode('image') }}
+                onClick={() => setEditMode('image')}
                 className="rounded-lg bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80 backdrop-blur-sm"
               >
                 Change
@@ -516,7 +525,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
           <div className="flex h-full items-center justify-center text-zinc-600">
             {editable ? (
             <button
-              onClick={(e) => { e.preventDefault(); setEditMode('image') }}
+              onClick={() => setEditMode('image')}
               className="flex flex-col items-center gap-1 text-zinc-500 hover:text-accent transition"
             >
               <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -532,7 +541,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
 
         {/* Image upload overlay */}
         {editMode === 'image' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black hover:bg-accent-hover disabled:opacity-50">
               {uploading ? 'Uploading...' : 'Upload New'}
@@ -564,7 +573,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
       </div>
 
       {/* Content */}
-      <div className="p-4" onClick={editMode !== 'none' ? (e) => e.preventDefault() : undefined}>
+      <div className="p-4">
         {editMode === 'details' ? (
           /* Edit Form */
           <div className="space-y-3">
@@ -829,8 +838,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               </div>
               {editable && (
               <button
-                onClick={(e) => {
-                  e.preventDefault()
+                onClick={() => {
                   setEditDescription(task.description)
                   setEditHeading(task.campaignConfig?.heading || '')
                   setEditDos((task.campaignConfig?.guidelines?.dos || []).length > 0 ? task.campaignConfig!.guidelines.dos : [''])
@@ -887,7 +895,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
           </>
         )}
       </div>
-    </Link>
+    </div>
   )
 }
 
