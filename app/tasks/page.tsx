@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import TaskCard from '../components/TaskCard'
 import { type ImageTransform } from '../components/ImagePositionEditor'
 import Link from 'next/link'
+import BuffedShowcase from '../components/BuffedShowcase'
 
 interface Task {
   id: string
@@ -173,6 +174,8 @@ export default function TasksPage() {
           Get paid to promote brands and products to your audience.
         </p>
       </section>
+
+      <BuffedShowcase />
 
       {/* Task Type Tabs */}
       <div className="mb-6 flex gap-1 rounded-lg bg-surface p-1 border border-k-border w-fit">
