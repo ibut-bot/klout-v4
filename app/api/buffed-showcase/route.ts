@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { getScoreLabel } from '@/lib/klout-scoring'
 
 /**
  * GET /api/buffed-showcase
@@ -10,14 +11,25 @@ export async function GET() {
   try {
     const rows = await prisma.xScoreData.findMany({
       where: { buffedImageUrl: { not: null } },
-      select: { buffedImageUrl: true, xUsername: true },
+      select: {
+        buffedImageUrl: true,
+        xUsername: true,
+        totalScore: true,
+        tierQuote: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
 
     const images = rows
       .filter((r) => r.buffedImageUrl)
-      .map((r) => ({ url: r.buffedImageUrl!, username: r.xUsername }))
+      .map((r) => ({
+        url: r.buffedImageUrl!,
+        username: r.xUsername,
+        score: Math.round(r.totalScore),
+        label: getScoreLabel(r.totalScore),
+        quote: r.tierQuote,
+      }))
 
     return Response.json({ success: true, images })
   } catch (err: any) {

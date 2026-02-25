@@ -5,15 +5,21 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 interface ShowcaseImage {
   url: string
   username: string
+  score: number
+  label: string
+  quote: string | null
 }
 
 interface FloatingPic {
   key: string
   url: string
   username: string
-  x: number // % from left
-  y: number // % from top
-  delay: number // stagger delay in ms
+  score: number
+  label: string
+  quote: string | null
+  x: number
+  y: number
+  delay: number
 }
 
 const BATCH_SIZE_DESKTOP = 5
@@ -97,6 +103,9 @@ export default function BuffedShowcase() {
       key: `${batchIndex.current}-${i}-${Date.now()}`,
       url: img.url,
       username: img.username,
+      score: img.score,
+      label: img.label,
+      quote: img.quote,
       x: positions[i].x,
       y: positions[i].y,
       delay: i * STAGGER_STEP,
@@ -125,11 +134,72 @@ export default function BuffedShowcase() {
 
   if (allImages.length === 0) return null
 
+  if (isMobile) {
+    return (
+      <section className="relative mb-8 flex items-center justify-center" style={{ minHeight: 360 }}>
+        {floatingPics.map((pic) => (
+          <div
+            key={pic.key}
+            className="w-64 rounded-2xl border border-k-border bg-surface overflow-hidden shadow-lg shadow-accent/10"
+            style={{
+              animation: `${phase === 'in' ? 'showcaseFadeIn' : 'showcaseFadeOut'} 0.8s ease forwards`,
+              opacity: 0,
+            }}
+          >
+            <div className="relative w-full bg-zinc-900">
+              <img
+                src={pic.url}
+                alt={pic.username}
+                className="w-full object-contain"
+                loading="eager"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 flex items-end justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <img src="/Klout.png" alt="Klout" className="h-7" />
+                    <p className="text-2xl font-black text-white leading-none">
+                      {pic.score.toLocaleString()}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-xs font-semibold text-accent">
+                    {pic.label}
+                  </p>
+                </div>
+                <img
+                  src="/enhanced.svg"
+                  alt="Enhanced"
+                  className="h-4 opacity-70 mb-0.5"
+                />
+              </div>
+            </div>
+            {pic.quote && (
+              <div className="px-4 py-3">
+                <p className="text-center text-xs italic text-zinc-400">
+                  &ldquo;{pic.quote}&rdquo;
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+
+        <style jsx>{`
+          @keyframes showcaseFadeIn {
+            0% { opacity: 0; transform: scale(0.85); }
+            60% { opacity: 1; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+          @keyframes showcaseFadeOut {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.85); }
+          }
+        `}</style>
+      </section>
+    )
+  }
+
   return (
-    <section
-      className="relative mb-8 sm:mb-12"
-      style={{ height: isMobile ? 280 : 380 }}
-    >
+    <section className="relative mb-8 sm:mb-12" style={{ height: 380 }}>
       {floatingPics.map((pic) => (
         <div
           key={pic.key}
@@ -146,13 +216,13 @@ export default function BuffedShowcase() {
           <img
             src={pic.url}
             alt={pic.username}
-            className={`rounded-full object-cover shadow-lg shadow-accent/20 ${isMobile ? 'h-48 w-48' : 'h-40 w-40'}`}
+            className="h-40 w-40 rounded-full object-cover shadow-lg shadow-accent/20"
             loading="eager"
           />
           <img
             src="/enhanced.svg"
             alt="Enhanced"
-            className={`mt-2 opacity-80 ${isMobile ? 'w-28' : 'w-24'}`}
+            className="mt-2 w-24 opacity-80"
           />
         </div>
       ))}
