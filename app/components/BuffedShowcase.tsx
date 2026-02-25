@@ -16,9 +16,10 @@ interface FloatingPic {
   delay: number // stagger delay in ms
 }
 
-const BATCH_SIZE = 5
-const CYCLE_DURATION = 4000 // how long each batch is visible (ms)
-const STAGGER_STEP = 300 // delay between each pic's entrance
+const BATCH_SIZE_DESKTOP = 5
+const BATCH_SIZE_MOBILE = 1
+const CYCLE_DURATION = 7000
+const STAGGER_STEP = 400
 
 function shuffleArray<T>(arr: T[]): T[] {
   const copy = [...arr]
@@ -45,12 +46,24 @@ function generatePositions(count: number): { x: number; y: number }[] {
   }))
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return mobile
+}
+
 export default function BuffedShowcase() {
   const [allImages, setAllImages] = useState<ShowcaseImage[]>([])
   const [floatingPics, setFloatingPics] = useState<FloatingPic[]>([])
   const [phase, setPhase] = useState<'in' | 'out'>('in')
   const batchIndex = useRef(0)
   const cycleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetch('/api/buffed-showcase')
@@ -63,18 +76,23 @@ export default function BuffedShowcase() {
       .catch(() => {})
   }, [])
 
+  const batchSize = isMobile ? BATCH_SIZE_MOBILE : BATCH_SIZE_DESKTOP
+
   const showBatch = useCallback(() => {
     if (allImages.length === 0) return
 
-    const start = batchIndex.current * BATCH_SIZE
-    let batch = allImages.slice(start, start + BATCH_SIZE)
+    const start = batchIndex.current * batchSize
+    let batch = allImages.slice(start, start + batchSize)
 
     if (batch.length === 0) {
       batchIndex.current = 0
-      batch = allImages.slice(0, BATCH_SIZE)
+      batch = allImages.slice(0, batchSize)
     }
 
-    const positions = generatePositions(batch.length)
+    const positions = isMobile
+      ? [{ x: 50, y: 50 }]
+      : generatePositions(batch.length)
+
     const pics: FloatingPic[] = batch.map((img, i) => ({
       key: `${batchIndex.current}-${i}-${Date.now()}`,
       url: img.url,
@@ -93,9 +111,9 @@ export default function BuffedShowcase() {
       cycleTimer.current = setTimeout(() => {
         batchIndex.current += 1
         showBatch()
-      }, 800)
+      }, 1000)
     }, CYCLE_DURATION)
-  }, [allImages])
+  }, [allImages, batchSize, isMobile])
 
   useEffect(() => {
     if (allImages.length === 0) return
@@ -108,7 +126,10 @@ export default function BuffedShowcase() {
   if (allImages.length === 0) return null
 
   return (
-    <section className="relative mb-8 sm:mb-12" style={{ height: 380 }}>
+    <section
+      className="relative mb-8 sm:mb-12"
+      style={{ height: isMobile ? 280 : 380 }}
+    >
       {floatingPics.map((pic) => (
         <div
           key={pic.key}
@@ -125,13 +146,13 @@ export default function BuffedShowcase() {
           <img
             src={pic.url}
             alt={pic.username}
-            className="h-40 w-40 rounded-full object-cover shadow-lg shadow-accent/20"
+            className={`rounded-full object-cover shadow-lg shadow-accent/20 ${isMobile ? 'h-48 w-48' : 'h-40 w-40'}`}
             loading="eager"
           />
           <img
             src="/enhanced.svg"
             alt="Enhanced"
-            className="mt-2 w-24 opacity-80"
+            className={`mt-2 opacity-80 ${isMobile ? 'w-28' : 'w-24'}`}
           />
         </div>
       ))}
