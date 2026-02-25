@@ -277,6 +277,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         maxBudgetPerUserPercent: number | null; maxBudgetPerPostPercent: number | null
         requireFollowX: string | null
         guidelines: { dos?: string[]; donts?: string[] } | null
+        createdAt: string
+        updatedAt: string
       }
       submissions: Array<{
         postUrl: string; viewCount: number | null; payoutLamports: string | null
@@ -526,18 +528,41 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         Promise.resolve(t.imageBase64),
       ])
 
-      // Measure banner image natural dimensions to preserve aspect ratio
-      const getBannerHeight = (dataUrl: string, pageWidthMm: number, maxH: number): Promise<number> =>
+      const BANNER_W_MM = 210
+      const BANNER_MAX_H_MM = 80
+      const cropBannerImage = (dataUrl: string): Promise<{ dataUrl: string; heightMm: number } | null> =>
         new Promise((resolve) => {
           const img = new window.Image()
           img.onload = () => {
-            const ratio = img.naturalHeight / img.naturalWidth
-            resolve(Math.min(pageWidthMm * ratio, maxH))
+            try {
+              const nw = img.naturalWidth, nh = img.naturalHeight
+              const imgRatio = nw / nh
+              let heightMm = Math.round(BANNER_W_MM / imgRatio)
+              if (heightMm > BANNER_MAX_H_MM) heightMm = BANNER_MAX_H_MM
+              const targetRatio = BANNER_W_MM / heightMm
+              let sx = 0, sy = 0, sw = nw, sh = nh
+              if (imgRatio > targetRatio) {
+                sw = Math.round(nh * targetRatio)
+                sx = Math.round((nw - sw) / 2)
+              } else if (imgRatio < targetRatio) {
+                sh = Math.round(nw / targetRatio)
+                sy = Math.round((nh - sh) / 2)
+              }
+              const canvasW = 1200
+              const canvasH = Math.round(canvasW / targetRatio)
+              const c = document.createElement('canvas')
+              c.width = canvasW
+              c.height = canvasH
+              c.getContext('2d')!.drawImage(img, sx, sy, sw, sh, 0, 0, canvasW, canvasH)
+              resolve({ dataUrl: c.toDataURL('image/png'), heightMm })
+            } catch { resolve(null) }
           }
-          img.onerror = () => resolve(maxH)
+          img.onerror = () => resolve(null)
           img.src = dataUrl
         })
-      const bannerH = bannerDataUrl ? await getBannerHeight(bannerDataUrl, 210, 70) : 0
+      const bannerResult = bannerDataUrl ? await cropBannerImage(bannerDataUrl) : null
+      const bannerH = bannerResult ? bannerResult.heightMm : 0
+      const croppedBannerUrl = bannerResult?.dataUrl ?? null
 
       const totalViews = subs.reduce((sum, s) => sum + (s.viewCount || 0), 0)
       const totalPaid = subs.filter(s => s.status === 'PAID' && s.payoutLamports).reduce((sum, s) => sum + Number(s.payoutLamports), 0)
@@ -586,12 +611,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         }
       }
 
-      // ── CAMPAIGN IMAGE BANNER ──
+      // ── CAMPAIGN IMAGE BANNER (center-cropped, aspect-ratio preserved) ──
       let y = 0
-      if (bannerDataUrl) {
+      if (croppedBannerUrl) {
         try {
-          const imgFormat = bannerDataUrl.includes('image/jpeg') || bannerDataUrl.includes('image/jpg') ? 'JPEG' : 'PNG'
-          doc.addImage(bannerDataUrl, imgFormat, 0, 0, pw, bannerH, undefined, 'FAST')
+          doc.addImage(croppedBannerUrl, 'PNG', 0, 0, pw, bannerH, undefined, 'FAST')
         } catch { /* skip */ }
         y = bannerH
       }
@@ -629,7 +653,53 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         doc.text(`Required Follow: @${t.requireFollowX}`, tx, y + 27)
       }
 
-      y += infoBarH + 6
+      y += infoBarH + 2
+
+      // ── TOTAL VIEWS HERO + CAMPAIGN DURATION (stacked, centered) ──
+      {
+        const heroH = 38
+        const centerX = pw / 2
+        doc.setFillColor(59, 130, 246)
+        doc.roundedRect(m, y, pw - m * 2, heroH, 2, 2, 'F')
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(28)
+        doc.setTextColor(255, 255, 255)
+        doc.text(totalViews.toLocaleString(), centerX, y + 13, { align: 'center' })
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
+        doc.setTextColor(219, 234, 254)
+        doc.text('Total Views Generated', centerX, y + 19, { align: 'center' })
+
+        const campaignStart = new Date(t.createdAt)
+        const campaignEnd = ['COMPLETED', 'CANCELLED'].includes(t.status?.toUpperCase() ?? '')
+          ? new Date(t.updatedAt)
+          : new Date()
+        const elapsedMs = campaignEnd.getTime() - campaignStart.getTime()
+        const days = Math.floor(elapsedMs / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((elapsedMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const isEnded = ['COMPLETED', 'CANCELLED'].includes(t.status?.toUpperCase() ?? '')
+        const durationStr = days > 0 ? `${days}d ${hours}h` : `${hours}h`
+        const durationLabel = isEnded ? `Campaign ran for ${durationStr}` : `Running for ${durationStr}`
+
+        const startStr = campaignStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        const endStr = isEnded
+          ? campaignEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : 'Ongoing'
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7.5)
+        doc.setTextColor(255, 255, 255)
+        doc.text(durationLabel, centerX, y + 26, { align: 'center' })
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(6.5)
+        doc.setTextColor(191, 219, 254)
+        doc.text(`${startStr}  to  ${endStr}`, centerX, y + 31, { align: 'center' })
+
+        y += heroH + 4
+      }
 
       // ── CANCELLED/COMPLETED WITH UNSPENT BUDGET BANNER ──
       if (isCancelledOrCompleted && hasUnspentBudget) {
@@ -662,10 +732,10 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         { label: 'Budget Spent', value: `${fmtBudget(totalPaid)} ${sym}`, accent: [239, 68, 68] as const },
         { label: 'Total Views', value: totalViews.toLocaleString(), accent: [59, 130, 246] as const },
         { label: 'Paid Views', value: paidViews.toLocaleString(), accent: [99, 102, 241] as const },
-        { label: 'CPM (rate)', value: `${fmtToken(t.cpmLamports, 2)} ${sym}`, accent: [168, 85, 247] as const },
+        { label: 'Peak Offered CPM', value: `${fmtToken(t.cpmLamports, 2)} ${sym}`, accent: [168, 85, 247] as const },
         { label: 'Effective CPM', value: `${fmtBudget(effectiveCpm)} ${sym}`, accent: [20, 184, 166] as const },
         { label: 'CPM Paid For', value: `${fmtBudget(cpmPaidFor)} ${sym}`, accent: [245, 158, 11] as const },
-        { label: 'Total Submissions', value: `${subs.length}  (${approved} approved, ${paid} paid, ${rejected} rejected)`, accent: [236, 72, 153] as const },
+        { label: 'Total Submissions', value: `${subs.length}`, accent: [236, 72, 153] as const },
       ]
       metrics.forEach((mt, i) => {
         const col = i % 3, row = Math.floor(i / 3)
@@ -719,11 +789,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         const reqStartY = y
 
         // Pre-calculate height
-        let measuredH = 4
-        if (reqs.length > 0) measuredH += Math.ceil(reqs.length / 2) * 5.5 + 2
-        if (hasDos) measuredH += (t.guidelines!.dos!.length + 1) * 4
-        if (hasDonts) measuredH += (t.guidelines!.donts!.length + 1) * 4
-        measuredH += 2
+        let measuredH = 6
+        if (reqs.length > 0) measuredH += Math.ceil(reqs.length / 2) * 7 + 3
+        if (hasDos) measuredH += (t.guidelines!.dos!.length + 1) * 5
+        if (hasDonts) measuredH += (t.guidelines!.donts!.length + 1) * 5
+        measuredH += 4
 
         // Draw box first
         doc.setFillColor(248, 248, 250)
@@ -732,15 +802,15 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         doc.roundedRect(reqBoxX, reqStartY, reqBoxW, measuredH, 1.5, 1.5, 'FD')
 
         // Then draw content on top
-        let innerY = reqStartY + 4
+        let innerY = reqStartY + 6
 
         if (reqs.length > 0) {
-          const colW = (reqBoxW - 8) / 2
+          const colW = (reqBoxW - 12) / 2
           reqs.forEach((r, i) => {
             const col = i % 2
             const row = Math.floor(i / 2)
-            const rx = reqBoxX + 4 + col * colW
-            const ry = innerY + row * 5.5
+            const rx = reqBoxX + 6 + col * colW
+            const ry = innerY + row * 7
             doc.setFillColor(250, 204, 21)
             doc.circle(rx + 1, ry - 1, 0.8, 'F')
             doc.setFont('helvetica', 'normal')
@@ -748,37 +818,37 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             doc.setTextColor(63, 63, 70)
             doc.text(r, rx + 4, ry)
           })
-          innerY += Math.ceil(reqs.length / 2) * 5.5 + 2
+          innerY += Math.ceil(reqs.length / 2) * 7 + 3
         }
 
         if (hasDos) {
           doc.setFont('helvetica', 'bold')
           doc.setFontSize(7)
           doc.setTextColor(22, 101, 52)
-          doc.text('DO:', reqBoxX + 4, innerY)
+          doc.text('DO:', reqBoxX + 6, innerY)
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(7)
           doc.setTextColor(63, 63, 70)
           t.guidelines!.dos!.forEach((d, i) => {
             const txt = d.length > 80 ? d.slice(0, 77) + '...' : d
-            doc.text(`+ ${txt}`, reqBoxX + 12, innerY + (i + 1) * 4)
+            doc.text(`+ ${txt}`, reqBoxX + 14, innerY + (i + 1) * 5)
           })
-          innerY += (t.guidelines!.dos!.length + 1) * 4
+          innerY += (t.guidelines!.dos!.length + 1) * 5
         }
 
         if (hasDonts) {
           doc.setFont('helvetica', 'bold')
           doc.setFontSize(7)
           doc.setTextColor(153, 27, 27)
-          doc.text("DON'T:", reqBoxX + 4, innerY)
+          doc.text("DON'T:", reqBoxX + 6, innerY)
           doc.setFont('helvetica', 'normal')
           doc.setFontSize(7)
           doc.setTextColor(63, 63, 70)
           t.guidelines!.donts!.forEach((d, i) => {
             const txt = d.length > 80 ? d.slice(0, 77) + '...' : d
-            doc.text(`- ${txt}`, reqBoxX + 16, innerY + (i + 1) * 4)
+            doc.text(`- ${txt}`, reqBoxX + 18, innerY + (i + 1) * 5)
           })
-          innerY += (t.guidelines!.donts!.length + 1) * 4
+          innerY += (t.guidelines!.donts!.length + 1) * 5
         }
 
         y = reqStartY + measuredH + 4
@@ -811,7 +881,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       y += 8
 
       // ── SUBMISSION STATUS DONUT + LEGEND ──
-      ensureSpace(50)
+      ensureSpace(62)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(63, 63, 70)
@@ -824,13 +894,13 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         { value: rejected, color: '#ef4444', label: 'Rejected' },
         { value: pending, color: '#f59e0b', label: 'Pending / Processing' },
       ]
-      const donutImg = renderDonutChart(statusSegments, 320)
+      const donutImg = renderDonutChart(statusSegments, 480)
       const chartAreaY = y
       if (donutImg) {
-        doc.addImage(donutImg, 'PNG', m, chartAreaY, 38, 38)
+        doc.addImage(donutImg, 'PNG', m, chartAreaY, 52, 52)
       }
 
-      const legendX = m + 44
+      const legendX = m + 58
       let legendY = chartAreaY + 4
       statusSegments.forEach((seg) => {
         if (seg.value === 0) return
@@ -847,12 +917,12 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         legendY += 7
       })
 
-      const qx = m + 100
+      const qx = m + 114
       doc.setFillColor(248, 248, 250)
-      doc.roundedRect(qx, chartAreaY, 78, 38, 2, 2, 'F')
+      doc.roundedRect(qx, chartAreaY, 68, 52, 2, 2, 'F')
       doc.setDrawColor(228, 228, 231)
       doc.setLineWidth(0.2)
-      doc.roundedRect(qx, chartAreaY, 78, 38, 2, 2, 'S')
+      doc.roundedRect(qx, chartAreaY, 68, 52, 2, 2, 'S')
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(7)
@@ -872,7 +942,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         doc.text(qs, qx + 4, chartAreaY + 13 + i * 7)
       })
 
-      y = chartAreaY + 44
+      y = chartAreaY + 58
 
       // ── ANALYTICS CHARTS ──
       const paidOrApproved = subs.filter(s =>
@@ -881,7 +951,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       const chartW = pw - m * 2
       const chartImgH = 120
-      const donutSize = 50
+      const donutSize = 68
       const renderChartPageHeader = (title: string) => {
         doc.setFillColor(248, 248, 250)
         doc.rect(0, 0, pw, 18, 'F')
@@ -934,7 +1004,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           const scoreDonutSegs = Object.entries(scoreTranches)
             .filter(([, v]) => v.count > 0)
             .map(([label, v]) => ({ label, value: v.count, color: v.color }))
-          const scoreDonut = renderDonutChart(scoreDonutSegs, 360)
+          const scoreDonut = renderDonutChart(scoreDonutSegs, 480)
           if (scoreDonut) {
             const dy = 158
             doc.setFont('helvetica', 'bold')
@@ -988,7 +1058,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           doc.addImage(geoChartImg, 'PNG', m, 28, chartW, chartImgH)
 
           const geoDonutSegs = Object.entries(geoData).map(([label, v]) => ({ label, value: v.count, color: v.color }))
-          const geoDonut = renderDonutChart(geoDonutSegs, 360)
+          const geoDonut = renderDonutChart(geoDonutSegs, 480)
           if (geoDonut) {
             const dy = 158
             doc.setFont('helvetica', 'bold')
@@ -1051,7 +1121,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           const ratioDonutSegs = Object.entries(ratioTranches)
             .filter(([, v]) => v.count > 0)
             .map(([label, v]) => ({ label, value: v.count, color: v.color }))
-          const ratioDonut = renderDonutChart(ratioDonutSegs, 360)
+          const ratioDonut = renderDonutChart(ratioDonutSegs, 480)
           if (ratioDonut) {
             const dy = 158
             doc.setFont('helvetica', 'bold')
@@ -1075,43 +1145,29 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         }
       }
 
-      // ── SUBMISSIONS TABLE ──
+      // ── SUBMISSIONS TABLE (Paid only, no Fee column) ──
       doc.addPage()
       y = 14
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(24, 24, 27)
-      doc.text(`Submissions Detail (${subs.length})`, m, y)
+      doc.text(`Paid Submissions (${paidSubs.length})`, m, y)
       y += 4
 
-      const STATUS_COLORS: Record<string, { bg: [number, number, number]; text: [number, number, number] }> = {
-        APPROVED: { bg: [220, 252, 231], text: [22, 101, 52] },
-        PAID: { bg: [209, 250, 229], text: [6, 78, 59] },
-        PAYMENT_REQUESTED: { bg: [243, 232, 255], text: [107, 33, 168] },
-        REJECTED: { bg: [254, 226, 226], text: [153, 27, 27] },
-        CREATOR_REJECTED: { bg: [255, 237, 213], text: [154, 52, 18] },
-        READING_VIEWS: { bg: [219, 234, 254], text: [30, 64, 175] },
-        CHECKING_CONTENT: { bg: [219, 234, 254], text: [30, 64, 175] },
-        PENDING_PAYMENT: { bg: [254, 249, 195], text: [133, 77, 14] },
-        PAYMENT_FAILED: { bg: [254, 226, 226], text: [153, 27, 27] },
-      }
-
-      const tableRows = subs.map((s) => {
+      const tableRows = paidSubs.map((s) => {
         const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
         return [
           name,
           s.submitter.kloutScore != null ? s.submitter.kloutScore.toLocaleString() : '-',
           s.viewCount != null ? s.viewCount.toLocaleString() : '-',
           s.payoutLamports ? `${fmtBudget(s.payoutLamports)} ${sym}` : '-',
-          s.payoutLamports ? `${fmtBudget(Math.round(Number(s.payoutLamports) * 0.1))} ${sym}` : '-',
-          s.status.replace(/_/g, ' '),
           new Date(s.createdAt).toLocaleDateString(),
         ]
       })
 
       autoTable(doc, {
         startY: y,
-        head: [['Submitter', 'Klout Score', 'Views', `Payout (${sym})`, `Fee (${sym})`, 'Status', 'Date']],
+        head: [['Submitter', 'Klout Score', 'Views', `Payout (${sym})`, 'Date']],
         body: tableRows,
         theme: 'grid',
         margin: { left: m, right: m, bottom: 18 },
@@ -1131,24 +1187,11 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         },
         alternateRowStyles: { fillColor: [250, 250, 252] },
         columnStyles: {
-          0: { cellWidth: 30 },
-          1: { halign: 'right', cellWidth: 22 },
-          2: { halign: 'right', cellWidth: 20 },
-          3: { halign: 'right', cellWidth: 26 },
-          4: { halign: 'right', cellWidth: 22 },
-          5: { cellWidth: 30 },
-          6: { cellWidth: 22 },
-        },
-        didParseCell: (hookData: any) => {
-          if (hookData.section === 'body' && hookData.column.index === 5) {
-            const raw = subs[hookData.row.index]?.status
-            const sc = STATUS_COLORS[raw]
-            if (sc) {
-              hookData.cell.styles.fillColor = sc.bg
-              hookData.cell.styles.textColor = sc.text
-              hookData.cell.styles.fontStyle = 'bold'
-            }
-          }
+          0: { cellWidth: 36 },
+          1: { halign: 'right', cellWidth: 26 },
+          2: { halign: 'right', cellWidth: 26 },
+          3: { halign: 'right', cellWidth: 32 },
+          4: { cellWidth: 28 },
         },
       })
 

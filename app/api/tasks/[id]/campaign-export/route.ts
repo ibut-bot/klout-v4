@@ -87,6 +87,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       maxBudgetPerPostPercent: task.campaignConfig.maxBudgetPerPostPercent,
       requireFollowX: task.campaignConfig.requireFollowX,
       guidelines: task.campaignConfig.guidelines as { dos?: string[]; donts?: string[] } | null,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
     },
     submissions: submissions.map((s) => ({
       id: s.id,
