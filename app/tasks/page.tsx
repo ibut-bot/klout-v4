@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import TaskCard from '../components/TaskCard'
 import { type ImageTransform } from '../components/ImagePositionEditor'
@@ -43,11 +43,21 @@ export default function TasksPage() {
   const { isAuthenticated, authFetch, wallet } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState('open')
+  const [status, setStatus] = useState('all')
   const [taskTypeTab, setTaskTypeTab] = useState<TaskTypeTab>('ALL')
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const prevAuthRef = useRef(isAuthenticated)
+
+  // When user connects wallet, default to showing only open tasks
+  useEffect(() => {
+    if (isAuthenticated && !prevAuthRef.current) {
+      setStatus('open')
+      setPage(1)
+    }
+    prevAuthRef.current = isAuthenticated
+  }, [isAuthenticated])
 
   const fetchTasks = async () => {
     setLoading(true)
@@ -67,10 +77,8 @@ export default function TasksPage() {
         const res = await authFetch(`/api/me/shared-campaigns?${params}`)
         data = await res.json()
       } else if (viewMode === 'my_bids' && isAuthenticated) {
-        // Fetch tasks user has bid on
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (status !== 'all') {
-          // Map task statuses to bid statuses for "my bids" view
           const bidStatusMap: Record<string, string> = {
             'open': 'PENDING',
             'in_progress': 'FUNDED',
@@ -83,7 +91,6 @@ export default function TasksPage() {
         }
         const res = await authFetch(`/api/me/bids?${params}`)
         const bidsData = await res.json()
-        // Transform bids into task format for display
         if (bidsData.success) {
           data = {
             success: true,
@@ -97,7 +104,6 @@ export default function TasksPage() {
               creatorProfilePic: b.task.creatorProfilePic,
               bidCount: b.task.bidCount ?? 0,
               createdAt: b.createdAt,
-              // Add bid info for display
               _bidInfo: {
                 bidId: b.id,
                 bidAmount: b.amountLamports,
@@ -113,7 +119,6 @@ export default function TasksPage() {
       } else {
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (taskTypeTab !== 'ALL') params.set('taskType', taskTypeTab)
-        // For unauthenticated users, show all statuses; for authenticated, use selected filter
         const effectiveStatus = isAuthenticated ? status : 'all'
         if (effectiveStatus !== 'all') params.set('status', effectiveStatus)
         const res = await fetch(`/api/tasks?${params}`)
@@ -172,7 +177,7 @@ export default function TasksPage() {
       {/* Task Type Tabs */}
       <div className="mb-6 flex gap-1 rounded-lg bg-surface p-1 border border-k-border w-fit">
         <button
-          onClick={() => { setTaskTypeTab('ALL'); setPage(1); setStatus('all') }}
+          onClick={() => { setTaskTypeTab('ALL'); setPage(1) }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
             taskTypeTab === 'ALL'
               ? 'bg-accent text-black'
@@ -182,7 +187,7 @@ export default function TasksPage() {
           All
         </button>
         <button
-          onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('OPEN') }}
+          onClick={() => { setTaskTypeTab('CAMPAIGN'); setPage(1); setStatus('open') }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
             taskTypeTab === 'CAMPAIGN'
               ? 'bg-accent text-black'
@@ -192,7 +197,7 @@ export default function TasksPage() {
           Campaigns
         </button>
         <button
-          onClick={() => { setTaskTypeTab('COMPETITION'); setPage(1); setStatus('OPEN') }}
+          onClick={() => { setTaskTypeTab('COMPETITION'); setPage(1); setStatus('open') }}
           className={`rounded-md px-4 py-2 text-sm font-medium transition ${
             taskTypeTab === 'COMPETITION'
               ? 'bg-amber-500 text-black'
