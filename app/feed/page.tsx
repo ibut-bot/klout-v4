@@ -2,6 +2,12 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { useAuth } from '../hooks/useAuth'
+
+const TIP_AMOUNT_LAMPORTS = 10_000_000
+const TIP_AMOUNT_SOL = TIP_AMOUNT_LAMPORTS / LAMPORTS_PER_SOL
 
 interface PostMedia {
   type: string
@@ -25,6 +31,9 @@ interface FeedItem {
   commentCount: number
   createdAt: string
   winnerPlace: number | null
+  recipientWallet: string
+  tipCount: number
+  tipTotalLamports: string
   competition: {
     id: string
     title: string
@@ -34,8 +43,18 @@ interface FeedItem {
 
 const proxyVideo = (vUrl: string) => `/api/video-proxy?url=${encodeURIComponent(vUrl)}`
 
-function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; isVisible: boolean; globalMuted: boolean; onUnmute: () => void }) {
+function FeedCard({ item, isVisible, globalMuted, onUnmute, onTip, tipping }: {
+  item: FeedItem
+  isVisible: boolean
+  globalMuted: boolean
+  onUnmute: () => void
+  onTip: (item: FeedItem) => void
+  tipping: boolean
+}) {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [localTipCount, setLocalTipCount] = useState(item.tipCount)
+  const [localTipTotal, setLocalTipTotal] = useState(Number(item.tipTotalLamports))
+  const [showTipAnim, setShowTipAnim] = useState(false)
 
   useEffect(() => {
     const vid = videoRef.current
@@ -54,6 +73,14 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
   const imgSrc = media?.url || media?.previewImageUrl
 
   const handleVideoClick = () => onUnmute()
+
+  const handleTip = () => {
+    onTip(item)
+    setLocalTipCount(c => c + 1)
+    setLocalTipTotal(t => t + TIP_AMOUNT_LAMPORTS)
+    setShowTipAnim(true)
+    setTimeout(() => setShowTipAnim(false), 800)
+  }
 
   const postTextClean = item.postText?.replace(/https:\/\/t\.co\/\w+/g, '').trim()
 
@@ -96,6 +123,38 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute }: { item: FeedItem; 
           )}
         </button>
       )}
+
+      {/* Right side actions */}
+      <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-4 sm:right-4">
+        <button
+          onClick={handleTip}
+          disabled={tipping}
+          className="group flex flex-col items-center gap-1 disabled:opacity-50"
+        >
+          <div className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition group-hover:bg-yellow-500/30 sm:h-12 sm:w-12 ${showTipAnim ? 'scale-125' : ''}`} style={{ transition: 'transform 0.2s' }}>
+            <svg className={`h-6 w-6 transition ${showTipAnim ? 'text-yellow-400' : 'text-white'} sm:h-7 sm:w-7`} fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-.52.07-1.06.07-1.58.02V20h-1v-.07A7.94 7.94 0 014.07 13H4v-1h.07c.46-3.47 3.1-6.21 6.51-6.83V4h1v1.07c.34.05.68.12 1 .22V4h1v1.68c2.59 1.2 4.42 3.74 4.42 6.72 0 .34-.03.67-.07 1H18v1h-.07c-.46 3.47-3.1 6.21-6.51 6.83V20h-1v.07l.58-.14zM12 8a4 4 0 100 8 4 4 0 000-8z"/>
+            </svg>
+            {showTipAnim && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 animate-bounce text-xs font-bold text-yellow-400">
+                +{TIP_AMOUNT_SOL}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] font-semibold text-white drop-shadow sm:text-xs">
+            {localTipCount > 0 ? localTipCount : 'Tip'}
+          </span>
+        </button>
+
+        {localTipTotal > 0 && (
+          <div className="flex flex-col items-center">
+            <span className="text-[11px] font-bold text-yellow-400 drop-shadow sm:text-xs">
+              {(localTipTotal / LAMPORTS_PER_SOL).toFixed(2)}
+            </span>
+            <span className="text-[9px] text-zinc-400 sm:text-[10px]">SOL</span>
+          </div>
+        )}
+      </div>
 
       {/* Bottom overlay */}
       <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 pb-4 pt-16 sm:px-4 sm:pb-6 sm:pt-20">
@@ -197,6 +256,51 @@ export default function FeedPage() {
   const [hasMore, setHasMore] = useState(true)
   const [visibleId, setVisibleId] = useState<string | null>(null)
   const [globalMuted, setGlobalMuted] = useState(true)
+  const [tippingId, setTippingId] = useState<string | null>(null)
+
+  const { connection } = useConnection()
+  const { publicKey, sendTransaction } = useWallet()
+  const { authFetch, isAuthenticated } = useAuth()
+
+  const handleTip = useCallback(async (item: FeedItem) => {
+    if (!publicKey || !isAuthenticated) {
+      alert('Please connect your wallet to tip')
+      return
+    }
+    if (tippingId) return
+    setTippingId(item.id)
+
+    try {
+      const recipientPubkey = new PublicKey(item.recipientWallet)
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+      const tx = new Transaction()
+      tx.recentBlockhash = blockhash
+      tx.feePayer = publicKey
+      tx.add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: recipientPubkey,
+          lamports: TIP_AMOUNT_LAMPORTS,
+        })
+      )
+      const signature = await sendTransaction(tx, connection)
+      await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+      await authFetch('/api/tips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: item.id, txSignature: signature }),
+      })
+    } catch (err: any) {
+      if (err?.message?.includes('User rejected')) {
+        // user cancelled — no-op
+      } else {
+        console.error('Tip failed:', err)
+      }
+    } finally {
+      setTippingId(null)
+    }
+  }, [publicKey, isAuthenticated, tippingId, connection, sendTransaction, authFetch])
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -301,7 +405,14 @@ export default function FeedPage() {
             else cardRefs.current.delete(item.id)
           }}
         >
-          <FeedCard item={item} isVisible={visibleId === item.id} globalMuted={globalMuted} onUnmute={() => setGlobalMuted(m => !m)} />
+          <FeedCard
+            item={item}
+            isVisible={visibleId === item.id}
+            globalMuted={globalMuted}
+            onUnmute={() => setGlobalMuted(m => !m)}
+            onTip={handleTip}
+            tipping={tippingId === item.id}
+          />
         </div>
       ))}
 

@@ -39,9 +39,14 @@ export async function GET(request: NextRequest) {
       retweetCount: true,
       commentCount: true,
       createdAt: true,
+      _count: { select: { tips: true } },
+      tips: {
+        select: { amountLamports: true },
+      },
       bid: {
         select: {
           winnerPlace: true,
+          bidderId: true,
           bidder: {
             select: {
               walletAddress: true,
@@ -86,6 +91,9 @@ export async function GET(request: NextRequest) {
       commentCount: s.commentCount ?? 0,
       createdAt: s.createdAt.toISOString(),
       winnerPlace: s.bid.winnerPlace,
+      recipientWallet: s.bid.bidder.walletAddress,
+      tipCount: s._count.tips,
+      tipTotalLamports: s.tips.reduce((sum, t) => sum + Number(t.amountLamports), 0).toString(),
       competition: {
         id: s.bid.task.id,
         title: s.bid.task.title,

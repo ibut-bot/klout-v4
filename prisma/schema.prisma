@@ -75,6 +75,7 @@ enum NotificationType {
   CAMPAIGN_PAYMENT_COMPLETED
   CAMPAIGN_CREATOR_REJECTED
   CAMPAIGN_BANNED
+  TIP_RECEIVED
 
   @@schema("slopwork")
 }
@@ -143,6 +144,8 @@ model User {
   referralsMade        Referral[]           @relation("Referrer")
   referredByRecord     Referral?            @relation("ReferredUser")
   paymentRequests      CampaignPaymentRequest[] @relation("PaymentRequester")
+  tipsSent             Tip[]                @relation("TipsSent")
+  tipsReceived         Tip[]                @relation("TipsReceived")
 
   @@index([walletAddress])
   @@index([username])
@@ -316,6 +319,7 @@ model Submission {
   updatedAt     DateTime  @updatedAt
 
   bid           Bid       @relation(fields: [bidId], references: [id])
+  tips          Tip[]
 
   @@index([bidId])
   @@schema("slopwork")
@@ -548,5 +552,24 @@ model ReferralEarning {
   @@index([referredUserId])
   @@index([referralId])
   @@index([createdAt])
+  @@schema("slopwork")
+}
+
+model Tip {
+  id              String   @id @default(uuid())
+  submissionId    String
+  tipperId        String
+  recipientId     String
+  amountLamports  BigInt
+  txSignature     String   @unique
+  createdAt       DateTime @default(now())
+
+  submission      Submission @relation(fields: [submissionId], references: [id])
+  tipper          User       @relation("TipsSent", fields: [tipperId], references: [id])
+  recipient       User       @relation("TipsReceived", fields: [recipientId], references: [id])
+
+  @@index([submissionId])
+  @@index([recipientId])
+  @@index([tipperId])
   @@schema("slopwork")
 }
