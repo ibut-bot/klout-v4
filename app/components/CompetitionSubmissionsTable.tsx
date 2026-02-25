@@ -52,6 +52,7 @@ interface CompetitionSubmissionsTableProps {
   isCreator: boolean
   onRefresh: () => void
   onSelectBidder?: (bidderId: string) => void
+  onSelectSubmission?: (submissionId: string) => void
 }
 
 const PLACE_LABELS = ['1st', '2nd', '3rd']
@@ -76,6 +77,7 @@ export default function CompetitionSubmissionsTable({
   isCreator,
   onRefresh,
   onSelectBidder,
+  onSelectSubmission,
 }: CompetitionSubmissionsTableProps) {
   const [sortCol, setSortCol] = useState<SortCol>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -204,7 +206,7 @@ export default function CompetitionSubmissionsTable({
                 <tr
                   key={sub.id}
                   className="hover:bg-surface-hover transition-colors cursor-pointer"
-                  onClick={() => onSelectBidder?.(bid.bidderId)}
+                  onClick={() => { onSelectBidder?.(bid.bidderId); onSelectSubmission?.(sub.id) }}
                 >
                   {/* Submitter */}
                   <td className="px-4 py-3">

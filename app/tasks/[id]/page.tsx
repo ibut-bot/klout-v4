@@ -147,6 +147,7 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [selectedBidderId, setSelectedBidderId] = useState<string | null>(null)
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null)
   // Track message counts per bidder for unread indicator
   const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
   // Competition pause / finish-refund state
@@ -296,12 +297,13 @@ export default function TaskDetailPage() {
     if (isAuthenticated) fetchConversations()
   }, [isAuthenticated, fetchConversations])
 
-  // Auto-select first bidder for competition mode
+  // Auto-select first submission for competition mode
   useEffect(() => {
-    if (!selectedBidderId && submissions.length > 0 && submissions[0].bid) {
+    if (!selectedSubId && submissions.length > 0 && submissions[0].bid) {
+      setSelectedSubId(submissions[0].id)
       setSelectedBidderId(submissions[0].bid.bidderId)
     }
-  }, [submissions, selectedBidderId])
+  }, [submissions, selectedSubId])
 
   const refreshAll = () => {
     fetchTask()
@@ -361,9 +363,11 @@ export default function TaskDetailPage() {
   const campaignBudgetExhausted = isCampaign && campaignConfig && Number(campaignConfig.budgetRemainingLamports) <= 0
   const isExpired = countdown?.expired === true
 
-  // Find current user's bid
+  // Find current user's bids (multiple allowed for competitions)
   const myBid = bids.find((b) => b.bidderWallet === wallet)
+  const myBids = bids.filter((b) => b.bidderWallet === wallet)
   const mySubmission = myBid ? submissions.find((s) => s.bidId === myBid.id) : null
+  const mySubmissions = submissions.filter((s) => myBids.some(b => b.id === s.bidId))
 
   // Competition entry form: shown when user hasn't entered yet
   const showCompetitionEntry = isAuthenticated && !isCreator && isCompetition && task.status === 'OPEN' && !isExpired
@@ -645,11 +649,11 @@ export default function TaskDetailPage() {
 
       {/* Competition mode: Narrow sidebar (entries) + Chat with pinned submission */}
       {isCompetition && (() => {
-        const displayBid = isCreator 
-          ? bids.find(b => b.bidderId === selectedBidderId)
-          : myBid
-        const displaySub = displayBid 
-          ? submissions.find(s => s.bidId === displayBid.id) 
+        const displaySub = isCreator
+          ? submissions.find(s => s.id === selectedSubId)
+          : (mySubmissions.length > 0 ? mySubmissions[mySubmissions.length - 1] : null)
+        const displayBid = displaySub
+          ? bids.find(b => b.id === displaySub.bidId)
           : null
 
         const maxW = task.maxWinners || 1
@@ -673,7 +677,7 @@ export default function TaskDetailPage() {
 
         const visibleSubmissions = isCreator 
           ? submissions 
-          : submissions.filter(s => s.bidId === myBid?.id)
+          : mySubmissions
 
         const pinnedContent = displaySub ? (() => {
           const xUrl = extractXPostUrl(displaySub.description || '')
@@ -786,65 +790,79 @@ export default function TaskDetailPage() {
           )
         })() : null
 
-        const mySubmission = !isCreator && myBid ? submissions.find(s => s.bidId === myBid.id) : null
-        const myXUrl = mySubmission ? (mySubmission.postUrl || extractXPostUrl(mySubmission.description || '')) : null
-        const myDescWithoutUrl = mySubmission && myXUrl
-          ? (mySubmission.description || '').replace(myXUrl, '').trim()
-          : mySubmission?.description || ''
-        const myWinPlace = myBid ? bids.find(b => b.id === myBid.id)?.winnerPlace : null
-
         return (
           <>
-          {/* Participant: show their submission prominently */}
-          {!isCreator && mySubmission && (
-            <div className="mb-6 rounded-xl border border-k-border bg-surface overflow-hidden">
-              <div className="flex items-center justify-between border-b border-k-border px-4 py-3">
-                <h3 className="text-sm font-semibold text-white">Your Submission</h3>
-                {myWinPlace ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
-                    🏆 {myWinPlace <= 3 ? ['1st', '2nd', '3rd'][myWinPlace - 1] : `${myWinPlace}th`} Place Winner
-                  </span>
-                ) : myBid && bids.find(b => b.id === myBid.id)?.status === 'REJECTED' ? (
-                  <span className="inline-flex items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400">
-                    Not Selected
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
-                    Under Review
-                  </span>
-                )}
-              </div>
-              <div className="p-4">
-                {myXUrl && (
-                  <XPostEmbed
-                    url={myXUrl}
-                    className="mb-4"
-                    postText={mySubmission.postText}
-                    postMedia={mySubmission.postMedia}
-                    authorUsername={mySubmission.postAuthorUsername}
-                    authorName={mySubmission.postAuthorName}
-                    authorProfilePic={mySubmission.postAuthorProfilePic}
-                  />
-                )}
-                {mySubmission.viewCount != null && (mySubmission.viewCount + (mySubmission.likeCount ?? 0) + (mySubmission.retweetCount ?? 0) + (mySubmission.commentCount ?? 0)) > 0 && (
-                  <div className="mb-4 grid grid-cols-4 gap-3">
-                    {[
-                      { label: 'Views', value: mySubmission.viewCount },
-                      { label: 'Likes', value: mySubmission.likeCount ?? 0 },
-                      { label: 'Retweets', value: mySubmission.retweetCount ?? 0 },
-                      { label: 'Replies', value: mySubmission.commentCount ?? 0 },
-                    ].map(m => (
-                      <div key={m.label} className="rounded-lg border border-k-border bg-zinc-900/50 px-3 py-2 text-center">
-                        <p className="text-lg font-semibold text-zinc-100">{m.value.toLocaleString()}</p>
-                        <p className="text-[11px] text-zinc-500">{m.label}</p>
-                      </div>
-                    ))}
+          {/* Participant: show all their submissions */}
+          {!isCreator && mySubmissions.length > 0 && (
+            <div className="mb-6 space-y-4">
+              <h3 className="text-sm font-semibold text-white">
+                Your Submission{mySubmissions.length > 1 ? 's' : ''} ({mySubmissions.length})
+              </h3>
+              {mySubmissions.map((sub) => {
+                const subBid = myBids.find(b => b.id === sub.bidId)
+                const matchedBid = subBid ? bids.find(b => b.id === subBid.id) : null
+                const winPlace = matchedBid?.winnerPlace
+                const xUrl = sub.postUrl || extractXPostUrl(sub.description || '')
+                const descWithoutUrl = xUrl
+                  ? (sub.description || '').replace(xUrl, '').trim()
+                  : sub.description || ''
+
+                return (
+                  <div key={sub.id} className="rounded-xl border border-k-border bg-surface overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-k-border px-4 py-3">
+                      <h3 className="text-sm font-semibold text-white">
+                        {mySubmissions.length > 1
+                          ? `Entry ${mySubmissions.indexOf(sub) + 1}`
+                          : 'Your Submission'}
+                      </h3>
+                      {winPlace ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
+                          🏆 {winPlace <= 3 ? ['1st', '2nd', '3rd'][winPlace - 1] : `${winPlace}th`} Place Winner
+                        </span>
+                      ) : matchedBid?.status === 'REJECTED' ? (
+                        <span className="inline-flex items-center rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400">
+                          Not Selected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+                          Under Review
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      {xUrl && (
+                        <XPostEmbed
+                          url={xUrl}
+                          className="mb-4"
+                          postText={sub.postText}
+                          postMedia={sub.postMedia}
+                          authorUsername={sub.postAuthorUsername}
+                          authorName={sub.postAuthorName}
+                          authorProfilePic={sub.postAuthorProfilePic}
+                        />
+                      )}
+                      {sub.viewCount != null && (sub.viewCount + (sub.likeCount ?? 0) + (sub.retweetCount ?? 0) + (sub.commentCount ?? 0)) > 0 && (
+                        <div className="mb-4 grid grid-cols-4 gap-3">
+                          {[
+                            { label: 'Views', value: sub.viewCount },
+                            { label: 'Likes', value: sub.likeCount ?? 0 },
+                            { label: 'Retweets', value: sub.retweetCount ?? 0 },
+                            { label: 'Replies', value: sub.commentCount ?? 0 },
+                          ].map(m => (
+                            <div key={m.label} className="rounded-lg border border-k-border bg-zinc-900/50 px-3 py-2 text-center">
+                              <p className="text-lg font-semibold text-zinc-100">{m.value.toLocaleString()}</p>
+                              <p className="text-[11px] text-zinc-500">{m.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {descWithoutUrl && (
+                        <p className="whitespace-pre-wrap text-sm text-zinc-400">{descWithoutUrl}</p>
+                      )}
+                    </div>
                   </div>
-                )}
-                {myDescWithoutUrl && (
-                  <p className="whitespace-pre-wrap text-sm text-zinc-400">{myDescWithoutUrl}</p>
-                )}
-              </div>
+                )
+              })}
             </div>
           )}
 
@@ -856,6 +874,7 @@ export default function TaskDetailPage() {
               isCreator={isCreator}
               onRefresh={refreshAll}
               onSelectBidder={setSelectedBidderId}
+              onSelectSubmission={setSelectedSubId}
             />
           )}
           <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[200px_1fr]' : ''}`}>
@@ -869,12 +888,12 @@ export default function TaskDetailPage() {
                   const bid = sub.bid
                   if (!bid) return null
                   const matchedBid = bids.find(b => b.id === bid.id)
-                  const isActive = bid.bidderId === selectedBidderId
+                  const isActive = sub.id === selectedSubId
                   const winPlace = matchedBid?.winnerPlace
                   return (
                     <button
                       key={sub.id}
-                      onClick={() => setSelectedBidderId(bid.bidderId)}
+                      onClick={() => { setSelectedSubId(sub.id); setSelectedBidderId(bid.bidderId) }}
                       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
                         isActive
                           ? 'bg-accent text-black'
