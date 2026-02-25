@@ -69,6 +69,7 @@ interface TaskCardProps {
   createdAt: string
   isCreator?: boolean
   onImageTransformSave?: (taskId: string, transform: ImageTransform) => void
+  totalViews?: number | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -101,7 +102,7 @@ function getCountdown(deadlineAt: string): { label: string; isEnded: boolean } {
   return { label: `${seconds}s`, isEnded: false }
 }
 
-export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, maxWinners, prizeStructure, competitionWinners, deadlineAt, createdAt, isCreator, onImageTransformSave }: TaskCardProps) {
+export default function TaskCard({ id, title, description, budgetLamports, taskType, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, status, creatorWallet, creatorUsername, creatorProfilePic, bidCount, submissionCount, budgetRemainingLamports, heading, minKloutScore, imageUrl, imageTransform, maxWinners, prizeStructure, competitionWinners, deadlineAt, createdAt, isCreator, onImageTransformSave, totalViews }: TaskCardProps) {
   const timeAgo = getTimeAgo(new Date(createdAt))
   const [countdown, setCountdown] = useState<{ label: string; isEnded: boolean } | null>(null)
   const [editingPosition, setEditingPosition] = useState(false)
@@ -149,7 +150,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
   }, [id, pendingTransform, onImageTransformSave])
 
   const placeLabels = ['1st', '2nd', '3rd']
-  const formatPrize = (lamports: string) => formatTokenAmount(lamports, tInfo, 2)
+  const formatPrize = (lamports: string) => formatTokenAmount(lamports, tInfo, pt === 'SOL' ? 2 : 0)
   const winnerForPlace = (place: number) => competitionWinners?.find(w => w.place === place)
 
   // Card with full-bleed image (campaign or competition)
@@ -244,10 +245,10 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
                   const isPaid = w?.status === 'COMPLETED'
                   const isAwarded = !!w
                   return (
-                    <span key={p.place} className={`rounded-md backdrop-blur-sm px-2 py-0.5 text-xs font-medium ${
+                    <span key={p.place} className={`inline-flex items-center gap-1 rounded-md backdrop-blur-sm px-2 py-0.5 text-xs font-medium ${
                       isPaid ? 'bg-green-500/20 text-green-300' : isAwarded ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-zinc-200'
                     }`}>
-                      {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
+                      {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {pt === 'USDC' ? <TokenIcon token={pt} size={11} /> : tInfo.symbol}
                       {isPaid && ' ✓'}
                       {isAwarded && !isPaid && ' ⏳'}
                     </span>
@@ -275,7 +276,15 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
               <div className="mb-3">
                 <div className="mb-1.5 flex items-center justify-between text-xs">
                   <span className="text-zinc-400 font-medium">Budget Used</span>
-                  <span className="font-semibold text-zinc-300">{budgetUsedPercent}%</span>
+                  <div className="flex items-center gap-2">
+                    {totalViews != null && totalViews > 0 && (
+                      <span className="flex items-center gap-1 text-zinc-300">
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        {totalViews >= 1000000 ? `${(totalViews / 1000000).toFixed(1)}M` : totalViews >= 1000 ? `${(totalViews / 1000).toFixed(0)}K` : totalViews.toLocaleString()}
+                      </span>
+                    )}
+                    <span className="font-semibold text-zinc-300">{budgetUsedPercent}%</span>
+                  </div>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-white/10 backdrop-blur-sm">
                   <div
@@ -372,10 +381,10 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
                 const isPaid = w?.status === 'COMPLETED'
                 const isAwarded = !!w
                 return (
-                  <span key={p.place} className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                  <span key={p.place} className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
                     isPaid ? 'bg-green-500/15 text-green-400' : isAwarded ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-500/10 text-amber-400'
                   }`}>
-                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {tInfo.symbol}
+                    {i < 3 ? placeLabels[i] : `${i + 1}th`}: {formatPrize(p.amountLamports)} {pt === 'USDC' ? <TokenIcon token={pt} size={11} /> : tInfo.symbol}
                     {isPaid && ' ✓'}
                     {isAwarded && !isPaid && ' ⏳'}
                   </span>
@@ -407,7 +416,15 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between text-xs">
                 <span className="text-zinc-500 font-medium">Budget Used</span>
-                <span className="font-semibold text-zinc-400">{budgetUsedPercent}%</span>
+                <div className="flex items-center gap-2">
+                  {totalViews != null && totalViews > 0 && (
+                    <span className="flex items-center gap-1 text-zinc-400">
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      {totalViews >= 1000000 ? `${(totalViews / 1000000).toFixed(1)}M` : totalViews >= 1000 ? `${(totalViews / 1000).toFixed(0)}K` : totalViews.toLocaleString()}
+                    </span>
+                  )}
+                  <span className="font-semibold text-zinc-400">{budgetUsedPercent}%</span>
+                </div>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
                 <div 

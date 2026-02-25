@@ -31,6 +31,7 @@ interface Task {
   competitionWinners?: { place: number; status: string; bidderUsername?: string | null; bidderWallet: string }[] | null
   deadlineAt?: string | null
   createdAt: string
+  totalViews?: number | null
 }
 
 const STATUSES = ['open', 'paused', 'completed']
@@ -112,7 +113,9 @@ export default function TasksPage() {
       } else {
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (taskTypeTab !== 'ALL') params.set('taskType', taskTypeTab)
-        if (status !== 'all') params.set('status', status)
+        // For unauthenticated users, show all statuses; for authenticated, use selected filter
+        const effectiveStatus = isAuthenticated ? status : 'all'
+        if (effectiveStatus !== 'all') params.set('status', effectiveStatus)
         const res = await fetch(`/api/tasks?${params}`)
         data = await res.json()
       }
@@ -152,6 +155,7 @@ export default function TasksPage() {
       setViewMode('all')
     }
   }, [isAuthenticated, viewMode])
+
 
   return (
     <div>

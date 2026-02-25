@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         _count: { select: { bids: true, campaignSubmissions: true } },
         campaignConfig: { select: { budgetRemainingLamports: true, heading: true, minKloutScore: true } },
+        campaignSubmissions: { select: { viewCount: true } },
         bids: {
           where: { winnerPlace: { not: null } },
           select: { winnerPlace: true, status: true, bidder: { select: { username: true, walletAddress: true } } },
@@ -113,6 +114,7 @@ export async function GET(request: NextRequest) {
         })) : undefined,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
+      totalViews: t.taskType === 'CAMPAIGN' ? t.campaignSubmissions.reduce((sum, s) => sum + (s.viewCount || 0), 0) : null,
       url: `${APP_URL}/tasks/${t.id}`,
     })),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },

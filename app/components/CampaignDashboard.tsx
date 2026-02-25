@@ -270,7 +270,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
     if (!data.success) throw new Error(data.message || 'Export failed')
     return data as {
       task: {
-        title: string; description: string; imageUrl: string | null; imageBase64: string | null
+        title: string; description: string; status: string; imageUrl: string | null; imageBase64: string | null
         totalBudgetLamports: string; budgetRemainingLamports: string; cpmLamports: string
         minViews: number; minLikes: number; minRetweets: number; minComments: number
         minPayoutLamports: string; minKloutScore: number | null
@@ -526,19 +526,48 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         Promise.resolve(t.imageBase64),
       ])
 
+      // Measure banner image natural dimensions to preserve aspect ratio
+      const getBannerHeight = (dataUrl: string, pageWidthMm: number, maxH: number): Promise<number> =>
+        new Promise((resolve) => {
+          const img = new window.Image()
+          img.onload = () => {
+            const ratio = img.naturalHeight / img.naturalWidth
+            resolve(Math.min(pageWidthMm * ratio, maxH))
+          }
+          img.onerror = () => resolve(maxH)
+          img.src = dataUrl
+        })
+      const bannerH = bannerDataUrl ? await getBannerHeight(bannerDataUrl, 210, 70) : 0
+
       const totalViews = subs.reduce((sum, s) => sum + (s.viewCount || 0), 0)
       const totalPaid = subs.filter(s => s.status === 'PAID' && s.payoutLamports).reduce((sum, s) => sum + Number(s.payoutLamports), 0)
       const approved = subs.filter(s => s.status === 'APPROVED').length
       const paid = subs.filter(s => s.status === 'PAID').length
       const rejected = subs.filter(s => s.status === 'REJECTED' || s.status === 'CREATOR_REJECTED').length
       const pending = subs.length - approved - paid - rejected
+      const paidSubs = subs.filter(s => s.status === 'PAID')
+      const paidViews = paidSubs.reduce((sum, s) => sum + (s.viewCount || 0), 0)
+      const effectiveCpm = totalViews > 0 ? Math.round(totalPaid / totalViews * 1000) : 0
+      const cpmPaidFor = paidViews > 0 ? Math.round(totalPaid / paidViews * 1000) : 0
       const budgetUsed = Number(t.totalBudgetLamports) > 0
         ? (Number(t.totalBudgetLamports) - Number(t.budgetRemainingLamports)) / Number(t.totalBudgetLamports) * 100
         : 0
+      const isCancelledOrCompleted = ['COMPLETED', 'CANCELLED'].includes(t.status?.toUpperCase() ?? '')
+      const hasUnspentBudget = Number(t.budgetRemainingLamports) > 0
 
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pw = 210
+      const ph = 297
       const m = 14
+      const footerZone = 18
+      const maxY = ph - footerZone
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > maxY) {
+          doc.addPage()
+          y = m
+        }
+      }
 
       const addFooter = () => {
         const pages = doc.getNumberOfPages()
@@ -559,7 +588,6 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       // ── CAMPAIGN IMAGE BANNER ──
       let y = 0
-      const bannerH = 52
       if (bannerDataUrl) {
         try {
           const imgFormat = bannerDataUrl.includes('image/jpeg') || bannerDataUrl.includes('image/jpg') ? 'JPEG' : 'PNG'
@@ -603,17 +631,41 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       y += infoBarH + 6
 
-      // ── KEY METRIC CARDS (3x2 grid) ──
+      // ── CANCELLED/COMPLETED WITH UNSPENT BUDGET BANNER ──
+      if (isCancelledOrCompleted && hasUnspentBudget) {
+        ensureSpace(22)
+        const bannerBgH = 16
+        doc.setFillColor(239, 68, 68, 0.12)
+        doc.setFillColor(254, 242, 242)
+        doc.roundedRect(m, y, pw - m * 2, bannerBgH, 2, 2, 'F')
+        doc.setDrawColor(239, 68, 68)
+        doc.setLineWidth(0.4)
+        doc.roundedRect(m, y, pw - m * 2, bannerBgH, 2, 2, 'S')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+        doc.setTextColor(153, 27, 27)
+        doc.text('Campaign ended before full budget was used', m + 5, y + 6)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        doc.text(`Actual budget used: ${fmtBudget(totalPaid)} ${sym}  ·  Refunded: ${fmtBudget(t.budgetRemainingLamports)} ${sym}  ·  Total budget: ${fmtBudget(t.totalBudgetLamports)} ${sym}`, m + 5, y + 12)
+        y += bannerBgH + 5
+      }
+
+      // ── KEY METRIC CARDS (3x3 grid) ──
+      ensureSpace(3 * 26 + 8)
       const cardW = (pw - m * 2 - 8) / 3
       const cardH = 22
       const gap = 4
       const metrics = [
-        { label: 'Total Budget', value: `${fmtBudget(t.totalBudgetLamports)} ${sym}`, accent: [250, 204, 21] as const },
+        { label: isCancelledOrCompleted && hasUnspentBudget ? 'Budget Actually Used' : 'Total Budget', value: `${fmtBudget(isCancelledOrCompleted && hasUnspentBudget ? totalPaid : t.totalBudgetLamports)} ${sym}`, accent: [250, 204, 21] as const },
         { label: 'Budget Remaining', value: `${fmtBudget(t.budgetRemainingLamports)} ${sym}`, accent: [34, 197, 94] as const },
         { label: 'Budget Spent', value: `${fmtBudget(totalPaid)} ${sym}`, accent: [239, 68, 68] as const },
         { label: 'Total Views', value: totalViews.toLocaleString(), accent: [59, 130, 246] as const },
-        { label: 'CPM', value: `${fmtToken(t.cpmLamports, 2)} ${sym}`, accent: [168, 85, 247] as const },
-        { label: 'Total Submissions', value: String(subs.length), accent: [236, 72, 153] as const },
+        { label: 'Paid Views', value: paidViews.toLocaleString(), accent: [99, 102, 241] as const },
+        { label: 'CPM (rate)', value: `${fmtToken(t.cpmLamports, 2)} ${sym}`, accent: [168, 85, 247] as const },
+        { label: 'Effective CPM', value: `${fmtBudget(effectiveCpm)} ${sym}`, accent: [20, 184, 166] as const },
+        { label: 'CPM Paid For', value: `${fmtBudget(cpmPaidFor)} ${sym}`, accent: [245, 158, 11] as const },
+        { label: 'Total Submissions', value: `${subs.length}  (${approved} approved, ${paid} paid, ${rejected} rejected)`, accent: [236, 72, 153] as const },
       ]
       metrics.forEach((mt, i) => {
         const col = i % 3, row = Math.floor(i / 3)
@@ -631,13 +683,17 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
         doc.setTextColor(113, 113, 122)
         doc.text(mt.label, cx + 6, cy + 8)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(12)
+        // Use smaller font for longer values (like submissions breakdown)
+        const valFontSize = mt.value.length > 20 ? 8 : 12
+        doc.setFontSize(valFontSize)
         doc.setTextColor(24, 24, 27)
-        doc.text(mt.value, cx + 6, cy + 17)
+        const valY = valFontSize < 12 ? cy + 14 : cy + 17
+        doc.text(mt.value, cx + 6, valY, { maxWidth: cardW - 10 })
       })
-      y += 2 * (cardH + gap) + 4
+      y += 3 * (cardH + gap) + 4
 
       // ── CAMPAIGN REQUIREMENTS ──
+      ensureSpace(30)
       const reqs: string[] = []
       if (t.requireFollowX) reqs.push(`Follow @${t.requireFollowX} on X`)
       if (t.minViews > 0) reqs.push(`Min ${t.minViews.toLocaleString()} views per post`)
@@ -729,6 +785,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       }
 
       // ── BUDGET UTILIZATION BAR ──
+      ensureSpace(22)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(63, 63, 70)
@@ -754,6 +811,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       y += 8
 
       // ── SUBMISSION STATUS DONUT + LEGEND ──
+      ensureSpace(50)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(63, 63, 70)
@@ -1351,6 +1409,17 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
   return (
     <div className="space-y-6">
+      {/* Export spinner overlay */}
+      {exporting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+          <svg className="h-12 w-12 animate-spin text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <p className="mt-4 text-sm font-medium text-zinc-300">Generating report…</p>
+        </div>
+      )}
+
       {/* Shared viewer banner */}
       {isSharedViewer && (
         <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-2 text-sm text-indigo-400">
@@ -1566,7 +1635,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
             <p className="text-xs text-zinc-400">total payouts / total views</p>
           </div>
           <div className="rounded-lg border border-zinc-200 p-3 border-k-border">
-            <p className="text-xs text-zinc-500">Legit CPM</p>
+            <p className="text-xs text-zinc-500">CPM Paid For</p>
             <p className="text-lg font-semibold text-zinc-100">
               {stats.paidViews > 0 ? formatTokenAmount(String(Math.round(Number(stats.budgetSpentLamports) / stats.paidViews * 1000)), tInfo, 2) : '0'} {sym}
             </p>

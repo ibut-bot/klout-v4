@@ -71,6 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     task: {
       title: task.title,
       description: task.description,
+      status: task.status,
       imageUrl: task.imageUrl || null,
       imageBase64,
       totalBudgetLamports: task.budgetLamports.toString(),
