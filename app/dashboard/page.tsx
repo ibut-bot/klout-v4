@@ -52,6 +52,7 @@ interface Task {
     bonusMinKloutScore?: number | null
     bonusMaxLamports?: string | null
   } | null
+  isPublicFeed?: boolean
   winningBid?: {
     id: string
     amountLamports: string
@@ -157,6 +158,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
   const [editBonusMax, setEditBonusMax] = useState(task.campaignConfig?.bonusMaxLamports != null && Number(task.campaignConfig.bonusMaxLamports) > 0 ? String(Number(task.campaignConfig.bonusMaxLamports) / mult) : '')
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
+  const [editPublicFeed, setEditPublicFeed] = useState(task.isPublicFeed ?? false)
   const [editError, setEditError] = useState('')
   const [imageTransform, setImageTransform] = useState<ImageTransform>(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 })
   const [editingImagePosition, setEditingImagePosition] = useState(false)
@@ -346,6 +348,11 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
         updates.deadlineAt = null
       }
 
+      // Public feed toggle (competition only)
+      if (task.taskType === 'COMPETITION' && editPublicFeed !== (task.isPublicFeed ?? false)) {
+        updates.isPublicFeed = editPublicFeed
+      }
+
       // Budget increase
       if (editBudget) {
         const newBudgetSol = parseFloat(editBudget)
@@ -425,6 +432,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
       if (updates.title) localUpdates.title = updates.title
       if (updates.description) localUpdates.description = updates.description
       if (updates.deadlineAt !== undefined) localUpdates.deadlineAt = updates.deadlineAt
+      if (updates.isPublicFeed !== undefined) localUpdates.isPublicFeed = updates.isPublicFeed
       if (updates.budgetLamports) {
         localUpdates.budgetLamports = String(updates.budgetLamports)
         // Also update remaining budget
@@ -761,6 +769,24 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               />
             </div>
 
+            {task.taskType === 'COMPETITION' && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-xs font-medium text-zinc-400">Public Feed</label>
+                  <p className="text-[10px] text-zinc-600">Show competition entries in the public video feed.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={editPublicFeed}
+                  onClick={() => setEditPublicFeed(!editPublicFeed)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${editPublicFeed ? 'bg-accent' : 'bg-zinc-700'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${editPublicFeed ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            )}
+
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">
                 Increase Budget (current: {currentBudgetHuman.toFixed(4)} {sym})
@@ -818,6 +844,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
                   setEditBonusMax(task.campaignConfig?.bonusMaxLamports != null && Number(task.campaignConfig.bonusMaxLamports) > 0 ? String(Number(task.campaignConfig.bonusMaxLamports) / mult) : '')
                   setEditDeadline(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
                   setEditBudget('')
+                  setEditPublicFeed(task.isPublicFeed ?? false)
                   setEditError('')
                   setEditMode('details')
                 }}
@@ -847,8 +874,13 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                {task.submissionCount ?? task.bidCount} participants
+                {task.taskType === 'COMPETITION' ? task.bidCount : (task.submissionCount ?? task.bidCount)} participants
               </span>
+              {task.taskType === 'COMPETITION' && (
+                <span className={`text-xs font-medium ${task.isPublicFeed ? 'text-green-400' : 'text-zinc-600'}`}>
+                  {task.isPublicFeed ? 'Feed: On' : 'Feed: Off'}
+                </span>
+              )}
               <span>{new Date(task.createdAt).toLocaleDateString()}</span>
             </div>
 

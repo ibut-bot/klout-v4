@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
           bidderUsername: b.bidder.username,
           bidderWallet: b.bidder.walletAddress,
         })) : undefined,
+      isPublicFeed: t.isPublicFeed,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
       url: `${APP_URL}/tasks/${t.id}`,

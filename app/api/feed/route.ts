@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (cursor) {
-    where.id = { lt: cursor }
+    where.createdAt = { lt: new Date(cursor) }
   }
 
   const submissions = await prisma.submission.findMany({
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
   const hasMore = submissions.length > limit
   const items = submissions.slice(0, limit)
-  const nextCursor = hasMore ? items[items.length - 1].id : null
+  const nextCursor = hasMore ? items[items.length - 1].createdAt.toISOString() : null
 
   // Filter to only items that actually have media with urls
   const feed = items

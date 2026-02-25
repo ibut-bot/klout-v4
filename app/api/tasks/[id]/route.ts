@@ -165,8 +165,9 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports, bonusMinKloutScore, bonusMaxLamports } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports, bonusMinKloutScore, bonusMaxLamports, isPublicFeed } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
+  const isCompetitionTask = task.taskType === 'COMPETITION'
 
   // Validate imageUrl if provided
   if (imageUrl !== undefined && imageUrl !== null) {
@@ -330,6 +331,9 @@ export async function PATCH(
   if (deadlineAt !== undefined) taskUpdateData.deadlineAt = deadlineAt ? new Date(deadlineAt) : null
   if (budgetIncrease !== null && budgetLamports !== undefined) {
     taskUpdateData.budgetLamports = BigInt(budgetLamports)
+  }
+  if (isPublicFeed !== undefined && isCompetitionTask) {
+    taskUpdateData.isPublicFeed = !!isPublicFeed
   }
 
   // Check if there are campaign config updates
