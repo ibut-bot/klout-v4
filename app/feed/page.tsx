@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { useAuth } from '../hooks/useAuth'
 
@@ -132,8 +133,9 @@ function FeedCard({ item, isVisible, globalMuted, onUnmute, onTip, tipping }: {
           className="group flex flex-col items-center gap-1 disabled:opacity-50"
         >
           <div className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition group-hover:bg-yellow-500/30 sm:h-12 sm:w-12 ${showTipAnim ? 'scale-125' : ''}`} style={{ transition: 'transform 0.2s' }}>
-            <svg className={`h-6 w-6 transition ${showTipAnim ? 'text-yellow-400' : 'text-white'} sm:h-7 sm:w-7`} fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-.52.07-1.06.07-1.58.02V20h-1v-.07A7.94 7.94 0 014.07 13H4v-1h.07c.46-3.47 3.1-6.21 6.51-6.83V4h1v1.07c.34.05.68.12 1 .22V4h1v1.68c2.59 1.2 4.42 3.74 4.42 6.72 0 .34-.03.67-.07 1H18v1h-.07c-.46 3.47-3.1 6.21-6.51 6.83V20h-1v.07l.58-.14zM12 8a4 4 0 100 8 4 4 0 000-8z"/>
+            <svg className={`h-6 w-6 transition ${showTipAnim ? 'text-yellow-400' : 'text-white'} sm:h-7 sm:w-7`} viewBox="0 0 24 24" fill="none">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor" />
+              <text x="12" y="13" textAnchor="middle" fontSize="9" fontWeight="bold" fill={showTipAnim ? '#000' : '#000'} fontFamily="sans-serif">$</text>
             </svg>
             {showTipAnim && (
               <span className="absolute -top-2 left-1/2 -translate-x-1/2 animate-bounce text-xs font-bold text-yellow-400">
@@ -257,17 +259,15 @@ export default function FeedPage() {
   const [visibleId, setVisibleId] = useState<string | null>(null)
   const [globalMuted, setGlobalMuted] = useState(true)
   const [tippingId, setTippingId] = useState<string | null>(null)
+  const [pendingTipItem, setPendingTipItem] = useState<FeedItem | null>(null)
 
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
   const { authFetch, isAuthenticated } = useAuth()
+  const { setVisible: openWalletModal } = useWalletModal()
 
-  const handleTip = useCallback(async (item: FeedItem) => {
-    if (!publicKey || !isAuthenticated) {
-      alert('Please connect your wallet to tip')
-      return
-    }
-    if (tippingId) return
+  const executeTip = useCallback(async (item: FeedItem) => {
+    if (!publicKey) return
     setTippingId(item.id)
 
     try {
@@ -300,7 +300,26 @@ export default function FeedPage() {
     } finally {
       setTippingId(null)
     }
-  }, [publicKey, isAuthenticated, tippingId, connection, sendTransaction, authFetch])
+  }, [publicKey, connection, sendTransaction, authFetch])
+
+  // When wallet connects and there's a pending tip, execute it
+  useEffect(() => {
+    if (publicKey && isAuthenticated && pendingTipItem && !tippingId) {
+      const item = pendingTipItem
+      setPendingTipItem(null)
+      executeTip(item)
+    }
+  }, [publicKey, isAuthenticated, pendingTipItem, tippingId, executeTip])
+
+  const handleTip = useCallback((item: FeedItem) => {
+    if (!publicKey || !isAuthenticated) {
+      setPendingTipItem(item)
+      openWalletModal(true)
+      return
+    }
+    if (tippingId) return
+    executeTip(item)
+  }, [publicKey, isAuthenticated, tippingId, openWalletModal, executeTip])
   const containerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
