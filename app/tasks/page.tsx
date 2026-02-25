@@ -49,18 +49,10 @@ export default function TasksPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const prevAuthRef = useRef(isAuthenticated)
-
-  // When user connects wallet, default to showing only open tasks
-  useEffect(() => {
-    if (isAuthenticated && !prevAuthRef.current) {
-      setStatus('open')
-      setPage(1)
-    }
-    prevAuthRef.current = isAuthenticated
-  }, [isAuthenticated])
+  const fetchIdRef = useRef(0)
 
   const fetchTasks = async () => {
+    const fetchId = ++fetchIdRef.current
     setLoading(true)
     
     try {
@@ -120,11 +112,13 @@ export default function TasksPage() {
       } else {
         const params = new URLSearchParams({ page: String(page), limit: '20' })
         if (taskTypeTab !== 'ALL') params.set('taskType', taskTypeTab)
-        const effectiveStatus = isAuthenticated ? status : 'all'
+        const effectiveStatus = isAuthenticated ? (status === 'all' ? 'open' : status) : 'all'
         if (effectiveStatus !== 'all') params.set('status', effectiveStatus)
         const res = await fetch(`/api/tasks?${params}`)
         data = await res.json()
       }
+
+      if (fetchId !== fetchIdRef.current) return
 
       if (data.success) {
         setTasks(data.tasks)
@@ -134,7 +128,7 @@ export default function TasksPage() {
       // ignore
     }
     
-    setLoading(false)
+    if (fetchId === fetchIdRef.current) setLoading(false)
   }
 
   useEffect(() => {
@@ -215,19 +209,22 @@ export default function TasksPage() {
 
       {/* Status Filter */}
       <div className="mb-6 flex flex-wrap gap-2">
-        {STATUSES.map((s) => (
-          <button
-            key={s}
-            onClick={() => { setStatus(status === s ? 'all' : s); setPage(1) }}
-            className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
-              status === s
-                ? 'bg-accent text-black'
-                : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
-            }`}
-          >
-            {s.replace('_', ' ')}
-          </button>
-        ))}
+        {STATUSES.map((s) => {
+          const isActive = status === s || (isAuthenticated && s === 'open' && status === 'all')
+          return (
+            <button
+              key={s}
+              onClick={() => { setStatus(status === s ? 'all' : s); setPage(1) }}
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+                isActive
+                  ? 'bg-accent text-black'
+                  : 'bg-surface text-zinc-400 hover:bg-surface-hover border border-k-border'
+              }`}
+            >
+              {s.replace('_', ' ')}
+            </button>
+          )
+        })}
       </div>
 
 
@@ -237,7 +234,7 @@ export default function TasksPage() {
             <div key={i} className="h-36 animate-pulse rounded-xl bg-surface" />
           ))}
         </div>
-      ) : tasks.length === 0 ? (
+      ) : tasks.filter(t => t.imageUrl).length === 0 ? (
         <div className="rounded-xl border border-dashed border-k-border p-12 text-center">
           <p className="text-zinc-500 mb-4">
             {`No ${taskTypeTab === 'COMPETITION' ? 'competitions' : 'campaigns'} found.`}
@@ -245,7 +242,7 @@ export default function TasksPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tasks.map((task) => (
+          {tasks.filter(t => t.imageUrl).map((task) => (
             <TaskCard
               key={task.id}
               {...task}
