@@ -149,7 +149,7 @@ export default function BuffedShowcase() {
             <img
               src={pic.url}
               alt={pic.username}
-              className="w-48 object-contain shadow-lg shadow-accent/20"
+              className="w-64 rounded-xl object-contain shadow-[0_0_40px_rgba(234,179,8,0.25)]"
               loading="eager"
             />
             <img
