@@ -88,12 +88,13 @@ export async function POST(
     )
   }
 
-  const existingBid = await prisma.bid.findFirst({
-    where: { taskId: id, bidderId: userId },
+  // Prevent submitting the same X post twice for this competition
+  const duplicatePost = await prisma.submission.findFirst({
+    where: { xPostId, bid: { taskId: id } },
   })
-  if (existingBid) {
+  if (duplicatePost) {
     return Response.json(
-      { success: false, error: 'DUPLICATE_ENTRY', message: 'You have already submitted an entry for this competition' },
+      { success: false, error: 'DUPLICATE_POST', message: 'This X post has already been submitted to this competition. Please submit a different post.' },
       { status: 409 }
     )
   }

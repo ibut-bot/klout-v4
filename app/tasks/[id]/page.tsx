@@ -366,7 +366,7 @@ export default function TaskDetailPage() {
   const mySubmission = myBid ? submissions.find((s) => s.bidId === myBid.id) : null
 
   // Competition entry form: shown when user hasn't entered yet
-  const showCompetitionEntry = isAuthenticated && !isCreator && !isBidder && isCompetition && task.status === 'OPEN' && !isExpired
+  const showCompetitionEntry = isAuthenticated && !isCreator && isCompetition && task.status === 'OPEN' && !isExpired
 
   // Quote submission form: shown after winning bid is accepted/funded
   const showSubmissionForm = isAuthenticated && !isCreator && !isCompetition && myBid && !mySubmission && (
