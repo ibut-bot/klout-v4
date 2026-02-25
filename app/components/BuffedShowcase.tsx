@@ -136,50 +136,27 @@ export default function BuffedShowcase() {
 
   if (isMobile) {
     return (
-      <section className="relative mb-8 flex items-center justify-center" style={{ minHeight: 360 }}>
+      <section className="relative mb-8 flex items-center justify-center" style={{ minHeight: 300 }}>
         {floatingPics.map((pic) => (
           <div
             key={pic.key}
-            className="w-64 rounded-2xl border border-k-border bg-surface overflow-hidden shadow-lg shadow-accent/10"
+            className="flex flex-col items-center"
             style={{
               animation: `${phase === 'in' ? 'showcaseFadeIn' : 'showcaseFadeOut'} 0.8s ease forwards`,
               opacity: 0,
             }}
           >
-            <div className="relative w-full bg-zinc-900">
-              <img
-                src={pic.url}
-                alt={pic.username}
-                className="w-full object-contain"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 flex items-end justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <img src="/Klout.png" alt="Klout" className="h-7" />
-                    <p className="text-2xl font-black text-white leading-none">
-                      {pic.score.toLocaleString()}
-                    </p>
-                  </div>
-                  <p className="mt-0.5 text-xs font-semibold text-accent">
-                    {pic.label}
-                  </p>
-                </div>
-                <img
-                  src="/enhanced.svg"
-                  alt="Enhanced"
-                  className="h-4 opacity-70 mb-0.5"
-                />
-              </div>
-            </div>
-            {pic.quote && (
-              <div className="px-4 py-3">
-                <p className="text-center text-xs italic text-zinc-400">
-                  &ldquo;{pic.quote}&rdquo;
-                </p>
-              </div>
-            )}
+            <img
+              src={pic.url}
+              alt={pic.username}
+              className="w-48 object-contain shadow-lg shadow-accent/20"
+              loading="eager"
+            />
+            <img
+              src="/enhanced.svg"
+              alt="Enhanced"
+              className="mt-2 w-28 opacity-80"
+            />
           </div>
         ))}
 
