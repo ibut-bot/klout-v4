@@ -67,7 +67,6 @@ export async function GET(request: NextRequest) {
         creator: { select: { walletAddress: true, username: true, profilePicUrl: true } },
         _count: { select: { bids: true, campaignSubmissions: true } },
         campaignConfig: { select: { budgetRemainingLamports: true, heading: true, minKloutScore: true } },
-        campaignSubmissions: { select: { viewCount: true } },
         bids: {
           where: { winnerPlace: { not: null } },
           select: { winnerPlace: true, status: true, bidder: { select: { username: true, walletAddress: true } } },
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
     prisma.task.count({ where }),
   ])
 
-  return Response.json({
+  const body = Response.json({
     success: true,
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -114,13 +113,15 @@ export async function GET(request: NextRequest) {
         })) : undefined,
       deadlineAt: t.deadlineAt ? t.deadlineAt.toISOString() : null,
       createdAt: t.createdAt.toISOString(),
-      totalViews: t.taskType === 'CAMPAIGN' ? t.campaignSubmissions.reduce((sum, s) => sum + (s.viewCount || 0), 0) : null,
+      totalViews: t.taskType === 'CAMPAIGN' ? t._count.campaignSubmissions : null,
       url: `${APP_URL}/tasks/${t.id}`,
     })),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     network: NETWORK,
     explorerPrefix: EXPLORER_PREFIX,
   })
+  body.headers.set('Cache-Control', 's-maxage=30, stale-while-revalidate=60')
+  return body
 }
 
 /** POST /api/tasks -- create a task */

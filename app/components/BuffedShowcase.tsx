@@ -150,7 +150,7 @@ export default function BuffedShowcase() {
               src={pic.url}
               alt={pic.username}
               className="w-64 rounded-xl object-contain shadow-[0_0_40px_rgba(234,179,8,0.25)]"
-              loading="eager"
+              loading="lazy"
             />
             <img
               src="/enhanced.svg"
@@ -194,7 +194,7 @@ export default function BuffedShowcase() {
             src={pic.url}
             alt={pic.username}
             className="h-40 w-40 rounded-xl object-contain shadow-[0_0_40px_rgba(234,179,8,0.25)]"
-            loading="eager"
+            loading="lazy"
           />
           <img
             src="/enhanced.svg"

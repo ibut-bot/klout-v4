@@ -61,24 +61,18 @@ export default function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
 
-  // Fetch profile info when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      authFetch('/api/profile/avatar')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) {
-            setProfilePic(data.profilePicUrl)
-            setUsername(data.username)
-          }
-        })
-        .catch(() => {})
-      authFetch('/api/auth/x/status')
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success && data.linked) setXUsername(data.xUsername)
-        })
-        .catch(() => {})
+      Promise.all([
+        authFetch('/api/profile/avatar').then((r) => r.json()).catch(() => null),
+        authFetch('/api/auth/x/status').then((r) => r.json()).catch(() => null),
+      ]).then(([avatarData, xData]) => {
+        if (avatarData?.success) {
+          setProfilePic(avatarData.profilePicUrl)
+          setUsername(avatarData.username)
+        }
+        if (xData?.success && xData.linked) setXUsername(xData.xUsername)
+      })
     } else {
       setProfilePic(null)
       setUsername(null)

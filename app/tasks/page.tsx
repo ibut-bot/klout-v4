@@ -1,11 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import TaskCard from '../components/TaskCard'
 import { type ImageTransform } from '../components/ImagePositionEditor'
 import Link from 'next/link'
 import BuffedShowcase from '../components/BuffedShowcase'
+
+const taskCache = new Map<string, { tasks: Task[]; totalPages: number; ts: number }>()
+const CACHE_TTL = 30_000
 
 interface Task {
   id: string
@@ -51,8 +54,22 @@ export default function TasksPage() {
   const [totalPages, setTotalPages] = useState(1)
   const fetchIdRef = useRef(0)
 
+  const cacheKey = useMemo(
+    () => `${viewMode}:${taskTypeTab}:${status}:${page}:${isAuthenticated}`,
+    [viewMode, taskTypeTab, status, page, isAuthenticated]
+  )
+
   const fetchTasks = async () => {
     const fetchId = ++fetchIdRef.current
+
+    const cached = taskCache.get(cacheKey)
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setTasks(cached.tasks)
+      setTotalPages(cached.totalPages)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     
     try {
@@ -123,6 +140,7 @@ export default function TasksPage() {
       if (data.success) {
         setTasks(data.tasks)
         setTotalPages(data.pagination?.pages || 1)
+        taskCache.set(cacheKey, { tasks: data.tasks, totalPages: data.pagination?.pages || 1, ts: Date.now() })
       }
     } catch {
       // ignore

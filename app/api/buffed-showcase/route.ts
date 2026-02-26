@@ -18,7 +18,7 @@ export async function GET() {
         tierQuote: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 20,
     })
 
     const images = rows
@@ -31,7 +31,9 @@ export async function GET() {
         quote: r.tierQuote,
       }))
 
-    return Response.json({ success: true, images })
+    const res = Response.json({ success: true, images })
+    res.headers.set('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
+    return res
   } catch (err: any) {
     console.error('[buffed-showcase] Error:', err)
     return Response.json(

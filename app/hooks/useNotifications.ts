@@ -13,7 +13,7 @@ export interface Notification {
   createdAt: string
 }
 
-const POLL_INTERVAL = 10_000 // 10 seconds
+const POLL_INTERVAL = 30_000
 
 export function useNotifications() {
   const { isAuthenticated, authFetch } = useAuth()

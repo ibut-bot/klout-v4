@@ -136,14 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     didAutoAuthRef.current = walletAddr
 
-    const timer = setTimeout(() => {
-      if (!authenticatingRef.current) {
-        authenticate().then(result => {
-          if (!result) didAutoAuthRef.current = null
-        })
-      }
-    }, 500)
-    return () => clearTimeout(timer)
+    if (!authenticatingRef.current) {
+      authenticate().then(result => {
+        if (!result) didAutoAuthRef.current = null
+      })
+    }
   }, [publicKey, signMessage, authenticate])
 
   const authFetch = useCallback(
