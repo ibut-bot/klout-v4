@@ -82,6 +82,7 @@ export default function CompetitionSubmissionsTable({
   const [sortCol, setSortCol] = useState<SortCol>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [openPickId, setOpenPickId] = useState<string | null>(null)
+  const [rejectingBidId, setRejectingBidId] = useState<string | null>(null)
 
   const pt = (task.paymentToken as PaymentTokenType) || 'SOL'
   const tInfo = resolveTokenInfo(pt, task.customTokenMint, task.customTokenSymbol, task.customTokenDecimals)
@@ -109,6 +110,20 @@ export default function CompetitionSubmissionsTable({
       return entry?.amountLamports
     }
     return task.budgetLamports
+  }
+
+  const handleReject = async (bidId: string) => {
+    setRejectingBidId(bidId)
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/bids/${bidId}/reject`, { method: 'POST' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      onRefresh()
+    } catch (err: any) {
+      console.error('Reject failed:', err)
+    } finally {
+      setRejectingBidId(null)
+    }
   }
 
   const sorted = useMemo(() => {
@@ -186,7 +201,7 @@ export default function CompetitionSubmissionsTable({
               <SortHeader col="retweets">Retweets</SortHeader>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">Status</th>
               <SortHeader col="date">Submitted</SortHeader>
-              {canAwardWinners && (
+              {(canAwardWinners || isCreator) && (
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500">Action</th>
               )}
             </tr>
@@ -200,6 +215,7 @@ export default function CompetitionSubmissionsTable({
               const bidStatus = matchedBid?.status || bid.status
               const postInfo = resolvePostInfo(sub)
               const showAction = canAwardWinners && bidStatus === 'PENDING'
+              const showReject = isCreator && bidStatus === 'PENDING' && ['OPEN', 'IN_PROGRESS'].includes(task.status)
               const isPickOpen = openPickId === sub.id
 
               return (
@@ -283,48 +299,59 @@ export default function CompetitionSubmissionsTable({
                   </td>
 
                   {/* Action */}
-                  {canAwardWinners && (
+                  {(canAwardWinners || isCreator) && (
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                      {showAction && matchedBid ? (
-                        <div className="relative inline-block">
+                      <div className="flex items-center justify-end gap-2">
+                        {showAction && matchedBid ? (
+                          <div className="relative inline-block">
+                            <button
+                              onClick={() => setOpenPickId(isPickOpen ? null : sub.id)}
+                              className="rounded-lg border border-green-600/40 bg-green-600/10 px-3 py-1.5 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
+                            >
+                              Pick Winner ▾
+                            </button>
+                            {isPickOpen && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setOpenPickId(null)} />
+                                <div className="absolute right-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
+                                  {openPlaces.map(place => {
+                                    const prize = prizeForPlace(place) || task.budgetLamports
+                                    const formatted = `${formatTokenAmount(prize, tInfo, 2)} ${tInfo.symbol}`
+                                    return (
+                                      <div key={place} className="px-1 py-0.5">
+                                        <SelectWinnerButton
+                                          bid={matchedBid as unknown as WinnerBid}
+                                          taskId={task.id}
+                                          taskType={task.taskType}
+                                          taskMultisigAddress={task.multisigAddress}
+                                          winnerPlace={place}
+                                          prizeAmountLamports={prize}
+                                          paymentToken={task.paymentToken}
+                                          customTokenMint={task.customTokenMint}
+                                          customTokenSymbol={task.customTokenSymbol}
+                                          customTokenDecimals={task.customTokenDecimals}
+                                          onDone={() => { setOpenPickId(null); onRefresh() }}
+                                        />
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ) : winPlace ? (
+                          <span className="text-xs text-zinc-600">Awarded</span>
+                        ) : null}
+                        {showReject && matchedBid && (
                           <button
-                            onClick={() => setOpenPickId(isPickOpen ? null : sub.id)}
-                            className="rounded-lg border border-green-600/40 bg-green-600/10 px-3 py-1.5 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
+                            onClick={() => handleReject(matchedBid.id)}
+                            disabled={rejectingBidId === matchedBid.id}
+                            className="rounded-lg border border-red-600/40 bg-red-600/10 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-600/20 disabled:opacity-50"
                           >
-                            Pick Winner ▾
+                            {rejectingBidId === matchedBid.id ? 'Rejecting…' : 'Reject'}
                           </button>
-                          {isPickOpen && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setOpenPickId(null)} />
-                              <div className="absolute right-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
-                                {openPlaces.map(place => {
-                                  const prize = prizeForPlace(place) || task.budgetLamports
-                                  const formatted = `${formatTokenAmount(prize, tInfo, 2)} ${tInfo.symbol}`
-                                  return (
-                                    <div key={place} className="px-1 py-0.5">
-                                      <SelectWinnerButton
-                                        bid={matchedBid as unknown as WinnerBid}
-                                        taskId={task.id}
-                                        taskType={task.taskType}
-                                        taskMultisigAddress={task.multisigAddress}
-                                        winnerPlace={place}
-                                        prizeAmountLamports={prize}
-                                        paymentToken={task.paymentToken}
-                                        customTokenMint={task.customTokenMint}
-                                        customTokenSymbol={task.customTokenSymbol}
-                                        customTokenDecimals={task.customTokenDecimals}
-                                        onDone={() => { setOpenPickId(null); onRefresh() }}
-                                      />
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ) : winPlace ? (
-                        <span className="text-xs text-zinc-600">Awarded</span>
-                      ) : null}
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>

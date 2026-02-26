@@ -156,6 +156,7 @@ export default function TaskDetailPage() {
   const [compFinishOpen, setCompFinishOpen] = useState(false)
   const [compMenuOpen, setCompMenuOpen] = useState(false)
   const [pinnedPickOpen, setPinnedPickOpen] = useState(false)
+  const [pinnedRejecting, setPinnedRejecting] = useState(false)
   // Campaign-specific state
   const [campaignConfig, setCampaignConfig] = useState<{
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
@@ -305,6 +306,7 @@ export default function TaskDetailPage() {
     }
   }, [submissions, selectedSubId])
 
+
   const refreshAll = () => {
     fetchTask()
     fetchBids()
@@ -329,6 +331,20 @@ export default function TaskDetailPage() {
       setCompPauseError(e.message || 'Failed to pause/resume')
     } finally {
       setCompPauseLoading(false)
+    }
+  }
+
+  const handleRejectBid = async (bidId: string) => {
+    setPinnedRejecting(true)
+    try {
+      const res = await authFetch(`/api/tasks/${id}/bids/${bidId}/reject`, { method: 'POST' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      refreshAll()
+    } catch (err: any) {
+      console.error('Reject failed:', err)
+    } finally {
+      setPinnedRejecting(false)
     }
   }
 
@@ -666,6 +682,9 @@ export default function TaskDetailPage() {
           && (isMultiWinner ? ['OPEN', 'IN_PROGRESS'].includes(task.status) : task.status === 'OPEN')
           && displayBid?.status === 'PENDING'
           && nextOpenPlace !== undefined
+        const canReject = isCreator
+          && ['OPEN', 'IN_PROGRESS'].includes(task.status)
+          && displayBid?.status === 'PENDING'
 
         const prizeForPlace = (place: number) => {
           if (task.prizeStructure && Array.isArray(task.prizeStructure)) {
@@ -687,16 +706,74 @@ export default function TaskDetailPage() {
 
           return (
           <div className="rounded-lg border border-k-border bg-surface p-3">
-            <p className="mb-2 text-xs font-medium text-zinc-500">Submission</p>
-            {displayBid?.winnerPlace && (
-              <div className="mb-2">
-                <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-400">
-                  {displayBid.winnerPlace <= 3
-                    ? ['1st', '2nd', '3rd'][displayBid.winnerPlace - 1]
-                    : `${displayBid.winnerPlace}th`} Place Winner
-                </span>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-medium text-zinc-500">Submission</p>
+                {displayBid?.winnerPlace ? (
+                  <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-semibold text-green-400">
+                    {displayBid.winnerPlace <= 3
+                      ? ['1st', '2nd', '3rd'][displayBid.winnerPlace - 1]
+                      : `${displayBid.winnerPlace}th`} Place Winner
+                  </span>
+                ) : null}
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                {displayBid?.status === 'REJECTED' && (
+                  <span className="rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-400">
+                    Rejected
+                  </span>
+                )}
+              {(canSelectWinner || canReject) && displayBid && (
+                <div className="flex items-center gap-2">
+                  {canSelectWinner && nextOpenPlace !== undefined && (
+                    <div className="relative inline-block">
+                      <button
+                        onClick={() => setPinnedPickOpen(!pinnedPickOpen)}
+                        className="rounded-lg border border-green-600/40 bg-green-600/10 px-3 py-1.5 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
+                      >
+                        Pick Winner ▾
+                      </button>
+                      {pinnedPickOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setPinnedPickOpen(false)} />
+                          <div className="absolute right-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
+                            {Array.from({ length: maxW }, (_, i) => i + 1)
+                              .filter(p => !awardedPlaces.includes(p))
+                              .map(place => (
+                                <div key={place} className="px-1 py-0.5">
+                                  <SelectWinnerButton
+                                    bid={displayBid as WinnerBid}
+                                    taskId={task.id}
+                                    taskType={task.taskType}
+                                    taskMultisigAddress={task.multisigAddress}
+                                    winnerPlace={place}
+                                    prizeAmountLamports={prizeForPlace(place) || task.budgetLamports}
+                                    paymentToken={task.paymentToken}
+                                    customTokenMint={task.customTokenMint}
+                                    customTokenSymbol={task.customTokenSymbol}
+                                    customTokenDecimals={task.customTokenDecimals}
+                                    onDone={() => { setPinnedPickOpen(false); refreshAll() }}
+                                  />
+                                </div>
+                              ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {canReject && (
+                    <button
+                      onClick={() => handleRejectBid(displayBid.id)}
+                      disabled={pinnedRejecting}
+                      className="rounded-lg border border-red-600/40 bg-red-600/10 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-600/20 disabled:opacity-50"
+                    >
+                      {pinnedRejecting ? 'Rejecting…' : 'Reject'}
+                    </button>
+                  )}
+                </div>
+              )}
+              </div>
+            </div>
             {xUrl && (
               <XPostEmbed
                 url={xUrl}
@@ -747,42 +824,6 @@ export default function TaskDetailPage() {
                       {att.filename || 'Download'}
                     </a>
                   )
-                )}
-              </div>
-            )}
-            {canSelectWinner && displayBid && nextOpenPlace !== undefined && (
-              <div className="relative inline-block">
-                <button
-                  onClick={() => setPinnedPickOpen(!pinnedPickOpen)}
-                  className="rounded-lg border border-green-600/40 bg-green-600/10 px-4 py-2 text-xs font-medium text-green-400 transition hover:bg-green-600/20"
-                >
-                  Pick Winner ▾
-                </button>
-                {pinnedPickOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setPinnedPickOpen(false)} />
-                    <div className="absolute left-0 bottom-full z-50 mb-1 w-56 rounded-lg border border-k-border bg-zinc-900 py-1 shadow-xl">
-                      {Array.from({ length: maxW }, (_, i) => i + 1)
-                        .filter(p => !awardedPlaces.includes(p))
-                        .map(place => (
-                          <div key={place} className="px-1 py-0.5">
-                            <SelectWinnerButton
-                              bid={displayBid as WinnerBid}
-                              taskId={task.id}
-                              taskType={task.taskType}
-                              taskMultisigAddress={task.multisigAddress}
-                              winnerPlace={place}
-                              prizeAmountLamports={prizeForPlace(place) || task.budgetLamports}
-                              paymentToken={task.paymentToken}
-                              customTokenMint={task.customTokenMint}
-                              customTokenSymbol={task.customTokenSymbol}
-                              customTokenDecimals={task.customTokenDecimals}
-                              onDone={() => { setPinnedPickOpen(false); refreshAll() }}
-                            />
-                          </div>
-                        ))}
-                    </div>
-                  </>
                 )}
               </div>
             )}
@@ -866,82 +907,85 @@ export default function TaskDetailPage() {
             </div>
           )}
 
-          {isCreator && (
-            <CompetitionSubmissionsTable
-              submissions={submissions}
-              bids={bids}
-              task={task}
-              isCreator={isCreator}
-              onRefresh={refreshAll}
-              onSelectBidder={setSelectedBidderId}
-              onSelectSubmission={setSelectedSubId}
-            />
-          )}
           <div className={`grid gap-4 ${isCreator ? 'lg:grid-cols-[200px_1fr]' : ''}`}>
-            {isCreator && (
-            <div>
-              <h2 className="mb-3 text-sm font-semibold text-white">
-                Entries ({visibleSubmissions.length})
-              </h2>
-              <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto">
-                {visibleSubmissions.map((sub) => {
-                  const bid = sub.bid
-                  if (!bid) return null
-                  const matchedBid = bids.find(b => b.id === bid.id)
-                  const isActive = sub.id === selectedSubId
-                  const winPlace = matchedBid?.winnerPlace
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => { setSelectedSubId(sub.id); setSelectedBidderId(bid.bidderId) }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-                        isActive
-                          ? 'bg-accent text-black'
-                          : winPlace
-                            ? 'bg-green-500/10 hover:bg-green-500/20'
+            {isCreator && (() => {
+              const activeEntries = visibleSubmissions.filter(s => bids.find(b => b.id === s.bid?.id)?.status !== 'REJECTED')
+              const rejectedEntries = visibleSubmissions.filter(s => bids.find(b => b.id === s.bid?.id)?.status === 'REJECTED')
+              const renderEntry = (sub: typeof visibleSubmissions[0]) => {
+                const bid = sub.bid
+                if (!bid) return null
+                const matchedBid = bids.find(b => b.id === bid.id)
+                const isActive = sub.id === selectedSubId
+                const winPlace = matchedBid?.winnerPlace
+                const isRejected = matchedBid?.status === 'REJECTED'
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => { setSelectedSubId(sub.id); setSelectedBidderId(bid.bidderId) }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                      isActive
+                        ? 'bg-accent text-black'
+                        : winPlace
+                          ? 'bg-green-500/10 hover:bg-green-500/20'
+                          : isRejected
+                            ? 'opacity-50 hover:bg-surface-hover'
                             : 'hover:bg-surface-hover'
-                      }`}
-                    >
-                      {bid.bidderProfilePic ? (
-                        <img src={bid.bidderProfilePic} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-                      ) : (
-                        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
-                          isActive
-                            ? 'bg-accent/30 text-accent'
-                            : 'bg-zinc-800 text-zinc-300'
-                        }`}>
-                          {bid.bidderWallet.slice(0, 2)}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className={`truncate text-xs font-medium ${isActive ? '' : 'text-zinc-100'}`}>
-                          {bid.bidderUsername || `${bid.bidderWallet.slice(0, 4)}...${bid.bidderWallet.slice(-4)}`}
-                        </p>
-                        <p className={`truncate text-[10px] ${isActive ? 'opacity-70' : 'text-zinc-400'}`}>
-                          {winPlace
-                            ? `${winPlace <= 3 ? ['1st', '2nd', '3rd'][winPlace - 1] : `${winPlace}th`} Place`
-                            : new Date(sub.createdAt).toLocaleDateString()}
-                        </p>
+                    }`}
+                  >
+                    {bid.bidderProfilePic ? (
+                      <img src={bid.bidderProfilePic} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
+                        isActive ? 'bg-accent/30 text-accent' : 'bg-zinc-800 text-zinc-300'
+                      }`}>
+                        {bid.bidderWallet.slice(0, 2)}
                       </div>
-                      {winPlace && (
-                        <span className="shrink-0 rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
-                          #{winPlace}
-                        </span>
-                      )}
-                      {!winPlace && (messageCounts[bid.bidderId] || 0) > 0 && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${isActive ? 'opacity-70' : 'text-amber-500'}`}>
-                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  )
-                })}
-                {visibleSubmissions.length === 0 && (
-                  <p className="px-3 py-4 text-center text-xs text-zinc-400">No entries yet.</p>
-                )}
-              </div>
-            </div>
-            )}
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-xs font-medium ${isActive ? '' : 'text-zinc-100'}`}>
+                        {bid.bidderUsername || `${bid.bidderWallet.slice(0, 4)}...${bid.bidderWallet.slice(-4)}`}
+                      </p>
+                      <p className={`truncate text-[10px] ${isActive ? 'opacity-70' : 'text-zinc-400'}`}>
+                        {winPlace
+                          ? `${winPlace <= 3 ? ['1st', '2nd', '3rd'][winPlace - 1] : `${winPlace}th`} Place`
+                          : new Date(sub.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {winPlace && (
+                      <span className="shrink-0 rounded-full bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400">
+                        #{winPlace}
+                      </span>
+                    )}
+                    {!winPlace && !isRejected && (messageCounts[bid.bidderId] || 0) > 0 && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${isActive ? 'opacity-70' : 'text-amber-500'}`}>
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              }
+              return (
+                <div>
+                  <h2 className="mb-3 text-sm font-semibold text-white">
+                    Entries ({activeEntries.length})
+                  </h2>
+                  <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto">
+                    {activeEntries.map(renderEntry)}
+                    {activeEntries.length === 0 && (
+                      <p className="px-3 py-4 text-center text-xs text-zinc-400">No entries yet.</p>
+                    )}
+                    {rejectedEntries.length > 0 && (
+                      <div className="mt-3">
+                        <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                          Rejected ({rejectedEntries.length})
+                        </p>
+                        {rejectedEntries.map(renderEntry)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
             {isAuthenticated && (isCreator || isBidder) ? (
               <Chat
@@ -958,6 +1002,17 @@ export default function TaskDetailPage() {
               </div>
             )}
           </div>
+          {isCreator && (
+            <CompetitionSubmissionsTable
+              submissions={submissions}
+              bids={bids}
+              task={task}
+              isCreator={isCreator}
+              onRefresh={refreshAll}
+              onSelectBidder={setSelectedBidderId}
+              onSelectSubmission={setSelectedSubId}
+            />
+          )}
           </>
         )
       })()}

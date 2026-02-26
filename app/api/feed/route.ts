@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   const where: any = {
     NOT: { postMedia: { equals: null } },
     bid: {
+      status: { not: 'REJECTED' },
       task: {
         isPublicFeed: true,
         taskType: 'COMPETITION',
