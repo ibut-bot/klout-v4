@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     NOT: { postMedia: { equals: null } },
     creatorRejected: false,
     bid: {
+      status: { not: 'REJECTED' },
       task: {
         isPublicFeed: true,
         taskType: 'COMPETITION',
