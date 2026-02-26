@@ -26,8 +26,10 @@ interface Props {
   minKloutScore?: number | null
   requireFollowX?: string | null
   collateralLink?: string | null
+  platform?: 'X' | 'YOUTUBE'
   kloutScore: number
   xLinked: boolean
+  youtubeLinked?: boolean
   hasKloutScore: boolean
   onSubmitted: () => void
   paymentToken?: PaymentTokenType
@@ -36,7 +38,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, kloutScore, xLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, platform = 'X', kloutScore, xLinked, youtubeLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -200,11 +202,16 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     ? formatTokenAmount(minPayoutLamports, tInfo, 2)
     : null
 
-  if (!xLinked) {
+  const isYouTube = platform === 'YOUTUBE'
+  const accountLinked = isYouTube ? youtubeLinked : xLinked
+
+  if (!accountLinked) {
     return (
       <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-4">
         <p className="text-sm text-amber-300">
-          You need to link your X account before submitting to campaigns. Go to the profile dropdown and click &quot;Link X Account&quot;.
+          {isYouTube
+            ? 'You need to link your YouTube channel before submitting to YouTube campaigns. Go to the profile dropdown and click "Link YouTube Channel".'
+            : 'You need to link your X account before submitting to campaigns. Go to the profile dropdown and click "Link X Account".'}
         </p>
       </div>
     )
@@ -389,7 +396,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
                 type="url"
                 value={postUrl}
                 onChange={(e) => setPostUrl(e.target.value)}
-                placeholder="https://x.com/yourhandle/status/..."
+                placeholder={isYouTube ? 'https://youtube.com/watch?v=...' : 'https://x.com/yourhandle/status/...'}
                 required
                 disabled={loading}
                 className="w-full rounded-lg border border-zinc-600 bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"

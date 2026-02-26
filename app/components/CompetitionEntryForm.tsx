@@ -9,14 +9,17 @@ const SYSTEM_WALLET = process.env.NEXT_PUBLIC_SYSTEM_WALLET_ADDRESS || ''
 const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.NEXT_PUBLIC_COMPETITION_ENTRY_FEE_LAMPORTS || 1000000) // 0.001 SOL
 
 const X_POST_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/[A-Za-z0-9_]+\/status\/(\d+)/
+const YT_POST_REGEX = /^https?:\/\/(www\.)?(youtube\.com\/(watch\?.*v=|embed\/|v\/|shorts\/)|youtu\.be\/)[a-zA-Z0-9_-]/
 
 interface CompetitionEntryFormProps {
   taskId: string
+  platform?: 'X' | 'YOUTUBE'
   onEntrySubmitted?: () => void
 }
 
 export default function CompetitionEntryForm({
   taskId,
+  platform = 'X',
   onEntrySubmitted,
 }: CompetitionEntryFormProps) {
   const { authFetch, isAuthenticated } = useAuth()
@@ -28,7 +31,8 @@ export default function CompetitionEntryForm({
   const [step, setStep] = useState<'form' | 'fee' | 'submitting'>('form')
   const [error, setError] = useState('')
 
-  const isValidXUrl = X_POST_REGEX.test(postUrl.trim())
+  const isYouTube = platform === 'YOUTUBE'
+  const isValidUrl = isYouTube ? YT_POST_REGEX.test(postUrl.trim()) : X_POST_REGEX.test(postUrl.trim())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,8 +40,8 @@ export default function CompetitionEntryForm({
     setError('')
 
     const url = postUrl.trim()
-    if (!X_POST_REGEX.test(url)) {
-      setError('Please enter a valid X (Twitter) post URL')
+    if (isYouTube ? !YT_POST_REGEX.test(url) : !X_POST_REGEX.test(url)) {
+      setError(isYouTube ? 'Please enter a valid YouTube video URL' : 'Please enter a valid X (Twitter) post URL')
       return
     }
 
@@ -100,7 +104,7 @@ export default function CompetitionEntryForm({
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-k-border p-5">
       <h3 className="text-lg font-semibold text-white">Submit Competition Entry</h3>
       <p className="text-xs text-zinc-500">
-        Submit your X post as your competition entry.
+        Submit your {isYouTube ? 'YouTube video' : 'X post'} as your competition entry.
         A small entry fee of {(COMPETITION_ENTRY_FEE_LAMPORTS / LAMPORTS_PER_SOL).toFixed(3)} SOL is required for spam prevention.
       </p>
 
@@ -109,28 +113,32 @@ export default function CompetitionEntryForm({
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-300">X Post URL</label>
+        <label className="mb-1 block text-sm font-medium text-zinc-300">{isYouTube ? 'YouTube Video URL' : 'X Post URL'}</label>
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <svg className="h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
+            {isYouTube ? (
+              <svg className="h-4 w-4 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            ) : (
+              <svg className="h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            )}
           </div>
           <input
             type="url"
             value={postUrl}
             onChange={(e) => setPostUrl(e.target.value)}
-            placeholder="https://x.com/username/status/123456789"
+            placeholder={isYouTube ? 'https://youtube.com/watch?v=...' : 'https://x.com/username/status/123456789'}
             required
             className={`w-full rounded-lg border bg-surface pl-9 pr-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 ${
-              postUrl && !isValidXUrl
+              postUrl && !isValidUrl
                 ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/50'
                 : 'border-k-border focus:border-accent/50 focus:ring-accent/50'
             }`}
           />
         </div>
-        {postUrl && !isValidXUrl && (
-          <p className="mt-1 text-xs text-red-400">Enter a valid X post URL (e.g. https://x.com/user/status/123...)</p>
+        {postUrl && !isValidUrl && (
+          <p className="mt-1 text-xs text-red-400">{isYouTube ? 'Enter a valid YouTube video URL (e.g. https://youtube.com/watch?v=...)' : 'Enter a valid X post URL (e.g. https://x.com/user/status/123...)'}</p>
         )}
       </div>
 
@@ -147,7 +155,7 @@ export default function CompetitionEntryForm({
 
       <button
         type="submit"
-        disabled={loading || !isAuthenticated || !isValidXUrl}
+        disabled={loading || !isAuthenticated || !isValidUrl}
         className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
       >
         {loading ? stepLabels[step] || 'Processing...' : 'Submit Entry'}

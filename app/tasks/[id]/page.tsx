@@ -51,6 +51,7 @@ interface Task {
   description: string
   budgetLamports: string
   taskType: string
+  platform?: string
   paymentToken?: string
   customTokenMint?: string | null
   customTokenSymbol?: string | null
@@ -162,6 +163,7 @@ export default function TaskDetailPage() {
     cpmLamports: string; budgetRemainingLamports: string; guidelines: { dos: string[]; donts: string[] }; heading?: string | null; minViews: number; minLikes: number; minRetweets: number; minComments: number; minPayoutLamports: string; maxBudgetPerUserPercent?: number; maxBudgetPerPostPercent?: number; minKloutScore?: number | null; requireFollowX?: string | null; collateralLink?: string | null; bonusMinKloutScore?: number | null; bonusMaxLamports?: string | null
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
+  const [youtubeLinked, setYoutubeLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
   const [kloutScore, setKloutScore] = useState(0)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
@@ -254,9 +256,14 @@ export default function TaskDetailPage() {
   const fetchXStatus = useCallback(async () => {
     if (!isAuthenticated) return
     try {
-      const res = await authFetch('/api/auth/x/status')
-      const data = await res.json()
-      if (data.success) setXLinked(data.linked)
+      const [xRes, ytRes] = await Promise.all([
+        authFetch('/api/auth/x/status'),
+        authFetch('/api/auth/youtube/status'),
+      ])
+      const xData = await xRes.json()
+      const ytData = await ytRes.json()
+      if (xData.success) setXLinked(xData.linked)
+      if (ytData.success) setYoutubeLinked(ytData.linked)
     } catch {}
   }, [isAuthenticated, authFetch])
 
@@ -559,6 +566,7 @@ export default function TaskDetailPage() {
         <div className="mb-6">
           <CompetitionEntryForm
             taskId={task.id}
+            platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
             onEntrySubmitted={refreshAll}
           />
         </div>
@@ -1096,8 +1104,10 @@ export default function TaskDetailPage() {
               minKloutScore={campaignConfig.minKloutScore}
               requireFollowX={campaignConfig.requireFollowX}
               collateralLink={campaignConfig.collateralLink}
+              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
               kloutScore={kloutScore}
               xLinked={xLinked}
+              youtubeLinked={youtubeLinked}
               hasKloutScore={hasKloutScore}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
               paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}

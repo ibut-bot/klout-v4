@@ -49,6 +49,7 @@ export async function GET(
       description: task.description,
       budgetLamports: task.budgetLamports.toString(),
       taskType: task.taskType,
+      platform: task.platform,
       paymentToken: task.paymentToken,
       customTokenMint: task.customTokenMint,
       customTokenSymbol: task.customTokenSymbol,

@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
       description: t.description,
       budgetLamports: t.budgetLamports.toString(),
       taskType: t.taskType,
+      platform: t.platform,
       paymentToken: t.paymentToken,
       customTokenMint: t.customTokenMint,
       customTokenSymbol: t.customTokenSymbol,
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure, isPublicFeed } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure, isPublicFeed, platform } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -157,6 +158,15 @@ export async function POST(request: NextRequest) {
 
   const isCompetition = resolvedTaskType === 'COMPETITION'
   const isCampaign = resolvedTaskType === 'CAMPAIGN'
+
+  const validPlatforms = ['X', 'YOUTUBE']
+  const resolvedPlatform = platform ? String(platform).toUpperCase() : 'X'
+  if (!validPlatforms.includes(resolvedPlatform)) {
+    return Response.json(
+      { success: false, error: 'INVALID_PLATFORM', message: 'platform must be X or YOUTUBE' },
+      { status: 400 }
+    )
+  }
 
   // Validate paymentToken (for CAMPAIGN and COMPETITION, defaults to SOL)
   const validTokens = ['SOL', 'USDC', 'CUSTOM']
@@ -401,6 +411,7 @@ export async function POST(request: NextRequest) {
           description: description.trim(),
           budgetLamports: parsedBudget,
           taskType: 'CAMPAIGN',
+          platform: resolvedPlatform as any,
           paymentToken: resolvedPaymentToken as any,
           ...(resolvedPaymentToken === 'CUSTOM' ? {
             customTokenMint: customTokenMint,
@@ -470,6 +481,7 @@ export async function POST(request: NextRequest) {
       description: description.trim(),
       budgetLamports: parsedBudget,
       taskType: resolvedTaskType as any,
+      platform: resolvedPlatform as any,
       paymentTxSignature,
       ...(isCompetition ? {
         multisigAddress, vaultAddress,

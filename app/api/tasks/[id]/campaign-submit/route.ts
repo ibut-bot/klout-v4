@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
+import { extractYouTubeVideoId, getYouTubeVideoMetrics } from '@/lib/youtube-api'
 import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
@@ -88,16 +89,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 1. Check user has linked X account and Klout score
+  // 1. Check user has linked account and Klout score
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, xScores: { select: { id: true, totalScore: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
+    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, youtubeChannelId: true, xScores: { select: { id: true, totalScore: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
   })
 
-  if (!user?.xUserId) {
+  if (!user) {
     return Response.json(
-      { success: false, error: 'X_NOT_LINKED', message: 'You must link your X account before submitting to campaigns' },
-      { status: 400 }
+      { success: false, error: 'USER_NOT_FOUND', message: 'User not found' },
+      { status: 404 }
     )
   }
 
@@ -178,18 +179,50 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 3. Extract post ID
-  const xPostId = extractPostId(postUrl)
-  if (!xPostId) {
-    return Response.json(
-      { success: false, error: 'INVALID_URL', message: 'Invalid X/Twitter post URL. Expected format: https://x.com/username/status/123456' },
-      { status: 400 }
-    )
+  const isYouTube = task.platform === 'YOUTUBE'
+
+  // Platform-specific account check
+  if (isYouTube) {
+    if (!user.youtubeChannelId) {
+      return Response.json(
+        { success: false, error: 'YOUTUBE_NOT_LINKED', message: 'You must link your YouTube channel before submitting to YouTube campaigns' },
+        { status: 400 }
+      )
+    }
+  } else {
+    if (!user.xUserId) {
+      return Response.json(
+        { success: false, error: 'X_NOT_LINKED', message: 'You must link your X account before submitting to campaigns' },
+        { status: 400 }
+      )
+    }
+  }
+
+  // 3. Extract post/video ID
+  let xPostId: string | null = null
+  let youtubeVideoId: string | null = null
+
+  if (isYouTube) {
+    youtubeVideoId = extractYouTubeVideoId(postUrl)
+    if (!youtubeVideoId) {
+      return Response.json(
+        { success: false, error: 'INVALID_URL', message: 'Invalid YouTube video URL. Expected format: https://youtube.com/watch?v=... or https://youtu.be/...' },
+        { status: 400 }
+      )
+    }
+  } else {
+    xPostId = extractPostId(postUrl)
+    if (!xPostId) {
+      return Response.json(
+        { success: false, error: 'INVALID_URL', message: 'Invalid X/Twitter post URL. Expected format: https://x.com/username/status/123456' },
+        { status: 400 }
+      )
+    }
   }
 
   // 4. Check for duplicate — globally across all campaigns
   const existing = await prisma.campaignSubmission.findFirst({
-    where: { xPostId },
+    where: isYouTube ? { youtubeVideoId } : { xPostId },
   })
 
   if (existing) {
@@ -249,7 +282,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     select: { totalScore: true, verifiedType: true, followersCount: true },
   })
 
-  if (!latestScoreData?.verifiedType) {
+  if (!isYouTube && !latestScoreData?.verifiedType) {
     return Response.json({
       success: false,
       error: 'X_NOT_VERIFIED',
@@ -295,162 +328,211 @@ export async function POST(request: NextRequest, context: RouteContext) {
       taskId,
       submitterId: userId,
       postUrl,
-      xPostId,
+      ...(xPostId ? { xPostId } : {}),
+      ...(youtubeVideoId ? { youtubeVideoId } : {}),
       apiFeeTxSig,
       status: 'READING_VIEWS',
     },
   })
 
-  // 7. Get valid X token and fetch post metrics
-  const accessToken = await getValidXToken(userId)
-  if (!accessToken) {
-    await prisma.campaignSubmission.update({
-      where: { id: submission.id },
-      data: { status: 'REJECTED', rejectionReason: 'X account token expired. Please re-link your X account.' },
-    })
-    return Response.json(
-      { success: false, error: 'X_TOKEN_EXPIRED', message: 'Your X account token has expired. Please re-link your X account.' },
-      { status: 401 }
-    )
-  }
+  // 7. Fetch post/video metrics and verify ownership
+  let postViewCount = 0, postLikeCount = 0, postRetweetCount = 0, postCommentCount = 0
+  let postText = ''
+  let postCreatedAt = ''
+  let postMedia: any[] = []
 
-  let postMetrics: { viewCount: number; likeCount: number; retweetCount: number; commentCount: number; text: string; authorId: string; createdAt: string; media: { type: 'photo' | 'video' | 'animated_gif'; url?: string; previewImageUrl?: string }[] }
-  try {
-    postMetrics = await getPostMetrics(xPostId, accessToken)
-  } catch (err: any) {
-    await prisma.campaignSubmission.update({
-      where: { id: submission.id },
-      data: { status: 'REJECTED', rejectionReason: `Failed to read post metrics: ${err.message}` },
-    })
-    return Response.json(
-      { success: false, error: 'X_API_ERROR', message: `Failed to read post metrics: ${err.message}` },
-      { status: 502 }
-    )
-  }
+  if (isYouTube) {
+    let ytMetrics: Awaited<ReturnType<typeof getYouTubeVideoMetrics>>
+    try {
+      ytMetrics = await getYouTubeVideoMetrics(youtubeVideoId!)
+    } catch (err: any) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: `Failed to read video metrics: ${err.message}` },
+      })
+      return Response.json(
+        { success: false, error: 'YOUTUBE_API_ERROR', message: `Failed to read video metrics: ${err.message}` },
+        { status: 502 }
+      )
+    }
 
-  const now = new Date()
+    postViewCount = ytMetrics.viewCount
+    postLikeCount = ytMetrics.likeCount
+    postCommentCount = ytMetrics.commentCount
+    postText = ytMetrics.title
+    postCreatedAt = ytMetrics.publishedAt
+    if (ytMetrics.thumbnailUrl) {
+      postMedia = [{ type: 'photo', url: ytMetrics.thumbnailUrl }]
+    }
 
-  // 7b. Reject posts created before the campaign went live
-  if (postMetrics.createdAt) {
-    const postDate = new Date(postMetrics.createdAt)
-    if (postDate < task.createdAt) {
+    // Ownership check
+    if (ytMetrics.channelId !== user.youtubeChannelId) {
       await prisma.campaignSubmission.update({
         where: { id: submission.id },
         data: {
-          viewCount: postMetrics.viewCount,
-          likeCount: postMetrics.likeCount,
-          retweetCount: postMetrics.retweetCount,
-          commentCount: postMetrics.commentCount,
-          viewsReadAt: now,
+          viewCount: postViewCount, likeCount: postLikeCount, commentCount: postCommentCount,
+          viewsReadAt: new Date(),
           status: 'REJECTED',
-          rejectionReason: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.',
+          rejectionReason: 'The submitted video does not belong to your linked YouTube channel.',
         },
       })
       return Response.json(
-        { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the campaign went live. Only posts made after the campaign started are eligible.' },
+        { success: false, error: 'NOT_POST_OWNER', message: 'The submitted video does not belong to your linked YouTube channel' },
+        { status: 400 }
+      )
+    }
+  } else {
+    const accessToken = await getValidXToken(userId)
+    if (!accessToken) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: 'X account token expired. Please re-link your X account.' },
+      })
+      return Response.json(
+        { success: false, error: 'X_TOKEN_EXPIRED', message: 'Your X account token has expired. Please re-link your X account.' },
+        { status: 401 }
+      )
+    }
+
+    let xMetrics: Awaited<ReturnType<typeof getPostMetrics>>
+    try {
+      xMetrics = await getPostMetrics(xPostId!, accessToken)
+    } catch (err: any) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: `Failed to read post metrics: ${err.message}` },
+      })
+      return Response.json(
+        { success: false, error: 'X_API_ERROR', message: `Failed to read post metrics: ${err.message}` },
+        { status: 502 }
+      )
+    }
+
+    postViewCount = xMetrics.viewCount
+    postLikeCount = xMetrics.likeCount
+    postRetweetCount = xMetrics.retweetCount
+    postCommentCount = xMetrics.commentCount
+    postText = xMetrics.text
+    postCreatedAt = xMetrics.createdAt
+    postMedia = xMetrics.media
+
+    // Ownership check
+    if (xMetrics.authorId !== user.xUserId) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: {
+          viewCount: postViewCount, likeCount: postLikeCount, retweetCount: postRetweetCount, commentCount: postCommentCount,
+          viewsReadAt: new Date(),
+          status: 'REJECTED',
+          rejectionReason: 'The submitted post does not belong to your linked X account.',
+        },
+      })
+      return Response.json(
+        { success: false, error: 'NOT_POST_OWNER', message: 'The submitted post does not belong to your linked X account' },
         { status: 400 }
       )
     }
   }
 
-  // 8. Verify post ownership
-  if (postMetrics.authorId !== user.xUserId) {
-    await prisma.campaignSubmission.update({
-      where: { id: submission.id },
-      data: {
-        viewCount: postMetrics.viewCount,
-        likeCount: postMetrics.likeCount,
-        retweetCount: postMetrics.retweetCount,
-        commentCount: postMetrics.commentCount,
-        viewsReadAt: now,
-        status: 'REJECTED',
-        rejectionReason: 'The submitted post does not belong to your linked X account.',
-      },
-    })
-    return Response.json(
-      { success: false, error: 'NOT_POST_OWNER', message: 'The submitted post does not belong to your linked X account' },
-      { status: 400 }
-    )
+  const now = new Date()
+
+  // 7b. Reject posts/videos created before the campaign went live
+  if (postCreatedAt) {
+    const postDate = new Date(postCreatedAt)
+    if (postDate < task.createdAt) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: {
+          viewCount: postViewCount, likeCount: postLikeCount, retweetCount: postRetweetCount, commentCount: postCommentCount,
+          viewsReadAt: now,
+          status: 'REJECTED',
+          rejectionReason: `This ${isYouTube ? 'video' : 'post'} was created before the campaign went live. Only ${isYouTube ? 'videos' : 'posts'} made after the campaign started are eligible.`,
+        },
+      })
+      return Response.json(
+        { success: false, error: 'POST_TOO_OLD', message: `This ${isYouTube ? 'video' : 'post'} was created before the campaign went live.` },
+        { status: 400 }
+      )
+    }
   }
 
-  // 8b. Bot detection: reject if post views exceed a Klout-score-based multiple of follower count
-  const followersCount = latestScoreData?.followersCount ?? 0
-  const kloutScoreForBot = latestScoreData?.totalScore ?? 0
-  const botViewMultiplier = getBotViewThreshold(kloutScoreForBot)
-  if (followersCount > 0 && postMetrics.viewCount >= botViewMultiplier * followersCount) {
-    await prisma.campaignSubmission.update({
-      where: { id: submission.id },
-      data: {
-        viewCount: postMetrics.viewCount,
-        likeCount: postMetrics.likeCount,
-        retweetCount: postMetrics.retweetCount,
-        commentCount: postMetrics.commentCount,
-        viewsReadAt: now,
-        status: 'REJECTED',
-        rejectionReason: `Post views (${postMetrics.viewCount}) exceed ${botViewMultiplier}x follower count (${followersCount}).`,
-      },
-    })
-    return Response.json({
-      success: false,
-      error: 'BOT_ACTIVITY_DETECTED',
-      message: 'Suspicious activity detected.',
-    }, { status: 400 })
+  // 8b. Bot detection (X only): reject if post views exceed a Klout-score-based multiple of follower count
+  if (!isYouTube) {
+    const followersCount = latestScoreData?.followersCount ?? 0
+    const kloutScoreForBot = latestScoreData?.totalScore ?? 0
+    const botViewMultiplier = getBotViewThreshold(kloutScoreForBot)
+    if (followersCount > 0 && postViewCount >= botViewMultiplier * followersCount) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: {
+          viewCount: postViewCount, likeCount: postLikeCount, retweetCount: postRetweetCount, commentCount: postCommentCount,
+          viewsReadAt: now,
+          status: 'REJECTED',
+          rejectionReason: `Post views (${postViewCount}) exceed ${botViewMultiplier}x follower count (${followersCount}).`,
+        },
+      })
+      return Response.json({
+        success: false,
+        error: 'BOT_ACTIVITY_DETECTED',
+        message: 'Suspicious activity detected.',
+      }, { status: 400 })
+    }
   }
 
   // 9. Check minimum engagement thresholds
   const metricsData = {
-    viewCount: postMetrics.viewCount,
-    likeCount: postMetrics.likeCount,
-    retweetCount: postMetrics.retweetCount,
-    commentCount: postMetrics.commentCount,
+    viewCount: postViewCount,
+    likeCount: postLikeCount,
+    retweetCount: postRetweetCount,
+    commentCount: postCommentCount,
     viewsReadAt: now,
   }
 
-  if (postMetrics.viewCount < config.minViews) {
+  if (postViewCount < config.minViews) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
-      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}.` },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postViewCount} views, minimum required is ${config.minViews}.` },
     })
     return Response.json({
       success: false, error: 'INSUFFICIENT_VIEWS',
-      message: `Post has ${postMetrics.viewCount} views, minimum required is ${config.minViews}`,
-      viewCount: postMetrics.viewCount, minViews: config.minViews,
+      message: `Post has ${postViewCount} views, minimum required is ${config.minViews}`,
+      viewCount: postViewCount, minViews: config.minViews,
       resubmittable: true,
     }, { status: 400 })
   }
 
-  if (postMetrics.likeCount < config.minLikes) {
+  if (postLikeCount < config.minLikes) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
-      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.likeCount} likes, minimum required is ${config.minLikes}.` },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postLikeCount} likes, minimum required is ${config.minLikes}.` },
     })
     return Response.json({
       success: false, error: 'INSUFFICIENT_LIKES',
-      message: `Post has ${postMetrics.likeCount} likes, minimum required is ${config.minLikes}`,
+      message: `Post has ${postLikeCount} likes, minimum required is ${config.minLikes}`,
       resubmittable: true,
     }, { status: 400 })
   }
 
-  if (postMetrics.retweetCount < config.minRetweets) {
+  if (!isYouTube && postRetweetCount < config.minRetweets) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
-      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.retweetCount} retweets, minimum required is ${config.minRetweets}.` },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postRetweetCount} retweets, minimum required is ${config.minRetweets}.` },
     })
     return Response.json({
       success: false, error: 'INSUFFICIENT_RETWEETS',
-      message: `Post has ${postMetrics.retweetCount} retweets, minimum required is ${config.minRetweets}`,
+      message: `Post has ${postRetweetCount} retweets, minimum required is ${config.minRetweets}`,
       resubmittable: true,
     }, { status: 400 })
   }
 
-  if (postMetrics.commentCount < config.minComments) {
+  if (postCommentCount < config.minComments) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
-      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postMetrics.commentCount} comments, minimum required is ${config.minComments}.` },
+      data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postCommentCount} comments, minimum required is ${config.minComments}.` },
     })
     return Response.json({
       success: false, error: 'INSUFFICIENT_COMMENTS',
-      message: `Post has ${postMetrics.commentCount} comments, minimum required is ${config.minComments}`,
+      message: `Post has ${postCommentCount} comments, minimum required is ${config.minComments}`,
       resubmittable: true,
     }, { status: 400 })
   }
@@ -464,7 +546,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const guidelines = config.guidelines as { dos: string[]; donts: string[] }
   let contentCheck: { passed: boolean; explanation: string }
   try {
-    contentCheck = await checkContentGuidelines(postMetrics.text, guidelines, postMetrics.media)
+    contentCheck = await checkContentGuidelines(postText, guidelines, postMedia)
   } catch (err: any) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
@@ -506,7 +588,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       error: 'CONTENT_REJECTED',
       message: 'Your post does not meet the campaign guidelines',
       explanation: contentCheck.explanation,
-      viewCount: postMetrics.viewCount,
+      viewCount: postViewCount,
     }, { status: 400 })
   }
 
@@ -514,7 +596,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const kloutScore = latestScoreData?.totalScore ?? 0
   const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
   const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
-  let payoutLamports = BigInt(Math.floor((postMetrics.viewCount / 1000) * effectiveCpm))
+  let payoutLamports = BigInt(Math.floor((postViewCount / 1000) * effectiveCpm))
 
   // Cap payout to maxBudgetPerPostPercent of total budget (if configured)
   if (config.maxBudgetPerPostPercent != null) {
@@ -666,14 +748,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         userId: task.creatorId,
         type: 'CAMPAIGN_PAYMENT_REQUEST',
         title: 'Campaign payment requested',
-        body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views (${payoutDisplay}${bonusSuffix}). Payment auto-requested for ${autoResult.count} post(s) — ${formatTokenAmount(autoTotal, tInfo)} ${tInfo.symbol} total.`,
+        body: `${isYouTube ? 'A user' : `@${user.xUsername}`} submitted a ${isYouTube ? 'video' : 'post'} with ${postViewCount} views (${payoutDisplay}${bonusSuffix}). Payment auto-requested for ${autoResult.count} submission(s) — ${formatTokenAmount(autoTotal, tInfo)} ${tInfo.symbol} total.`,
         linkUrl: `/tasks/${taskId}`,
       })
       await createNotification({
         userId,
         type: 'CAMPAIGN_SUBMISSION_APPROVED',
         title: 'Post approved — payment requested!',
-        body: `Your post was approved with ${postMetrics.viewCount} views. Payout: ${payoutDisplay}${bonusSuffix}. Payment has been automatically requested.`,
+        body: `Your ${isYouTube ? 'video' : 'post'} was approved with ${postViewCount} views. Payout: ${payoutDisplay}${bonusSuffix}. Payment has been automatically requested.`,
         linkUrl: `/tasks/${taskId}`,
       })
     }
@@ -685,14 +767,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       userId: task.creatorId,
       type: 'CAMPAIGN_SUBMISSION_APPROVED',
       title: 'New campaign post approved',
-      body: `@${user.xUsername} submitted a post with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
+      body: `${isYouTube ? 'A user' : `@${user.xUsername}`} submitted a ${isYouTube ? 'video' : 'post'} with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
       linkUrl: `/tasks/${taskId}`,
     })
     await createNotification({
       userId,
       type: 'CAMPAIGN_SUBMISSION_APPROVED',
       title: 'Campaign submission approved!',
-      body: `Your post was approved with ${postMetrics.viewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
+      body: `Your ${isYouTube ? 'video' : 'post'} was approved with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
       linkUrl: `/tasks/${taskId}`,
     })
   }

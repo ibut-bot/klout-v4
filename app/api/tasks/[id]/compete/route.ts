@@ -5,6 +5,7 @@ import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { createNotification } from '@/lib/notifications'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
+import { extractYouTubeVideoId, getYouTubeVideoMetrics } from '@/lib/youtube-api'
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS
 const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.COMPETITION_ENTRY_FEE_LAMPORTS || 1000000)
@@ -47,17 +48,8 @@ export async function POST(
     )
   }
 
-  // Extract X post URL from description (first line is always the URL)
   const descTrimmed = description.trim()
   const firstLine = descTrimmed.split('\n')[0].trim()
-  const xPostId = extractPostId(firstLine)
-
-  if (!xPostId) {
-    return Response.json(
-      { success: false, error: 'INVALID_POST_URL', message: 'Description must start with a valid X (Twitter) post URL' },
-      { status: 400 }
-    )
-  }
 
   const task = await prisma.task.findUnique({ where: { id } })
   if (!task) {
@@ -88,61 +80,140 @@ export async function POST(
     )
   }
 
-  // Prevent submitting the same X post twice for this competition
+  const isYouTube = task.platform === 'YOUTUBE'
+
+  // Extract post/video ID based on platform
+  let xPostId: string | null = null
+  let youtubeVideoId: string | null = null
+
+  if (isYouTube) {
+    youtubeVideoId = extractYouTubeVideoId(firstLine)
+    if (!youtubeVideoId) {
+      return Response.json(
+        { success: false, error: 'INVALID_POST_URL', message: 'Description must start with a valid YouTube video URL' },
+        { status: 400 }
+      )
+    }
+  } else {
+    xPostId = extractPostId(firstLine)
+    if (!xPostId) {
+      return Response.json(
+        { success: false, error: 'INVALID_POST_URL', message: 'Description must start with a valid X (Twitter) post URL' },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Prevent submitting the same post twice for this competition
   const duplicatePost = await prisma.submission.findFirst({
-    where: { xPostId, bid: { taskId: id } },
+    where: isYouTube
+      ? { youtubeVideoId, bid: { taskId: id } }
+      : { xPostId, bid: { taskId: id } },
   })
   if (duplicatePost) {
     return Response.json(
-      { success: false, error: 'DUPLICATE_POST', message: 'This X post has already been submitted to this competition. Please submit a different post.' },
+      { success: false, error: 'DUPLICATE_POST', message: `This ${isYouTube ? 'video' : 'post'} has already been submitted to this competition. Please submit a different ${isYouTube ? 'video' : 'post'}.` },
       { status: 409 }
     )
   }
 
-  // Require linked X account for ownership verification
+  // Require linked account for ownership verification
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { xUserId: true, xUsername: true, profilePicUrl: true },
+    select: { xUserId: true, xUsername: true, profilePicUrl: true, youtubeChannelId: true },
   })
-  if (!user?.xUserId) {
-    return Response.json(
-      { success: false, error: 'X_ACCOUNT_REQUIRED', message: 'You must link your X (Twitter) account before submitting a competition entry. Go to your profile to connect it.' },
-      { status: 400 }
-    )
-  }
 
-  // Fetch post metrics and verify ownership/date via X API
-  let postMetrics: Awaited<ReturnType<typeof getPostMetrics>>
-  try {
-    const accessToken = await getValidXToken(userId)
-    if (!accessToken) {
+  if (isYouTube) {
+    if (!user?.youtubeChannelId) {
       return Response.json(
-        { success: false, error: 'X_TOKEN_EXPIRED', message: 'Your X session has expired. Please re-link your X account in your profile.' },
+        { success: false, error: 'YOUTUBE_ACCOUNT_REQUIRED', message: 'You must link your YouTube channel before submitting a competition entry. Go to your profile to connect it.' },
         { status: 400 }
       )
     }
-    postMetrics = await getPostMetrics(xPostId, accessToken)
-  } catch (e: any) {
-    return Response.json(
-      { success: false, error: 'X_API_ERROR', message: e.message || 'Failed to fetch post data from X. Please try again.' },
-      { status: 400 }
-    )
+  } else {
+    if (!user?.xUserId) {
+      return Response.json(
+        { success: false, error: 'X_ACCOUNT_REQUIRED', message: 'You must link your X (Twitter) account before submitting a competition entry. Go to your profile to connect it.' },
+        { status: 400 }
+      )
+    }
   }
 
-  // Ownership check
-  if (postMetrics.authorId !== user.xUserId) {
-    return Response.json(
-      { success: false, error: 'POST_NOT_OWNED', message: 'This post does not belong to your linked X account.' },
-      { status: 400 }
-    )
-  }
+  // Fetch post/video metrics and verify ownership/date
+  let viewCount = 0, likeCount = 0, retweetCount = 0, commentCount = 0
+  let postText: string | undefined
+  let postMedia: any[] = []
 
-  // Date check: post must be created after competition was created
-  if (new Date(postMetrics.createdAt) < task.createdAt) {
-    return Response.json(
-      { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the competition started. Please submit a post created after the competition launch.' },
-      { status: 400 }
-    )
+  if (isYouTube) {
+    let ytMetrics: Awaited<ReturnType<typeof getYouTubeVideoMetrics>>
+    try {
+      ytMetrics = await getYouTubeVideoMetrics(youtubeVideoId!)
+    } catch (e: any) {
+      return Response.json(
+        { success: false, error: 'YOUTUBE_API_ERROR', message: e.message || 'Failed to fetch video data from YouTube.' },
+        { status: 400 }
+      )
+    }
+
+    if (ytMetrics.channelId !== user.youtubeChannelId) {
+      return Response.json(
+        { success: false, error: 'POST_NOT_OWNED', message: 'This video does not belong to your linked YouTube channel.' },
+        { status: 400 }
+      )
+    }
+
+    if (new Date(ytMetrics.publishedAt) < task.createdAt) {
+      return Response.json(
+        { success: false, error: 'POST_TOO_OLD', message: 'This video was published before the competition started. Please submit a video published after the competition launch.' },
+        { status: 400 }
+      )
+    }
+
+    viewCount = ytMetrics.viewCount
+    likeCount = ytMetrics.likeCount
+    commentCount = ytMetrics.commentCount
+    postText = ytMetrics.title
+    if (ytMetrics.thumbnailUrl) {
+      postMedia = [{ type: 'photo', url: ytMetrics.thumbnailUrl }]
+    }
+  } else {
+    let xMetrics: Awaited<ReturnType<typeof getPostMetrics>>
+    try {
+      const accessToken = await getValidXToken(userId)
+      if (!accessToken) {
+        return Response.json(
+          { success: false, error: 'X_TOKEN_EXPIRED', message: 'Your X session has expired. Please re-link your X account in your profile.' },
+          { status: 400 }
+        )
+      }
+      xMetrics = await getPostMetrics(xPostId!, accessToken)
+    } catch (e: any) {
+      return Response.json(
+        { success: false, error: 'X_API_ERROR', message: e.message || 'Failed to fetch post data from X. Please try again.' },
+        { status: 400 }
+      )
+    }
+
+    if (xMetrics.authorId !== user.xUserId) {
+      return Response.json(
+        { success: false, error: 'POST_NOT_OWNED', message: 'This post does not belong to your linked X account.' },
+        { status: 400 }
+      )
+    }
+
+    if (new Date(xMetrics.createdAt) < task.createdAt) {
+      return Response.json(
+        { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the competition started. Please submit a post created after the competition launch.' },
+        { status: 400 }
+      )
+    }
+
+    viewCount = xMetrics.viewCount
+    likeCount = xMetrics.likeCount
+    retweetCount = xMetrics.retweetCount
+    commentCount = xMetrics.commentCount
+    postText = xMetrics.text
+    postMedia = xMetrics.media
   }
 
   // Verify entry fee payment
@@ -190,21 +261,25 @@ export async function POST(
       },
     })
 
+    const authorName = isYouTube ? undefined : (user.xUsername ? `@${user.xUsername}` : undefined)
+    const authorUsername = isYouTube ? undefined : user.xUsername
+
     const submission = await tx.submission.create({
       data: {
         bidId: bid.id,
         description: descTrimmed,
         postUrl,
-        xPostId,
-        postText: postMetrics.text,
-        postMedia: postMetrics.media.length > 0 ? (postMetrics.media as any) : undefined,
-        postAuthorName: user.xUsername ? `@${user.xUsername}` : undefined,
-        postAuthorUsername: user.xUsername,
+        ...(xPostId ? { xPostId } : {}),
+        ...(youtubeVideoId ? { youtubeVideoId } : {}),
+        postText,
+        postMedia: postMedia.length > 0 ? (postMedia as any) : undefined,
+        postAuthorName: authorName,
+        postAuthorUsername: authorUsername,
         postAuthorProfilePic: user.profilePicUrl,
-        viewCount: postMetrics.viewCount,
-        likeCount: postMetrics.likeCount,
-        retweetCount: postMetrics.retweetCount,
-        commentCount: postMetrics.commentCount,
+        viewCount,
+        likeCount,
+        retweetCount,
+        commentCount,
         metricsReadAt: new Date(),
         ...(parsedAttachments ? { attachments: parsedAttachments } : {}),
       },

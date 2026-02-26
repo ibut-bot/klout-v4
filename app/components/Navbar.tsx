@@ -56,6 +56,9 @@ export default function Navbar() {
   const [savingUsername, setSavingUsername] = useState(false)
   const [xUsername, setXUsername] = useState<string | null>(null)
   const [linkingX, setLinkingX] = useState(false)
+  const [youtubeChannelId, setYoutubeChannelId] = useState<string | null>(null)
+  const [youtubeChannelTitle, setYoutubeChannelTitle] = useState<string | null>(null)
+  const [linkingYouTube, setLinkingYouTube] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -66,17 +69,24 @@ export default function Navbar() {
       Promise.all([
         authFetch('/api/profile/avatar').then((r) => r.json()).catch(() => null),
         authFetch('/api/auth/x/status').then((r) => r.json()).catch(() => null),
-      ]).then(([avatarData, xData]) => {
+        authFetch('/api/auth/youtube/status').then((r) => r.json()).catch(() => null),
+      ]).then(([avatarData, xData, ytData]) => {
         if (avatarData?.success) {
           setProfilePic(avatarData.profilePicUrl)
           setUsername(avatarData.username)
         }
         if (xData?.success && xData.linked) setXUsername(xData.xUsername)
+        if (ytData?.success && ytData.linked) {
+          setYoutubeChannelId(ytData.youtubeChannelId)
+          setYoutubeChannelTitle(ytData.youtubeChannelTitle)
+        }
       })
     } else {
       setProfilePic(null)
       setUsername(null)
       setXUsername(null)
+      setYoutubeChannelId(null)
+      setYoutubeChannelTitle(null)
     }
   }, [isAuthenticated, authFetch])
 
@@ -211,6 +221,32 @@ export default function Navbar() {
       const res = await authFetch('/api/auth/x/unlink', { method: 'DELETE' })
       const data = await res.json()
       if (data.success) setXUsername(null)
+    } catch {}
+    setShowDropdown(false)
+  }
+
+  const handleLinkYouTube = async () => {
+    setLinkingYouTube(true)
+    try {
+      const returnTo = encodeURIComponent(window.location.pathname)
+      const res = await authFetch(`/api/auth/youtube/authorize?returnTo=${returnTo}`)
+      const data = await res.json()
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch {
+      setLinkingYouTube(false)
+    }
+  }
+
+  const handleUnlinkYouTube = async () => {
+    try {
+      const res = await authFetch('/api/auth/youtube/unlink', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setYoutubeChannelId(null)
+        setYoutubeChannelTitle(null)
+      }
     } catch {}
     setShowDropdown(false)
   }
@@ -444,7 +480,10 @@ export default function Navbar() {
                   {/* X Account linking */}
                   {xUsername ? (
                     <div className="flex items-center justify-between px-4 py-2 border-b border-k-border">
-                      <span className="text-sm text-zinc-300">@{xUsername}</span>
+                      <div className="flex items-center gap-1.5">
+                        <svg className="h-3.5 w-3.5 text-zinc-500" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+                        <span className="text-sm text-zinc-300">@{xUsername}</span>
+                      </div>
                       <button
                         onClick={handleUnlinkX}
                         className="text-xs text-red-500 hover:text-red-400"
@@ -458,7 +497,33 @@ export default function Navbar() {
                       disabled={linkingX}
                       className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-surface-hover"
                     >
+                      <svg className="h-3.5 w-3.5 text-zinc-500" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
                       {linkingX ? 'Redirecting...' : 'Link X Account'}
+                    </button>
+                  )}
+
+                  {/* YouTube Channel linking */}
+                  {youtubeChannelId ? (
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-k-border">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="h-3.5 w-3.5 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                        <span className="text-sm text-zinc-300 truncate max-w-[120px]">{youtubeChannelTitle || youtubeChannelId}</span>
+                      </div>
+                      <button
+                        onClick={handleUnlinkYouTube}
+                        className="text-xs text-red-500 hover:text-red-400"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleLinkYouTube}
+                      disabled={linkingYouTube}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-surface-hover"
+                    >
+                      <svg className="h-3.5 w-3.5 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                      {linkingYouTube ? 'Redirecting...' : 'Link YouTube Channel'}
                     </button>
                   )}
 

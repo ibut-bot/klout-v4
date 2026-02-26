@@ -110,6 +110,13 @@ enum PaymentToken {
   @@schema("slopwork")
 }
 
+enum Platform {
+  X
+  YOUTUBE
+
+  @@schema("slopwork")
+}
+
 // --- Models ---
 
 model User {
@@ -126,6 +133,10 @@ model User {
   xAccessToken    String?
   xRefreshToken   String?
   xTokenExpiresAt DateTime?
+
+  // YouTube account linking
+  youtubeChannelId    String?    @unique
+  youtubeChannelTitle String?
 
   // Referral program
   referralCode      String?    @unique
@@ -175,6 +186,7 @@ model Task {
   paymentTxSignature  String     @unique
   multisigAddress     String?
   vaultAddress        String?
+  platform            Platform     @default(X)
   paymentToken        PaymentToken @default(SOL)
   customTokenMint     String?
   customTokenSymbol   String?
@@ -303,9 +315,10 @@ model Submission {
   bidId         String
   description   String
   attachments   Json?     // Array of { url, key, contentType, size, filename }
-  postUrl       String?
-  xPostId       String?
-  postText      String?
+  postUrl            String?
+  xPostId            String?
+  youtubeVideoId     String?
+  postText           String?
   postMedia     Json?     // Array of { type, url?, previewImageUrl? }
   postAuthorName String?
   postAuthorUsername String?
@@ -377,7 +390,8 @@ model CampaignSubmission {
   taskId                  String
   submitterId             String
   postUrl                 String
-  xPostId                 String
+  xPostId                 String?
+  youtubeVideoId          String?
   viewCount               Int?
   likeCount               Int?
   retweetCount            Int?
@@ -403,6 +417,7 @@ model CampaignSubmission {
   paymentRequest          CampaignPaymentRequest?  @relation("PaymentRequestSubmissions", fields: [paymentRequestId], references: [id])
 
   @@unique([taskId, xPostId])
+  @@unique([taskId, youtubeVideoId])
   @@index([taskId])
   @@index([submitterId])
   @@index([status])

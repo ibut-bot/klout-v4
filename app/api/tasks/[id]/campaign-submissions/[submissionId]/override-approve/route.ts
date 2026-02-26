@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     try {
-      const postMetrics = await getPostMetrics(submission.xPostId, accessToken)
+      const postMetrics = await getPostMetrics(submission.xPostId!, accessToken)
       viewCount = postMetrics.viewCount
       likeCount = postMetrics.likeCount
       retweetCount = postMetrics.retweetCount
