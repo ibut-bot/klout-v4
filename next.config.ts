@@ -1,7 +1,6 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
   turbopack: {},
   // Enforce request body size limits (default is 1MB; explicit is safer)
   experimental: {
