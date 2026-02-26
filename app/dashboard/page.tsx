@@ -54,6 +54,7 @@ interface Task {
     bonusMaxLamports?: string | null
   } | null
   isPublicFeed?: boolean
+  allowPreLivePosts?: boolean
   winningBid?: {
     id: string
     amountLamports: string
@@ -161,6 +162,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
   const [editDeadline, setEditDeadline] = useState(task.deadlineAt ? new Date(task.deadlineAt).toISOString().slice(0, 16) : '')
   const [editBudget, setEditBudget] = useState('')
   const [editPublicFeed, setEditPublicFeed] = useState(task.isPublicFeed ?? false)
+  const [editAllowPreLivePosts, setEditAllowPreLivePosts] = useState(task.allowPreLivePosts ?? false)
   const [editError, setEditError] = useState('')
   const [imageTransform, setImageTransform] = useState<ImageTransform>(task.imageTransform as ImageTransform || { scale: 1, x: 50, y: 50 })
   const [editingImagePosition, setEditingImagePosition] = useState(false)
@@ -355,6 +357,11 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
         updates.isPublicFeed = editPublicFeed
       }
 
+      // Allow pre-live posts toggle (campaign + competition)
+      if (editAllowPreLivePosts !== (task.allowPreLivePosts ?? false)) {
+        updates.allowPreLivePosts = editAllowPreLivePosts
+      }
+
       // Budget increase
       if (editBudget) {
         const newBudgetSol = parseFloat(editBudget)
@@ -435,6 +442,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
       if (updates.description) localUpdates.description = updates.description
       if (updates.deadlineAt !== undefined) localUpdates.deadlineAt = updates.deadlineAt
       if (updates.isPublicFeed !== undefined) localUpdates.isPublicFeed = updates.isPublicFeed
+      if (updates.allowPreLivePosts !== undefined) localUpdates.allowPreLivePosts = updates.allowPreLivePosts
       if (updates.budgetLamports) {
         localUpdates.budgetLamports = String(updates.budgetLamports)
         // Also update remaining budget
@@ -795,6 +803,22 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
                 </button>
               </div>
             )}
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-medium text-zinc-400">Accept Pre-existing Posts</label>
+                <p className="text-[10px] text-zinc-600">Allow submissions of posts/videos created before the {task.taskType === 'COMPETITION' ? 'competition' : 'campaign'} went live.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={editAllowPreLivePosts}
+                onClick={() => setEditAllowPreLivePosts(!editAllowPreLivePosts)}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${editAllowPreLivePosts ? 'bg-accent' : 'bg-zinc-700'}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${editAllowPreLivePosts ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">

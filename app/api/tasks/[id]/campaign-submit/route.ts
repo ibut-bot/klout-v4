@@ -436,8 +436,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const now = new Date()
 
-  // 7b. Reject posts/videos created before the campaign went live
-  if (postCreatedAt) {
+  // 7b. Reject posts/videos created before the campaign went live (unless creator opted in)
+  if (postCreatedAt && !task.allowPreLivePosts) {
     const postDate = new Date(postCreatedAt)
     if (postDate < task.createdAt) {
       await prisma.campaignSubmission.update({

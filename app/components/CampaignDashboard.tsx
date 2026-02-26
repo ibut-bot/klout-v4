@@ -39,7 +39,8 @@ interface CampaignStats {
 interface CampaignSubmission {
   id: string
   postUrl: string
-  xPostId: string
+  xPostId: string | null
+  youtubeVideoId: string | null
   viewCount: number | null
   viewsReadAt: string | null
   payoutLamports: string | null
@@ -1896,7 +1897,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     </td>
                     <td className="py-3 pr-4">
                       <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-blue-400">
-                        {s.xPostId}
+                        {s.xPostId || s.youtubeVideoId || 'View'}
                       </a>
                     </td>
                     <td className="py-3 pr-4 text-zinc-300">
@@ -2223,7 +2224,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <tr key={s.id} className="border-b border-k-border/50">
                             <td className="py-3 pr-4">
                               <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-                                {s.xPostId}
+                                {s.xPostId || s.youtubeVideoId || 'View'}
                               </a>
                             </td>
                             <td className="py-3 pr-4 text-zinc-300">

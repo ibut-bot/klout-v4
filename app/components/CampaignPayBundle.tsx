@@ -19,7 +19,7 @@ interface ReferralInfo {
 interface BundleSubmission {
   id: string
   postUrl: string
-  xPostId: string
+  xPostId: string | null
   viewCount: number | null
   payoutLamports: string | null
   status: string

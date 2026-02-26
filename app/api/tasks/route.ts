@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure, isPublicFeed, platform } = body
+  const { title, description, budgetLamports, paymentTxSignature, taskType, multisigAddress, vaultAddress, durationDays, cpmLamports, guidelines, imageUrl, imageTransform, minViews, minLikes, minRetweets, minComments, minPayoutLamports, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, heading, collateralLink, paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals, customTokenLogoUri, bonusMinKloutScore, bonusMaxLamports, maxWinners, prizeStructure, isPublicFeed, platform, allowPreLivePosts } = body
 
   // Validate taskType early so we know which fields to require
   const validTaskTypes = ['QUOTE', 'COMPETITION', 'CAMPAIGN']
@@ -425,6 +425,7 @@ export async function POST(request: NextRequest) {
           ...(deadlineAt ? { deadlineAt } : {}),
           ...(imageUrl ? { imageUrl } : {}),
           ...(imageTransform ? { imageTransform } : {}),
+          allowPreLivePosts: !!allowPreLivePosts,
         },
       })
 
@@ -488,6 +489,7 @@ export async function POST(request: NextRequest) {
         maxWinners: resolvedMaxWinners,
         ...(resolvedPrizeStructure ? { prizeStructure: resolvedPrizeStructure } : {}),
         isPublicFeed: !!isPublicFeed,
+        allowPreLivePosts: !!allowPreLivePosts,
         paymentToken: resolvedPaymentToken as any,
         ...(resolvedPaymentToken === 'CUSTOM' ? {
           customTokenMint: customTokenMint,

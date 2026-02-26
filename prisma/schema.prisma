@@ -196,6 +196,7 @@ model Task {
   maxWinners          Int        @default(1)
   prizeStructure      Json?      // [{place:1, amountLamports:"500000000"}, {place:2, amountLamports:"300000000"}]
   isPublicFeed        Boolean    @default(false)
+  allowPreLivePosts   Boolean    @default(false)
   deadlineAt          DateTime?
   imageUrl            String?
   imageTransform      Json?      // { scale: number, x: number, y: number } for image positioning

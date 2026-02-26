@@ -162,7 +162,7 @@ export async function POST(
       )
     }
 
-    if (new Date(ytMetrics.publishedAt) < task.createdAt) {
+    if (!task.allowPreLivePosts && new Date(ytMetrics.publishedAt) < task.createdAt) {
       return Response.json(
         { success: false, error: 'POST_TOO_OLD', message: 'This video was published before the competition started. Please submit a video published after the competition launch.' },
         { status: 400 }
@@ -201,7 +201,7 @@ export async function POST(
       )
     }
 
-    if (new Date(xMetrics.createdAt) < task.createdAt) {
+    if (!task.allowPreLivePosts && new Date(xMetrics.createdAt) < task.createdAt) {
       return Response.json(
         { success: false, error: 'POST_TOO_OLD', message: 'This post was created before the competition started. Please submit a post created after the competition launch.' },
         { status: 400 }

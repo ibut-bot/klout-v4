@@ -166,7 +166,7 @@ export async function PATCH(
     )
   }
 
-  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports, bonusMinKloutScore, bonusMaxLamports, isPublicFeed } = body
+  const { imageUrl, imageTransform, title, description, guidelines, deadlineAt, budgetLamports, budgetIncreaseTxSignature, heading, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, minPayoutLamports, cpmLamports, bonusMinKloutScore, bonusMaxLamports, isPublicFeed, allowPreLivePosts } = body
   const isCampaign = task.taskType === 'CAMPAIGN'
   const isCompetitionTask = task.taskType === 'COMPETITION'
 
@@ -335,6 +335,9 @@ export async function PATCH(
   }
   if (isPublicFeed !== undefined && isCompetitionTask) {
     taskUpdateData.isPublicFeed = !!isPublicFeed
+  }
+  if (allowPreLivePosts !== undefined && (isCampaign || isCompetitionTask)) {
+    taskUpdateData.allowPreLivePosts = !!allowPreLivePosts
   }
 
   // Check if there are campaign config updates

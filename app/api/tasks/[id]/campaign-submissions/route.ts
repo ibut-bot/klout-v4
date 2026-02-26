@@ -55,7 +55,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
   const searchPostId = searchParams.get('postId')
   if (searchPostId) {
-    where.xPostId = { contains: searchPostId }
+    where.OR = [
+      { xPostId: { contains: searchPostId } },
+      { youtubeVideoId: { contains: searchPostId } },
+    ]
   }
   const submitterSearch = searchParams.get('submitterSearch')
   const filterSubmitterId = searchParams.get('submitterId')
@@ -109,7 +112,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       idx++
     }
     if (searchPostId) {
-      query += ` AND cs."xPostId" LIKE '%' || $${idx} || '%'`
+      query += ` AND (cs."xPostId" LIKE '%' || $${idx} || '%' OR cs."youtubeVideoId" LIKE '%' || $${idx} || '%')`
       params.push(searchPostId)
       idx++
     }
@@ -172,6 +175,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       id: s.id,
       postUrl: s.postUrl,
       xPostId: s.xPostId,
+      youtubeVideoId: s.youtubeVideoId,
       viewCount: s.viewCount,
       viewsReadAt: s.viewsReadAt?.toISOString() || null,
       payoutLamports: s.payoutLamports?.toString() || null,

@@ -129,6 +129,9 @@ export default function TaskForm() {
   const [donts, setDonts] = useState<string[]>([''])
   const [collateralLink, setCollateralLink] = useState('')
 
+  // Shared campaign/competition fields
+  const [allowPreLivePosts, setAllowPreLivePosts] = useState(false)
+
   // Competition-specific fields
   const [maxWinners, setMaxWinners] = useState(1)
   const [prizeAmounts, setPrizeAmounts] = useState<string[]>([''])
@@ -278,6 +281,7 @@ export default function TaskForm() {
       setStep('creating')
       const campaignFields = taskType === 'CAMPAIGN' ? {
         paymentToken,
+        allowPreLivePosts,
         ...(paymentToken === 'CUSTOM' && customTokenMeta ? {
           customTokenMint: customTokenMeta.mint,
           customTokenSymbol: customTokenMeta.symbol,
@@ -309,6 +313,7 @@ export default function TaskForm() {
       const competitionFields = taskType === 'COMPETITION' ? {
         maxWinners,
         isPublicFeed,
+        allowPreLivePosts,
         paymentToken,
         ...(paymentToken === 'CUSTOM' && customTokenMeta ? {
           customTokenMint: customTokenMeta.mint,
@@ -912,6 +917,25 @@ export default function TaskForm() {
             <p className="mt-1 text-xs text-zinc-500">Share a link to Google Drive, Dropbox, etc. with images, logos, or other collateral that creators can use in their posts. This is for guidance only and is not checked by AI verification.</p>
           </div>
         </>
+      )}
+
+      {(taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && (
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div
+              role="switch"
+              aria-checked={allowPreLivePosts}
+              onClick={() => setAllowPreLivePosts(!allowPreLivePosts)}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${allowPreLivePosts ? 'bg-accent' : 'bg-zinc-700'}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform ${allowPreLivePosts ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+            <div>
+              <span className="text-sm font-medium text-zinc-200">Accept pre-existing posts</span>
+              <p className="text-xs text-zinc-500">Allow submissions of posts/videos created before the {taskType === 'COMPETITION' ? 'competition' : 'campaign'} went live</p>
+            </div>
+          </label>
+        </div>
       )}
 
       {(taskType === 'COMPETITION' || taskType === 'CAMPAIGN') && (

@@ -501,7 +501,7 @@ function MyScoreTab() {
             <div className="mb-5 rounded-xl border border-k-border bg-zinc-800/50 px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="text-[11px] text-zinc-500">Your CPM Multiplier</p>
-                <p className="text-lg font-bold text-white">{(getKloutCpmMultiplier(scoreResult.totalScore) * 100).toFixed(0)}%</p>
+                <p className="text-lg font-bold text-white">{(getKloutCpmMultiplier(scoreResult.totalScore) * 100).toFixed(2)}%</p>
               </div>
               <div className="text-right">
                 <p className="text-[11px] text-zinc-500">of base campaign CPM</p>
