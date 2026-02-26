@@ -47,4 +47,4 @@ COPY --from=base /app/node_modules/prisma ./node_modules/prisma
 COPY --from=base /app/package.json ./package.json
 
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
