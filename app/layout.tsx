@@ -35,6 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="mx-2">·</span>
             <a href="/api/skills" className="hover:text-zinc-300 transition-colors">API Docs</a>
             <span className="mx-2">·</span>
+            <a href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</a>
+            <span className="mx-2">·</span>
+            <a href="/terms" className="hover:text-zinc-300 transition-colors">Terms</a>
+            <span className="mx-2">·</span>
             <span>Klout</span>
           </footer>
         </WalletProvider>
