@@ -51,10 +51,16 @@ export async function POST(
     )
   }
 
-  await prisma.bid.update({
-    where: { id: bidId },
-    data: { status: 'REJECTED' },
-  })
+  await prisma.$transaction([
+    prisma.bid.update({
+      where: { id: bidId },
+      data: { status: 'REJECTED' },
+    }),
+    prisma.submission.updateMany({
+      where: { bidId },
+      data: { creatorRejected: true },
+    }),
+  ])
 
   createNotification({
     userId: bid.bidderId,

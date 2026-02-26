@@ -8,8 +8,8 @@ export async function GET(request: NextRequest) {
 
   const where: any = {
     NOT: { postMedia: { equals: null } },
+    creatorRejected: false,
     bid: {
-      status: { not: 'REJECTED' },
       task: {
         isPublicFeed: true,
         taskType: 'COMPETITION',
