@@ -14,7 +14,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci --ignore-scripts && npx prisma generate
+RUN NODE_ENV=development npm ci --ignore-scripts && npx prisma generate
 
 COPY . .
 RUN npm run build
