@@ -85,6 +85,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       select: {
         id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true,
         xScores: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { totalScore: true } },
+        youtubeSubscriberCount: true, youtubeVideoCount: true, youtubeViewCount: true,
       },
     },
   }
@@ -194,6 +195,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         xUsername: s.submitter.xUsername,
         profilePicUrl: s.submitter.profilePicUrl,
         kloutScore: s.submitter.xScores[0]?.totalScore ?? null,
+        youtubeSubscriberCount: s.submitter.youtubeSubscriberCount ?? null,
+        youtubeVideoCount: s.submitter.youtubeVideoCount ?? null,
+        youtubeViewCount: s.submitter.youtubeViewCount?.toString() ?? null,
       },
       cpmMultiplierApplied: s.cpmMultiplierApplied ?? null,
       createdAt: s.createdAt.toISOString(),
