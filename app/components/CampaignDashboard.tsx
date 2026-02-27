@@ -295,6 +295,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
           walletAddress: string; username: string | null; xUsername: string | null; kloutScore: number | null
           followers: number | null; following: number | null; geoTier: number | null; geoRegion: string | null
           youtubeSubscriberCount: number | null; youtubeVideoCount: number | null; youtubeViewCount: string | null
+          tiktokFollowerCount: number | null; tiktokVideoCount: number | null
         }
         createdAt: string
       }>
