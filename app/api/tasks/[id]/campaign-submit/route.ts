@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-helpers'
 import { rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 import { extractYouTubeVideoId, getYouTubeVideoMetrics } from '@/lib/youtube-api'
+import { extractTikTokVideoId, getTikTokVideoMetrics, getValidTikTokToken } from '@/lib/tiktok-api'
 import { checkContentGuidelines } from '@/lib/content-check'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { createNotification } from '@/lib/notifications'
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // 1. Check user has linked account and Klout score
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, youtubeChannelId: true, xScores: { select: { id: true, totalScore: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
+    select: { id: true, xUserId: true, xUsername: true, walletAddress: true, youtubeChannelId: true, tiktokUserId: true, tiktokUsername: true, xScores: { select: { id: true, totalScore: true }, orderBy: { createdAt: 'desc' }, take: 1 } },
   })
 
   if (!user) {
@@ -173,9 +174,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const isYouTube = task.platform === 'YOUTUBE'
+  const isTikTok = task.platform === 'TIKTOK'
+  const isX = task.platform === 'X'
 
   // Klout score required for X campaigns only
-  if (!isYouTube && (!user.xScores || user.xScores.length === 0)) {
+  if (isX && (!user.xScores || user.xScores.length === 0)) {
     return Response.json(
       { success: false, error: 'NO_KLOUT_SCORE', message: 'You need a Klout score before submitting to campaigns. Calculate your score first to unlock campaign participation.' },
       { status: 400 }
@@ -187,6 +190,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!user.youtubeChannelId) {
       return Response.json(
         { success: false, error: 'YOUTUBE_NOT_LINKED', message: 'You must link your YouTube channel before submitting to YouTube campaigns' },
+        { status: 400 }
+      )
+    }
+  } else if (isTikTok) {
+    if (!user.tiktokUserId) {
+      return Response.json(
+        { success: false, error: 'TIKTOK_NOT_LINKED', message: 'You must link your TikTok account before submitting to TikTok campaigns' },
         { status: 400 }
       )
     }
@@ -202,12 +212,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // 3. Extract post/video ID
   let xPostId: string | null = null
   let youtubeVideoId: string | null = null
+  let tiktokVideoId: string | null = null
 
   if (isYouTube) {
     youtubeVideoId = extractYouTubeVideoId(postUrl)
     if (!youtubeVideoId) {
       return Response.json(
         { success: false, error: 'INVALID_URL', message: 'Invalid YouTube video URL. Expected format: https://youtube.com/watch?v=... or https://youtu.be/...' },
+        { status: 400 }
+      )
+    }
+  } else if (isTikTok) {
+    tiktokVideoId = extractTikTokVideoId(postUrl)
+    if (!tiktokVideoId) {
+      return Response.json(
+        { success: false, error: 'INVALID_URL', message: 'Invalid TikTok video URL. Expected format: https://tiktok.com/@username/video/123456' },
         { status: 400 }
       )
     }
@@ -223,7 +242,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 4. Check for duplicate — globally across all campaigns
   const existing = await prisma.campaignSubmission.findFirst({
-    where: isYouTube ? { youtubeVideoId } : { xPostId },
+    where: isTikTok ? { tiktokVideoId } : isYouTube ? { youtubeVideoId } : { xPostId },
   })
 
   if (existing) {
@@ -267,8 +286,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   const userKloutScore = user.xScores[0]?.totalScore ?? 0
-  const adjustedFeeLamports = isYouTube
-    ? getKloutAdjustedFee(10000, priorSubmissionCount) // YouTube: base fee (1x, no Klout scaling), only repeat surcharge
+  const adjustedFeeLamports = (isYouTube || isTikTok)
+    ? getKloutAdjustedFee(10000, priorSubmissionCount) // YouTube/TikTok: base fee (1x, no Klout scaling), only repeat surcharge
     : getKloutAdjustedFee(userKloutScore, priorSubmissionCount)
   const feeVerification = await verifyPaymentTx(apiFeeTxSig, SYSTEM_WALLET, adjustedFeeLamports)
   if (!feeVerification.valid) {
@@ -279,13 +298,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 6b. Check X verification and minimum Klout score (after fee, before X API calls)
-  const latestScoreData = isYouTube ? null : await prisma.xScoreData.findFirst({
+  const latestScoreData = (isYouTube || isTikTok) ? null : await prisma.xScoreData.findFirst({
     where: { userId },
     orderBy: { createdAt: 'desc' },
     select: { totalScore: true, verifiedType: true, followersCount: true },
   })
 
-  if (!isYouTube && !latestScoreData?.verifiedType) {
+  if (isX && !latestScoreData?.verifiedType) {
     return Response.json({
       success: false,
       error: 'X_NOT_VERIFIED',
@@ -293,7 +312,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  if (!isYouTube && config.minKloutScore != null) {
+  if (isX && config.minKloutScore != null) {
     const userScore = latestScoreData?.totalScore ?? 0
     if (userScore < config.minKloutScore) {
       return Response.json({
@@ -305,7 +324,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 6c. Check if user has reached their budget cap (Klout-scaled for X, flat for YouTube)
-  const userCpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(latestScoreData?.totalScore ?? 0)
+  const userCpmMultiplier = (isYouTube || isTikTok) ? 1 : getKloutCpmMultiplier(latestScoreData?.totalScore ?? 0)
   const topUserPercent = config.maxBudgetPerUserPercent ?? 10
   const userMaxBudget = BigInt(Math.floor(Number(task.budgetLamports) * (topUserPercent * userCpmMultiplier / 100)))
   const priorEarned = await prisma.campaignSubmission.findMany({
@@ -333,6 +352,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       postUrl,
       ...(xPostId ? { xPostId } : {}),
       ...(youtubeVideoId ? { youtubeVideoId } : {}),
+      ...(tiktokVideoId ? { tiktokVideoId } : {}),
       apiFeeTxSig,
       status: 'READING_VIEWS',
     },
@@ -344,7 +364,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
   let postCreatedAt = ''
   let postMedia: any[] = []
 
-  if (isYouTube) {
+  if (isTikTok) {
+    const tiktokToken = await getValidTikTokToken(userId)
+    if (!tiktokToken) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: 'TikTok account token expired. Please re-link your TikTok account.' },
+      })
+      return Response.json(
+        { success: false, error: 'TIKTOK_TOKEN_EXPIRED', message: 'Your TikTok account token has expired. Please re-link your TikTok account.' },
+        { status: 401 }
+      )
+    }
+
+    let ttMetrics: Awaited<ReturnType<typeof getTikTokVideoMetrics>>
+    try {
+      ttMetrics = await getTikTokVideoMetrics(tiktokVideoId!, tiktokToken)
+    } catch (err: any) {
+      await prisma.campaignSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED', rejectionReason: `Failed to read video metrics: ${err.message}` },
+      })
+      return Response.json(
+        { success: false, error: 'TIKTOK_API_ERROR', message: `Failed to read video metrics: ${err.message}` },
+        { status: 502 }
+      )
+    }
+
+    // Ownership is implicitly verified: the TikTok API only returns videos belonging to the authenticated user's account
+    postViewCount = ttMetrics.viewCount
+    postLikeCount = ttMetrics.likeCount
+    postCommentCount = ttMetrics.commentCount
+    postRetweetCount = ttMetrics.shareCount
+    postText = ttMetrics.title || ttMetrics.description
+    postCreatedAt = new Date(ttMetrics.createTime * 1000).toISOString()
+    if (ttMetrics.coverImageUrl) {
+      postMedia = [{ type: 'photo', url: ttMetrics.coverImageUrl }]
+    }
+  } else if (isYouTube) {
     let ytMetrics: Awaited<ReturnType<typeof getYouTubeVideoMetrics>>
     try {
       ytMetrics = await getYouTubeVideoMetrics(youtubeVideoId!)
@@ -460,7 +517,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 8b. Bot detection (X only): reject if post views exceed a Klout-score-based multiple of follower count
-  if (!isYouTube) {
+  if (isX) {
     const followersCount = latestScoreData?.followersCount ?? 0
     const kloutScoreForBot = latestScoreData?.totalScore ?? 0
     const botViewMultiplier = getBotViewThreshold(kloutScoreForBot)
@@ -516,7 +573,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  if (!isYouTube && postRetweetCount < config.minRetweets) {
+  if (isX && postRetweetCount < config.minRetweets) {
     await prisma.campaignSubmission.update({
       where: { id: submission.id },
       data: { ...metricsData, status: 'REJECTED', rejectionReason: `Post has ${postRetweetCount} retweets, minimum required is ${config.minRetweets}.` },
@@ -597,7 +654,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 11. Calculate payout (Klout-scaled CPM for X, full CPM for YouTube)
   const kloutScore = latestScoreData?.totalScore ?? 0
-  const cpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(kloutScore)
+  const cpmMultiplier = (isYouTube || isTikTok) ? 1 : getKloutCpmMultiplier(kloutScore)
   const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
   let payoutLamports = BigInt(Math.floor((postViewCount / 1000) * effectiveCpm))
 
@@ -611,7 +668,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 11b. One-time flat bonus for high Klout score users (first submission only, X campaigns only)
   let flatBonusLamports = BigInt(0)
-  if (!isYouTube && config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
+  if (isX && config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
     if (kloutScore >= config.bonusMinKloutScore) {
       const priorApproved = await prisma.campaignSubmission.count({
         where: {
@@ -690,7 +747,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       if (totalBudget) {
         const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
         let userMultiplier = 1
-        if (totalBudget.platform !== 'YOUTUBE') {
+        if (totalBudget.platform === 'X') {
           const latestScore = await tx.xScoreData.findFirst({
             where: { userId },
             orderBy: { createdAt: 'desc' },
@@ -750,18 +807,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if ('success' in autoResult && autoResult.total != null) {
       autoRequested = true
       const autoTotal = autoResult.total
+      const submitterLabel = isX ? `@${user.xUsername}` : isTikTok ? `@${user.tiktokUsername}` : 'A user'
+      const contentLabel = isX ? 'post' : 'video'
       await createNotification({
         userId: task.creatorId,
         type: 'CAMPAIGN_PAYMENT_REQUEST',
         title: 'Campaign payment requested',
-        body: `${isYouTube ? 'A user' : `@${user.xUsername}`} submitted a ${isYouTube ? 'video' : 'post'} with ${postViewCount} views (${payoutDisplay}${bonusSuffix}). Payment auto-requested for ${autoResult.count} submission(s) — ${formatTokenAmount(autoTotal, tInfo)} ${tInfo.symbol} total.`,
+        body: `${submitterLabel} submitted a ${contentLabel} with ${postViewCount} views (${payoutDisplay}${bonusSuffix}). Payment auto-requested for ${autoResult.count} submission(s) — ${formatTokenAmount(autoTotal, tInfo)} ${tInfo.symbol} total.`,
         linkUrl: `/tasks/${taskId}`,
       })
       await createNotification({
         userId,
         type: 'CAMPAIGN_SUBMISSION_APPROVED',
         title: 'Post approved — payment requested!',
-        body: `Your ${isYouTube ? 'video' : 'post'} was approved with ${postViewCount} views. Payout: ${payoutDisplay}${bonusSuffix}. Payment has been automatically requested.`,
+        body: `Your ${contentLabel} was approved with ${postViewCount} views. Payout: ${payoutDisplay}${bonusSuffix}. Payment has been automatically requested.`,
         linkUrl: `/tasks/${taskId}`,
       })
     }
@@ -769,18 +828,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // 14. If auto-request didn't happen (below threshold or budget issue), send standard notifications
   if (!autoRequested) {
+    const submitterLabel2 = isX ? `@${user.xUsername}` : isTikTok ? `@${user.tiktokUsername}` : 'A user'
+    const contentLabel2 = isX ? 'post' : 'video'
     await createNotification({
       userId: task.creatorId,
       type: 'CAMPAIGN_SUBMISSION_APPROVED',
       title: 'New campaign post approved',
-      body: `${isYouTube ? 'A user' : `@${user.xUsername}`} submitted a ${isYouTube ? 'video' : 'post'} with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
+      body: `${submitterLabel2} submitted a ${contentLabel2} with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}`,
       linkUrl: `/tasks/${taskId}`,
     })
     await createNotification({
       userId,
       type: 'CAMPAIGN_SUBMISSION_APPROVED',
       title: 'Campaign submission approved!',
-      body: `Your ${isYouTube ? 'video' : 'post'} was approved with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
+      body: `Your ${contentLabel2} was approved with ${postViewCount} views. Calculated payout: ${payoutDisplay}${bonusSuffix}. Request payment once you meet the minimum payout threshold.`,
       linkUrl: `/tasks/${taskId}`,
     })
   }

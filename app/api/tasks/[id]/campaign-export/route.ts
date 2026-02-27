@@ -58,6 +58,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         select: {
           id: true, walletAddress: true, username: true, xUsername: true,
           youtubeSubscriberCount: true, youtubeVideoCount: true, youtubeViewCount: true,
+          tiktokFollowerCount: true, tiktokVideoCount: true,
           xScores: {
             orderBy: { createdAt: 'desc' }, take: 1,
             select: { totalScore: true, followersCount: true, followingCount: true, geoTier: true, geoRegion: true },
@@ -112,6 +113,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         youtubeSubscriberCount: s.submitter.youtubeSubscriberCount ?? null,
         youtubeVideoCount: s.submitter.youtubeVideoCount ?? null,
         youtubeViewCount: s.submitter.youtubeViewCount?.toString() ?? null,
+        tiktokFollowerCount: s.submitter.tiktokFollowerCount ?? null,
+        tiktokVideoCount: s.submitter.tiktokVideoCount ?? null,
       },
       createdAt: s.createdAt.toISOString(),
     })),

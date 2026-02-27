@@ -113,6 +113,7 @@ enum PaymentToken {
 enum Platform {
   X
   YOUTUBE
+  TIKTOK
 
   @@schema("slopwork")
 }
@@ -140,6 +141,16 @@ model User {
   youtubeSubscriberCount    Int?
   youtubeVideoCount         Int?
   youtubeViewCount          BigInt?
+
+  // TikTok account linking
+  tiktokUserId        String?   @unique
+  tiktokUsername      String?
+  tiktokDisplayName   String?
+  tiktokAccessToken   String?
+  tiktokRefreshToken  String?
+  tiktokTokenExpiresAt DateTime?
+  tiktokFollowerCount  Int?
+  tiktokVideoCount     Int?
 
   // Referral program
   referralCode      String?    @unique
@@ -322,6 +333,7 @@ model Submission {
   postUrl            String?
   xPostId            String?
   youtubeVideoId     String?
+  tiktokVideoId      String?
   postText           String?
   postMedia     Json?     // Array of { type, url?, previewImageUrl? }
   postAuthorName String?
@@ -331,6 +343,7 @@ model Submission {
   likeCount     Int?
   retweetCount  Int?
   commentCount  Int?
+  shareCount    Int?
   metricsReadAt    DateTime?
   creatorRejected  Boolean   @default(false)
   createdAt        DateTime  @default(now())
@@ -396,10 +409,12 @@ model CampaignSubmission {
   postUrl                 String
   xPostId                 String?
   youtubeVideoId          String?
+  tiktokVideoId           String?
   viewCount               Int?
   likeCount               Int?
   retweetCount            Int?
   commentCount            Int?
+  shareCount              Int?
   viewsReadAt             DateTime?
   apiFeeTxSig             String?
   contentCheckPassed      Boolean?
@@ -422,6 +437,7 @@ model CampaignSubmission {
 
   @@unique([taskId, xPostId])
   @@unique([taskId, youtubeVideoId])
+  @@unique([taskId, tiktokVideoId])
   @@index([taskId])
   @@index([submitterId])
   @@index([status])

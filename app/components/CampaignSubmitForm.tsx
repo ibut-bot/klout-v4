@@ -26,10 +26,11 @@ interface Props {
   minKloutScore?: number | null
   requireFollowX?: string | null
   collateralLink?: string | null
-  platform?: 'X' | 'YOUTUBE'
+  platform?: 'X' | 'YOUTUBE' | 'TIKTOK'
   kloutScore: number
   xLinked: boolean
   youtubeLinked?: boolean
+  tiktokLinked?: boolean
   hasKloutScore: boolean
   onSubmitted: () => void
   paymentToken?: PaymentTokenType
@@ -38,7 +39,7 @@ interface Props {
   customTokenDecimals?: number | null
 }
 
-export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, platform = 'X', kloutScore, xLinked, youtubeLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
+export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, budgetLamports, budgetRemainingLamports, minPayoutLamports, minViews, minLikes, minRetweets, minComments, maxBudgetPerUserPercent, maxBudgetPerPostPercent, minKloutScore, requireFollowX, collateralLink, platform = 'X', kloutScore, xLinked, youtubeLinked, tiktokLinked, hasKloutScore, onSubmitted, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals }: Props) {
   const { authFetch } = useAuth()
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
@@ -129,7 +130,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
 
       // Step 1: Pay API fee (YouTube: base fee; X: Klout-adjusted + repeat surcharge)
       setStep('paying')
-      const feeLamports = getKloutAdjustedFee(isYouTube ? 10000 : kloutScore, priorSubmissionCount)
+      const feeLamports = getKloutAdjustedFee((isYouTube || isTikTok) ? 10000 : kloutScore, priorSubmissionCount)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
@@ -187,12 +188,14 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   }
 
   const isYouTube = platform === 'YOUTUBE'
-  const accountLinked = isYouTube ? youtubeLinked : xLinked
+  const isTikTok = platform === 'TIKTOK'
+  const isX = platform === 'X'
+  const accountLinked = isTikTok ? tiktokLinked : isYouTube ? youtubeLinked : xLinked
 
-  const feeSol = (getKloutAdjustedFee(isYouTube ? 10000 : kloutScore, priorSubmissionCount) / LAMPORTS_PER_SOL).toFixed(4)
+  const feeSol = (getKloutAdjustedFee((isYouTube || isTikTok) ? 10000 : kloutScore, priorSubmissionCount) / LAMPORTS_PER_SOL).toFixed(4)
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
-  const cpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(kloutScore)
+  const cpmMultiplier = (isYouTube || isTikTok) ? 1 : getKloutCpmMultiplier(kloutScore)
   const effectiveCpmLamports = Math.floor(Number(cpmLamports) * cpmMultiplier).toString()
   const effectiveCpmDisplay = formatTokenAmount(effectiveCpmLamports, tInfo, 2)
   const topUserPercent = maxBudgetPerUserPercent ?? 10
@@ -208,15 +211,17 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     return (
       <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-4">
         <p className="text-sm text-amber-300">
-          {isYouTube
-            ? 'You need to link your YouTube channel before submitting to YouTube campaigns. Go to the profile dropdown and click "Link YouTube Channel".'
-            : 'You need to link your X account before submitting to campaigns. Go to the profile dropdown and click "Link X Account".'}
+          {isTikTok
+            ? 'You need to link your TikTok account before submitting to TikTok campaigns. Go to the profile dropdown and click "Link TikTok Account".'
+            : isYouTube
+              ? 'You need to link your YouTube channel before submitting to YouTube campaigns. Go to the profile dropdown and click "Link YouTube Channel".'
+              : 'You need to link your X account before submitting to campaigns. Go to the profile dropdown and click "Link X Account".'}
         </p>
       </div>
     )
   }
 
-  if (!isYouTube && !hasKloutScore) {
+  if (isX && !hasKloutScore) {
     return (
       <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-5 space-y-3">
         <div className="flex items-start gap-3">
@@ -245,9 +250,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
       {/* Campaign Info Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
-          <p className="text-[11px] text-zinc-500">{isYouTube ? 'CPM (per 1,000 views)' : 'Your CPM (per 1,000 views)'}</p>
+          <p className="text-[11px] text-zinc-500">{isX ? 'Your CPM (per 1,000 views)' : 'CPM (per 1,000 views)'}</p>
           <p className="mt-1 text-sm font-semibold text-zinc-100">{effectiveCpmDisplay} {sym}</p>
-          {!isYouTube && (
+          {isX && (
             <p className="mt-0.5 text-[10px] text-zinc-500">
               Based on your Klout Score{cpmMultiplier < 1 && <> &middot; <a href="/my-score" className="text-accent hover:underline">boost your score</a></>}
             </p>
@@ -299,7 +304,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Your max earning</p>
           <p className="mt-1 text-sm font-semibold text-zinc-100">{userMaxDisplay} {sym}</p>
-          {!isYouTube && <p className="mt-0.5 text-[10px] text-zinc-500">Based on your Klout Score</p>}
+          {isX && <p className="mt-0.5 text-[10px] text-zinc-500">Based on your Klout Score</p>}
         </div>
         {maxBudgetPerPostPercent != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
@@ -307,13 +312,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{maxBudgetPerPostPercent}% of budget</p>
           </div>
         )}
-        {!isYouTube && minKloutScore != null && (
+        {isX && minKloutScore != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Min Klout score</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minKloutScore.toLocaleString()}</p>
           </div>
         )}
-        {!isYouTube && (
+        {isX && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Your Klout Score</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{Math.round(kloutScore).toLocaleString()}</p>
@@ -389,7 +394,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         ) : capReached ? (
           <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm space-y-1">
             <p className="font-medium text-amber-400">You&apos;ve reached your earning cap for this campaign</p>
-            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo, 2)} of your {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym} limit.{!isYouTube && ' Increase your Klout score to unlock a higher cap.'}</p>
+            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo, 2)} of your {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym} limit.{isX && ' Increase your Klout score to unlock a higher cap.'}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -399,7 +404,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
                 type="url"
                 value={postUrl}
                 onChange={(e) => setPostUrl(e.target.value)}
-                placeholder={isYouTube ? 'https://youtube.com/watch?v=...' : 'https://x.com/yourhandle/status/...'}
+                placeholder={isTikTok ? 'https://tiktok.com/@username/video/...' : isYouTube ? 'https://youtube.com/watch?v=...' : 'https://x.com/yourhandle/status/...'}
                 required
                 disabled={loading}
                 className="w-full rounded-lg border border-zinc-600 bg-surface px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/50 focus:outline-none"

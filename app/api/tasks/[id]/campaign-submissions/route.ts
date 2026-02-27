@@ -58,6 +58,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     where.OR = [
       { xPostId: { contains: searchPostId } },
       { youtubeVideoId: { contains: searchPostId } },
+      { tiktokVideoId: { contains: searchPostId } },
     ]
   }
   const submitterSearch = searchParams.get('submitterSearch')
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id: true, walletAddress: true, username: true, xUsername: true, profilePicUrl: true,
         xScores: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { totalScore: true } },
         youtubeSubscriberCount: true, youtubeVideoCount: true, youtubeViewCount: true,
+        tiktokFollowerCount: true, tiktokVideoCount: true,
       },
     },
   }
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       idx++
     }
     if (searchPostId) {
-      query += ` AND (cs."xPostId" LIKE '%' || $${idx} || '%' OR cs."youtubeVideoId" LIKE '%' || $${idx} || '%')`
+      query += ` AND (cs."xPostId" LIKE '%' || $${idx} || '%' OR cs."youtubeVideoId" LIKE '%' || $${idx} || '%' OR cs."tiktokVideoId" LIKE '%' || $${idx} || '%')`
       params.push(searchPostId)
       idx++
     }
@@ -177,6 +179,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       postUrl: s.postUrl,
       xPostId: s.xPostId,
       youtubeVideoId: s.youtubeVideoId,
+      tiktokVideoId: s.tiktokVideoId,
       viewCount: s.viewCount,
       viewsReadAt: s.viewsReadAt?.toISOString() || null,
       payoutLamports: s.payoutLamports?.toString() || null,
@@ -198,6 +201,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         youtubeSubscriberCount: s.submitter.youtubeSubscriberCount ?? null,
         youtubeVideoCount: s.submitter.youtubeVideoCount ?? null,
         youtubeViewCount: s.submitter.youtubeViewCount?.toString() ?? null,
+        tiktokFollowerCount: s.submitter.tiktokFollowerCount ?? null,
+        tiktokVideoCount: s.submitter.tiktokVideoCount ?? null,
       },
       cpmMultiplierApplied: s.cpmMultiplierApplied ?? null,
       createdAt: s.createdAt.toISOString(),

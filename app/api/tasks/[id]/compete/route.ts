@@ -6,6 +6,7 @@ import { createNotification } from '@/lib/notifications'
 import { verifyPaymentTx } from '@/lib/solana/verify-tx'
 import { extractPostId, getPostMetrics, getValidXToken } from '@/lib/x-api'
 import { extractYouTubeVideoId, getYouTubeVideoMetrics } from '@/lib/youtube-api'
+import { extractTikTokVideoId, getTikTokVideoMetrics, getValidTikTokToken } from '@/lib/tiktok-api'
 
 const SYSTEM_WALLET = process.env.SYSTEM_WALLET_ADDRESS
 const COMPETITION_ENTRY_FEE_LAMPORTS = Number(process.env.COMPETITION_ENTRY_FEE_LAMPORTS || 1000000)
@@ -81,12 +82,22 @@ export async function POST(
   }
 
   const isYouTube = task.platform === 'YOUTUBE'
+  const isTikTok = task.platform === 'TIKTOK'
 
   // Extract post/video ID based on platform
   let xPostId: string | null = null
   let youtubeVideoId: string | null = null
+  let tiktokVideoId: string | null = null
 
-  if (isYouTube) {
+  if (isTikTok) {
+    tiktokVideoId = extractTikTokVideoId(firstLine)
+    if (!tiktokVideoId) {
+      return Response.json(
+        { success: false, error: 'INVALID_POST_URL', message: 'Description must start with a valid TikTok video URL' },
+        { status: 400 }
+      )
+    }
+  } else if (isYouTube) {
     youtubeVideoId = extractYouTubeVideoId(firstLine)
     if (!youtubeVideoId) {
       return Response.json(
@@ -106,9 +117,11 @@ export async function POST(
 
   // Prevent submitting the same post twice for this competition
   const duplicatePost = await prisma.submission.findFirst({
-    where: isYouTube
-      ? { youtubeVideoId, bid: { taskId: id } }
-      : { xPostId, bid: { taskId: id } },
+    where: isTikTok
+      ? { tiktokVideoId, bid: { taskId: id } }
+      : isYouTube
+        ? { youtubeVideoId, bid: { taskId: id } }
+        : { xPostId, bid: { taskId: id } },
   })
   if (duplicatePost) {
     return Response.json(
@@ -120,10 +133,17 @@ export async function POST(
   // Require linked account for ownership verification
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { xUserId: true, xUsername: true, profilePicUrl: true, youtubeChannelId: true },
+    select: { xUserId: true, xUsername: true, profilePicUrl: true, youtubeChannelId: true, tiktokUserId: true, tiktokUsername: true },
   })
 
-  if (isYouTube) {
+  if (isTikTok) {
+    if (!user?.tiktokUserId) {
+      return Response.json(
+        { success: false, error: 'TIKTOK_ACCOUNT_REQUIRED', message: 'You must link your TikTok account before submitting a competition entry. Go to your profile to connect it.' },
+        { status: 400 }
+      )
+    }
+  } else if (isYouTube) {
     if (!user?.youtubeChannelId) {
       return Response.json(
         { success: false, error: 'YOUTUBE_ACCOUNT_REQUIRED', message: 'You must link your YouTube channel before submitting a competition entry. Go to your profile to connect it.' },
@@ -144,7 +164,41 @@ export async function POST(
   let postText: string | undefined
   let postMedia: any[] = []
 
-  if (isYouTube) {
+  if (isTikTok) {
+    const tiktokToken = await getValidTikTokToken(userId)
+    if (!tiktokToken) {
+      return Response.json(
+        { success: false, error: 'TIKTOK_TOKEN_EXPIRED', message: 'Your TikTok session has expired. Please re-link your TikTok account in your profile.' },
+        { status: 400 }
+      )
+    }
+
+    let ttMetrics: Awaited<ReturnType<typeof getTikTokVideoMetrics>>
+    try {
+      ttMetrics = await getTikTokVideoMetrics(tiktokVideoId!, tiktokToken)
+    } catch (e: any) {
+      return Response.json(
+        { success: false, error: 'TIKTOK_API_ERROR', message: e.message || 'Failed to fetch video data from TikTok.' },
+        { status: 400 }
+      )
+    }
+
+    if (!task.allowPreLivePosts && new Date(ttMetrics.createTime * 1000) < task.createdAt) {
+      return Response.json(
+        { success: false, error: 'POST_TOO_OLD', message: 'This video was posted before the competition started. Please submit a video posted after the competition launch.' },
+        { status: 400 }
+      )
+    }
+
+    viewCount = ttMetrics.viewCount
+    likeCount = ttMetrics.likeCount
+    commentCount = ttMetrics.commentCount
+    retweetCount = ttMetrics.shareCount
+    postText = ttMetrics.title || ttMetrics.description
+    if (ttMetrics.coverImageUrl) {
+      postMedia = [{ type: 'photo', url: ttMetrics.coverImageUrl }]
+    }
+  } else if (isYouTube) {
     let ytMetrics: Awaited<ReturnType<typeof getYouTubeVideoMetrics>>
     try {
       ytMetrics = await getYouTubeVideoMetrics(youtubeVideoId!)
@@ -261,8 +315,8 @@ export async function POST(
       },
     })
 
-    const authorName = isYouTube ? undefined : (user.xUsername ? `@${user.xUsername}` : undefined)
-    const authorUsername = isYouTube ? undefined : user.xUsername
+    const authorName = isTikTok ? (user.tiktokUsername ? `@${user.tiktokUsername}` : undefined) : isYouTube ? undefined : (user.xUsername ? `@${user.xUsername}` : undefined)
+    const authorUsername = isTikTok ? user.tiktokUsername : isYouTube ? undefined : user.xUsername
 
     const submission = await tx.submission.create({
       data: {
@@ -271,6 +325,7 @@ export async function POST(
         postUrl,
         ...(xPostId ? { xPostId } : {}),
         ...(youtubeVideoId ? { youtubeVideoId } : {}),
+        ...(tiktokVideoId ? { tiktokVideoId } : {}),
         postText,
         postMedia: postMedia.length > 0 ? (postMedia as any) : undefined,
         postAuthorName: authorName,

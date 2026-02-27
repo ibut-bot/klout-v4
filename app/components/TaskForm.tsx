@@ -26,7 +26,7 @@ export default function TaskForm() {
   const [description, setDescription] = useState('')
   const [budget, setBudget] = useState('')
   const [taskType, setTaskType] = useState<'QUOTE' | 'COMPETITION' | 'CAMPAIGN'>('CAMPAIGN')
-  const [platform, setPlatform] = useState<'X' | 'YOUTUBE'>('X')
+  const [platform, setPlatform] = useState<'X' | 'YOUTUBE' | 'TIKTOK'>('X')
   const [durationDays, setDurationDays] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -393,7 +393,7 @@ export default function TaskForm() {
       <div>
         <label className="mb-1.5 block text-sm font-medium text-zinc-200">Platform</label>
         <div className="flex gap-2">
-          {(['X', 'YOUTUBE'] as const).map((p) => (
+          {(['X', 'YOUTUBE', 'TIKTOK'] as const).map((p) => (
             <button
               key={p}
               type="button"
@@ -402,23 +402,29 @@ export default function TaskForm() {
                 platform === p
                   ? p === 'YOUTUBE'
                     ? 'border-red-500 bg-red-500/10 text-red-400'
-                    : 'border-accent bg-accent/10 text-accent'
+                    : p === 'TIKTOK'
+                      ? 'border-pink-500 bg-pink-500/10 text-pink-400'
+                      : 'border-accent bg-accent/10 text-accent'
                   : 'border-k-border bg-surface text-zinc-400 hover:border-zinc-500'
               }`}
             >
               {p === 'X' ? (
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+              ) : p === 'TIKTOK' ? (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.73a8.19 8.19 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.16z"/></svg>
               ) : (
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               )}
-              {p === 'X' ? 'X (Twitter)' : 'YouTube'}
+              {p === 'X' ? 'X (Twitter)' : p === 'TIKTOK' ? 'TikTok' : 'YouTube'}
             </button>
           ))}
         </div>
         <p className="mt-1 text-xs text-zinc-500">
           {platform === 'X'
             ? 'Participants will submit X (Twitter) posts.'
-            : 'Participants will submit YouTube videos.'}
+            : platform === 'TIKTOK'
+              ? 'Participants will submit TikTok videos.'
+              : 'Participants will submit YouTube videos.'}
         </p>
       </div>
 
@@ -783,7 +789,7 @@ export default function TaskForm() {
                   placeholder="10"
                   className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
                 />
-                <p className="mt-0.5 text-[10px] text-zinc-600">{platform === 'YOUTUBE' ? 'Max % of total budget a single user can earn. Defaults to 10%.' : 'Ceiling for top Klout score users. Lower scores are scaled down. Defaults to 10%.'}</p>
+                <p className="mt-0.5 text-[10px] text-zinc-600">{platform === 'X' ? 'Ceiling for top Klout score users. Lower scores are scaled down. Defaults to 10%.' : 'Max % of total budget a single user can earn. Defaults to 10%.'}</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Max per post (%)</label>
@@ -802,7 +808,7 @@ export default function TaskForm() {
             </div>
           </div>
 
-          {platform !== 'YOUTUBE' && (
+          {platform === 'X' && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Klout Score — optional</label>
             <input
@@ -819,7 +825,7 @@ export default function TaskForm() {
           </div>
           )}
 
-          {platform !== 'YOUTUBE' && (
+          {platform === 'X' && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-200">Klout Score Bonus — optional</label>
             <p className="mb-3 text-xs text-zinc-500">Offer a one-time flat bonus to high Klout score users on their first submission. The bonus scales exponentially — top scorers get the full amount, lower-eligible users get less. Both fields are required to enable the bonus.</p>

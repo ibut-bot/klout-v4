@@ -41,6 +41,7 @@ interface CampaignSubmission {
   postUrl: string
   xPostId: string | null
   youtubeVideoId: string | null
+  tiktokVideoId: string | null
   viewCount: number | null
   viewsReadAt: string | null
   payoutLamports: string | null
@@ -61,6 +62,8 @@ interface CampaignSubmission {
     youtubeSubscriberCount?: number | null
     youtubeVideoCount?: number | null
     youtubeViewCount?: string | null
+    tiktokFollowerCount?: number | null
+    tiktokVideoCount?: number | null
   }
   cpmMultiplierApplied: number | null
   createdAt: string
@@ -87,7 +90,7 @@ interface Props {
   customTokenDecimals?: number | null
   taskStatus?: string
   onStatusChange?: (newStatus: string) => void
-  platform?: 'X' | 'YOUTUBE'
+  platform?: 'X' | 'YOUTUBE' | 'TIKTOK'
 }
 
 function formatSol(lamports: string | number, decimals = 4): string {
@@ -776,7 +779,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       if (t.minLikes > 0) reqs.push(`Min ${t.minLikes.toLocaleString()} likes per post`)
       if (t.minRetweets > 0) reqs.push(`Min ${t.minRetweets.toLocaleString()} retweets per post`)
       if (t.minComments > 0) reqs.push(`Min ${t.minComments.toLocaleString()} comments per post`)
-      if (platform !== 'YOUTUBE' && t.minKloutScore) reqs.push(`Min Klout Score: ${t.minKloutScore.toLocaleString()}`)
+      if (platform === 'X' && t.minKloutScore) reqs.push(`Min Klout Score: ${t.minKloutScore.toLocaleString()}`)
       if (Number(t.minPayoutLamports) > 0) reqs.push(`Min payout threshold: ${fmtBudget(t.minPayoutLamports)} ${sym}`)
       if (t.maxBudgetPerUserPercent) reqs.push(`Max ${t.maxBudgetPerUserPercent}% of budget per user`)
       if (t.maxBudgetPerPostPercent) reqs.push(`Max ${t.maxBudgetPerPostPercent}% of budget per post`)
@@ -974,7 +977,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       if (paidOrApproved.length > 0) {
 
         // ── Page: Klout Score Tranche (X campaigns only) ──
-        if (platform !== 'YOUTUBE') {
+        if (platform === 'X') {
         const scoreTranches: Record<string, { total: number; count: number; color: string }> = {
           '0-500': { total: 0, count: 0, color: '#94a3b8' },
           '500-1k': { total: 0, count: 0, color: '#60a5fa' },
@@ -1735,9 +1738,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   />
                 </div>
                 {capReached && (
-                  <p className="mt-1 text-xs text-red-400">You&apos;ve reached your earning limit.{platform !== 'YOUTUBE' && ' Increase your Klout score to unlock a higher cap.'}</p>
+                  <p className="mt-1 text-xs text-red-400">You&apos;ve reached your earning limit.{platform === 'X' && ' Increase your Klout score to unlock a higher cap.'}</p>
                 )}
-                {platform !== 'YOUTUBE' && <p className="mt-1 text-[10px] text-zinc-600">Based on your Klout Score</p>}
+                {platform === 'X' && <p className="mt-1 text-[10px] text-zinc-600">Based on your Klout Score</p>}
               </div>
             )}
             <div className="flex justify-between text-zinc-400">
@@ -1920,7 +1923,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                     </td>
                     <td className="py-3 pr-4">
                       <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover text-blue-400">
-                        {s.xPostId || s.youtubeVideoId || 'View'}
+                        {s.xPostId || s.youtubeVideoId || s.tiktokVideoId || 'View'}
                       </a>
                     </td>
                     {platform === 'YOUTUBE' ? (
@@ -1952,7 +1955,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         const multiplier = s.cpmMultiplierApplied ?? 1.0
                         const effectiveCpm = Number(stats.cpmLamports) * multiplier
                         return (
-                          <span className="text-xs" title={platform !== 'YOUTUBE' ? `Multiplier: ${multiplier}x` : undefined}>
+                          <span className="text-xs" title={platform === 'X' ? `Multiplier: ${multiplier}x` : undefined}>
                             {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
                           </span>
                         )
@@ -2263,7 +2266,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                           <tr key={s.id} className="border-b border-k-border/50">
                             <td className="py-3 pr-4">
                               <a href={s.postUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-                                {s.xPostId || s.youtubeVideoId || 'View'}
+                                {s.xPostId || s.youtubeVideoId || s.tiktokVideoId || 'View'}
                               </a>
                             </td>
                             {platform === 'YOUTUBE' ? (
@@ -2295,7 +2298,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 const multiplier = s.cpmMultiplierApplied ?? 1.0
                                 const effectiveCpm = Number(stats.cpmLamports) * multiplier
                                 return (
-                                  <span className="text-xs" title={platform !== 'YOUTUBE' ? `Multiplier: ${multiplier}x` : undefined}>
+                                  <span className="text-xs" title={platform === 'X' ? `Multiplier: ${multiplier}x` : undefined}>
                                     {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
                                   </span>
                                 )

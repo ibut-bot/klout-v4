@@ -164,6 +164,7 @@ export default function TaskDetailPage() {
   } | null>(null)
   const [xLinked, setXLinked] = useState(false)
   const [youtubeLinked, setYoutubeLinked] = useState(false)
+  const [tiktokLinked, setTiktokLinked] = useState(false)
   const [hasKloutScore, setHasKloutScore] = useState(false)
   const [kloutScore, setKloutScore] = useState(0)
   const [dashboardRefresh, setDashboardRefresh] = useState(0)
@@ -256,14 +257,17 @@ export default function TaskDetailPage() {
   const fetchXStatus = useCallback(async () => {
     if (!isAuthenticated) return
     try {
-      const [xRes, ytRes] = await Promise.all([
+      const [xRes, ytRes, ttRes] = await Promise.all([
         authFetch('/api/auth/x/status'),
         authFetch('/api/auth/youtube/status'),
+        authFetch('/api/auth/tiktok/status'),
       ])
       const xData = await xRes.json()
       const ytData = await ytRes.json()
+      const ttData = await ttRes.json()
       if (xData.success) setXLinked(xData.linked)
       if (ytData.success) setYoutubeLinked(ytData.linked)
+      if (ttData.success) setTiktokLinked(ttData.linked)
     } catch {}
   }, [isAuthenticated, authFetch])
 
@@ -566,7 +570,7 @@ export default function TaskDetailPage() {
         <div className="mb-6">
           <CompetitionEntryForm
             taskId={task.id}
-            platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
+            platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK' | 'TIKTOK') || 'X'}
             onEntrySubmitted={refreshAll}
           />
         </div>
@@ -1061,7 +1065,7 @@ export default function TaskDetailPage() {
               customTokenDecimals={task.customTokenDecimals}
               taskStatus={task.status}
               onStatusChange={(newStatus) => { setTask({ ...task, status: newStatus }); fetchTask() }}
-              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
+              platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK') || 'X'}
             />
           )}
 
@@ -1105,10 +1109,11 @@ export default function TaskDetailPage() {
               minKloutScore={campaignConfig.minKloutScore}
               requireFollowX={campaignConfig.requireFollowX}
               collateralLink={campaignConfig.collateralLink}
-              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
+              platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK' | 'TIKTOK') || 'X'}
               kloutScore={kloutScore}
               xLinked={xLinked}
               youtubeLinked={youtubeLinked}
+              tiktokLinked={tiktokLinked}
               hasKloutScore={hasKloutScore}
               onSubmitted={() => { fetchTask(); setDashboardRefresh(n => n + 1) }}
               paymentToken={(task.paymentToken as PaymentTokenType) || 'SOL'}
@@ -1129,7 +1134,7 @@ export default function TaskDetailPage() {
               customTokenMint={task.customTokenMint}
               customTokenSymbol={task.customTokenSymbol}
               customTokenDecimals={task.customTokenDecimals}
-              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
+              platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK') || 'X'}
             />
           )}
 

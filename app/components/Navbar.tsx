@@ -59,6 +59,8 @@ export default function Navbar() {
   const [youtubeChannelId, setYoutubeChannelId] = useState<string | null>(null)
   const [youtubeChannelTitle, setYoutubeChannelTitle] = useState<string | null>(null)
   const [linkingYouTube, setLinkingYouTube] = useState(false)
+  const [tiktokUsername, setTiktokUsername] = useState<string | null>(null)
+  const [linkingTikTok, setLinkingTikTok] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -70,7 +72,8 @@ export default function Navbar() {
         authFetch('/api/profile/avatar').then((r) => r.json()).catch(() => null),
         authFetch('/api/auth/x/status').then((r) => r.json()).catch(() => null),
         authFetch('/api/auth/youtube/status').then((r) => r.json()).catch(() => null),
-      ]).then(([avatarData, xData, ytData]) => {
+        authFetch('/api/auth/tiktok/status').then((r) => r.json()).catch(() => null),
+      ]).then(([avatarData, xData, ytData, ttData]) => {
         if (avatarData?.success) {
           setProfilePic(avatarData.profilePicUrl)
           setUsername(avatarData.username)
@@ -80,6 +83,7 @@ export default function Navbar() {
           setYoutubeChannelId(ytData.youtubeChannelId)
           setYoutubeChannelTitle(ytData.youtubeChannelTitle)
         }
+        if (ttData?.success && ttData.linked) setTiktokUsername(ttData.tiktokUsername)
       })
     } else {
       setProfilePic(null)
@@ -87,6 +91,7 @@ export default function Navbar() {
       setXUsername(null)
       setYoutubeChannelId(null)
       setYoutubeChannelTitle(null)
+      setTiktokUsername(null)
     }
   }, [isAuthenticated, authFetch])
 
@@ -247,6 +252,29 @@ export default function Navbar() {
         setYoutubeChannelId(null)
         setYoutubeChannelTitle(null)
       }
+    } catch {}
+    setShowDropdown(false)
+  }
+
+  const handleLinkTikTok = async () => {
+    setLinkingTikTok(true)
+    try {
+      const returnTo = encodeURIComponent(window.location.pathname)
+      const res = await authFetch(`/api/auth/tiktok/authorize?returnTo=${returnTo}`)
+      const data = await res.json()
+      if (data.success && data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch {
+      setLinkingTikTok(false)
+    }
+  }
+
+  const handleUnlinkTikTok = async () => {
+    try {
+      const res = await authFetch('/api/auth/tiktok/unlink', { method: 'POST' })
+      const data = await res.json()
+      if (data.success) setTiktokUsername(null)
     } catch {}
     setShowDropdown(false)
   }
@@ -524,6 +552,31 @@ export default function Navbar() {
                     >
                       <svg className="h-3.5 w-3.5 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                       {linkingYouTube ? 'Redirecting...' : 'Link YouTube Channel'}
+                    </button>
+                  )}
+
+                  {/* TikTok Account linking */}
+                  {tiktokUsername ? (
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-k-border">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="h-3.5 w-3.5 text-zinc-300" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.73a8.19 8.19 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.16z"/></svg>
+                        <span className="text-sm text-zinc-300">@{tiktokUsername}</span>
+                      </div>
+                      <button
+                        onClick={handleUnlinkTikTok}
+                        className="text-xs text-red-500 hover:text-red-400"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleLinkTikTok}
+                      disabled={linkingTikTok}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-300 hover:bg-surface-hover"
+                    >
+                      <svg className="h-3.5 w-3.5 text-zinc-400" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.2a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.73a8.19 8.19 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.16z"/></svg>
+                      {linkingTikTok ? 'Redirecting...' : 'Link TikTok Account'}
                     </button>
                   )}
 
