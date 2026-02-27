@@ -28,6 +28,7 @@ interface Task {
   bidCount: number
   submissionCount?: number
   budgetRemainingLamports?: string | null
+  platform?: string
   imageUrl?: string | null
   imageTransform?: ImageTransform | null
   maxWinners?: number

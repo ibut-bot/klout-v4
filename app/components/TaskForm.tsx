@@ -783,7 +783,7 @@ export default function TaskForm() {
                   placeholder="10"
                   className="w-full rounded-lg border border-k-border bg-surface px-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-300 focus:border-accent/50 focus:outline-none"
                 />
-                <p className="mt-0.5 text-[10px] text-zinc-600">Ceiling for top Klout score users. Lower scores are scaled down. Defaults to 10%.</p>
+                <p className="mt-0.5 text-[10px] text-zinc-600">{platform === 'YOUTUBE' ? 'Max % of total budget a single user can earn. Defaults to 10%.' : 'Ceiling for top Klout score users. Lower scores are scaled down. Defaults to 10%.'}</p>
               </div>
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">Max per post (%)</label>
@@ -802,6 +802,7 @@ export default function TaskForm() {
             </div>
           </div>
 
+          {platform !== 'YOUTUBE' && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-200">Minimum Klout Score — optional</label>
             <input
@@ -816,7 +817,9 @@ export default function TaskForm() {
             />
             <p className="mt-1 text-xs text-zinc-500">Participants must have at least this Klout score to submit. Leave empty for no requirement.</p>
           </div>
+          )}
 
+          {platform !== 'YOUTUBE' && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-200">Klout Score Bonus — optional</label>
             <p className="mb-3 text-xs text-zinc-500">Offer a one-time flat bonus to high Klout score users on their first submission. The bonus scales exponentially — top scorers get the full amount, lower-eligible users get less. Both fields are required to enable the bonus.</p>
@@ -850,6 +853,7 @@ export default function TaskForm() {
               </div>
             </div>
           </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-200">Require Follow on X — optional</label>

@@ -130,19 +130,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return { error: 'BUDGET_EXHAUSTED' }
     }
 
-    // Determine per-user cap: scaled by Klout score multiplier
-    // maxBudgetPerUserPercent is the ceiling for the top user (1.0x); defaults to 10%
+    // Determine per-user cap (Klout-scaled for X, flat for YouTube)
     let effectiveCeiling = budgetRemaining
 
-    const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+    const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true, platform: true } })
     if (totalBudget) {
       const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
-      const latestScore = await tx.xScoreData.findFirst({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        select: { totalScore: true },
-      })
-      const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+      let userMultiplier = 1
+      if (totalBudget.platform !== 'YOUTUBE') {
+        const latestScore = await tx.xScoreData.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          select: { totalScore: true },
+        })
+        userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+      }
       const userPercent = topUserPercent * userMultiplier
       const maxPerUser = BigInt(Math.floor(Number(totalBudget.budgetLamports) * (userPercent / 100)))
 

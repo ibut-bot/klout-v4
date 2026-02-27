@@ -53,6 +53,7 @@ interface Task {
     bonusMinKloutScore?: number | null
     bonusMaxLamports?: string | null
   } | null
+  platform?: string
   isPublicFeed?: boolean
   allowPreLivePosts?: boolean
   winningBid?: {
@@ -708,7 +709,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Budget Caps — optional</label>
-              <p className="mb-2 text-[10px] text-zinc-600">Max per user sets the ceiling for top Klout score users — lower-score users are scaled down automatically. Defaults to 10% if not set.</p>
+              <p className="mb-2 text-[10px] text-zinc-600">{task.platform === 'YOUTUBE' ? 'Max per user sets the ceiling for how much a single user can earn. Defaults to 10% if not set.' : 'Max per user sets the ceiling for top Klout score users — lower-score users are scaled down automatically. Defaults to 10% if not set.'}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-0.5 block text-[10px] text-zinc-500">Max per top user (%)</label>
@@ -745,13 +746,16 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               <p className="mt-0.5 text-[10px] text-zinc-600">Participants must accumulate at least this much before requesting payment. Can only be increased.{Number(task.campaignConfig?.minPayoutLamports ?? 0) > 0 ? ` Current: ${(Number(task.campaignConfig!.minPayoutLamports) / mult).toFixed(4)} ${tInfo.symbol}` : ''}</p>
             </div>
 
+            {task.platform !== 'YOUTUBE' && (
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Klout Score — optional</label>
               <input type="number" min="0" max="10000" step="1" value={editMinKloutScore} onChange={(e) => setEditMinKloutScore(e.target.value)} placeholder="No minimum"
                 className="w-full rounded-lg border border-k-border bg-zinc-900 px-2 py-1 text-xs text-zinc-100 focus:border-accent/50 focus:outline-none" />
               <p className="mt-0.5 text-[10px] text-zinc-600">Participants must have at least this Klout score. Leave empty for no requirement.</p>
             </div>
+            )}
 
+            {task.platform !== 'YOUTUBE' && (
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Klout Score Bonus — optional</label>
               <p className="mb-2 text-[10px] text-zinc-600">One-time flat bonus for high Klout score users on their first submission. Both fields required to enable.</p>
@@ -768,6 +772,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
                 </div>
               </div>
             </div>
+            )}
 
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Require Follow on X — optional</label>

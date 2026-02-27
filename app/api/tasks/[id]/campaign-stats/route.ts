@@ -72,13 +72,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .filter((s) => s.submitterId === userId && ['APPROVED', 'PAYMENT_REQUESTED', 'PAID'].includes(s.status) && s.payoutLamports)
     .reduce((sum, s) => sum + Number(s.payoutLamports), 0)
 
-  // Calculate this user's Klout-based budget cap
-  const latestScore = await prisma.xScoreData.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    select: { totalScore: true },
-  })
-  const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+  // Calculate this user's budget cap (Klout-scaled for X, flat for YouTube)
+  let userMultiplier = 1
+  if (task.platform !== 'YOUTUBE') {
+    const latestScore = await prisma.xScoreData.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { totalScore: true },
+    })
+    userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+  }
   const topUserPercent = task.campaignConfig.maxBudgetPerUserPercent ?? 10
   const userPercent = topUserPercent * userMultiplier
   const myBudgetCap = Math.floor(Number(task.budgetLamports) * (userPercent / 100))

@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-helpers'
 import { createNotification } from '@/lib/notifications'
 import { formatTokenAmount, resolveTokenInfo, type PaymentTokenType } from '@/lib/token-utils'
 import { getValidXToken, getPostMetrics } from '@/lib/x-api'
+import { getYouTubeVideoMetrics } from '@/lib/youtube-api'
 import { getKloutCpmMultiplier } from '@/lib/klout-cpm'
 import { calculateFlatBonus } from '@/lib/klout-bonus'
 
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       taskId: true,
       submitterId: true,
       xPostId: true,
+      youtubeVideoId: true,
       status: true,
       viewCount: true,
       likeCount: true,
@@ -90,51 +92,71 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
+  const isYouTube = task.platform === 'YOUTUBE'
+
   let viewCount = submission.viewCount ?? 0
   let likeCount = submission.likeCount ?? 0
   let retweetCount = submission.retweetCount ?? 0
   let commentCount = submission.commentCount ?? 0
 
   if (viewCount === 0) {
-    const accessToken = await getValidXToken(submission.submitterId)
-    if (!accessToken) {
-      return Response.json(
-        { success: false, error: 'X_TOKEN_EXPIRED', message: 'Submitter\'s X account token has expired. They need to re-link their X account before this override can proceed.' },
-        { status: 400 }
-      )
-    }
+    if (isYouTube && submission.youtubeVideoId) {
+      try {
+        const ytMetrics = await getYouTubeVideoMetrics(submission.youtubeVideoId)
+        viewCount = ytMetrics.viewCount
+        likeCount = ytMetrics.likeCount
+        commentCount = ytMetrics.commentCount
 
-    try {
-      const postMetrics = await getPostMetrics(submission.xPostId!, accessToken)
-      viewCount = postMetrics.viewCount
-      likeCount = postMetrics.likeCount
-      retweetCount = postMetrics.retweetCount
-      commentCount = postMetrics.commentCount
+        await prisma.campaignSubmission.update({
+          where: { id: submissionId },
+          data: { viewCount, likeCount, commentCount, viewsReadAt: new Date() },
+        })
+      } catch (err: any) {
+        return Response.json(
+          { success: false, error: 'YOUTUBE_API_ERROR', message: `Failed to fetch video metrics: ${err.message}` },
+          { status: 502 }
+        )
+      }
+    } else {
+      const accessToken = await getValidXToken(submission.submitterId)
+      if (!accessToken) {
+        return Response.json(
+          { success: false, error: 'X_TOKEN_EXPIRED', message: 'Submitter\'s X account token has expired. They need to re-link their X account before this override can proceed.' },
+          { status: 400 }
+        )
+      }
 
-      await prisma.campaignSubmission.update({
-        where: { id: submissionId },
-        data: {
-          viewCount,
-          likeCount,
-          retweetCount,
-          commentCount,
-          viewsReadAt: new Date(),
-        },
-      })
-    } catch (err: any) {
-      return Response.json(
-        { success: false, error: 'X_API_ERROR', message: `Failed to fetch post metrics: ${err.message}` },
-        { status: 502 }
-      )
+      try {
+        const postMetrics = await getPostMetrics(submission.xPostId!, accessToken)
+        viewCount = postMetrics.viewCount
+        likeCount = postMetrics.likeCount
+        retweetCount = postMetrics.retweetCount
+        commentCount = postMetrics.commentCount
+
+        await prisma.campaignSubmission.update({
+          where: { id: submissionId },
+          data: { viewCount, likeCount, retweetCount, commentCount, viewsReadAt: new Date() },
+        })
+      } catch (err: any) {
+        return Response.json(
+          { success: false, error: 'X_API_ERROR', message: `Failed to fetch post metrics: ${err.message}` },
+          { status: 502 }
+        )
+      }
     }
   }
 
-  const submitter = await prisma.user.findUnique({
-    where: { id: submission.submitterId },
-    select: { xScores: { select: { totalScore: true }, orderBy: { createdAt: 'desc' as const }, take: 1 } },
-  })
-  const kloutScore = submitter?.xScores?.[0]?.totalScore ?? 0
-  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  // YouTube: full CPM (no Klout scaling); X: Klout-scaled CPM
+  let kloutScore = 0
+  let cpmMultiplier = 1
+  if (!isYouTube) {
+    const submitter = await prisma.user.findUnique({
+      where: { id: submission.submitterId },
+      select: { xScores: { select: { totalScore: true }, orderBy: { createdAt: 'desc' as const }, take: 1 } },
+    })
+    kloutScore = submitter?.xScores?.[0]?.totalScore ?? 0
+    cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  }
   const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
   let payoutLamports = BigInt(Math.floor((viewCount / 1000) * effectiveCpm))
 
@@ -145,8 +167,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
+  // Klout bonus only for X campaigns
   let flatBonusLamports = BigInt(0)
-  if (config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
+  if (!isYouTube && config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
     if (kloutScore >= config.bonusMinKloutScore) {
       const priorApproved = await prisma.campaignSubmission.count({
         where: {

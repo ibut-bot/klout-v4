@@ -107,7 +107,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!publicKey || !xLinked || formDisabled) return
+    if (!publicKey || !accountLinked || formDisabled) return
     setError('')
     setResult(null)
     setLoading(true)
@@ -127,9 +127,9 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         }
       }
 
-      // Step 1: Pay API fee (adjusted by Klout score + repeat submission surcharge)
+      // Step 1: Pay API fee (YouTube: base fee; X: Klout-adjusted + repeat surcharge)
       setStep('paying')
-      const feeLamports = getKloutAdjustedFee(kloutScore, priorSubmissionCount)
+      const feeLamports = getKloutAdjustedFee(isYouTube ? 10000 : kloutScore, priorSubmissionCount)
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
       const tx = new Transaction()
       tx.recentBlockhash = blockhash
@@ -186,11 +186,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     }
   }
 
-  const feeSol = (getKloutAdjustedFee(kloutScore, priorSubmissionCount) / LAMPORTS_PER_SOL).toFixed(4)
+  const isYouTube = platform === 'YOUTUBE'
+  const accountLinked = isYouTube ? youtubeLinked : xLinked
+
+  const feeSol = (getKloutAdjustedFee(isYouTube ? 10000 : kloutScore, priorSubmissionCount) / LAMPORTS_PER_SOL).toFixed(4)
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
-  const cpmDisplay = formatTokenAmount(cpmLamports, tInfo, 2)
-  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  const cpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(kloutScore)
   const effectiveCpmLamports = Math.floor(Number(cpmLamports) * cpmMultiplier).toString()
   const effectiveCpmDisplay = formatTokenAmount(effectiveCpmLamports, tInfo, 2)
   const topUserPercent = maxBudgetPerUserPercent ?? 10
@@ -201,9 +203,6 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
   const minPayoutDisplay = minPayoutLamports && Number(minPayoutLamports) > 0
     ? formatTokenAmount(minPayoutLamports, tInfo, 2)
     : null
-
-  const isYouTube = platform === 'YOUTUBE'
-  const accountLinked = isYouTube ? youtubeLinked : xLinked
 
   if (!accountLinked) {
     return (
@@ -217,7 +216,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
     )
   }
 
-  if (!hasKloutScore) {
+  if (!isYouTube && !hasKloutScore) {
     return (
       <div className="rounded-xl border border-amber-800 bg-amber-500/10 p-5 space-y-3">
         <div className="flex items-start gap-3">
@@ -246,11 +245,13 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
       {/* Campaign Info Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
-          <p className="text-[11px] text-zinc-500">Your CPM (per 1,000 views)</p>
+          <p className="text-[11px] text-zinc-500">{isYouTube ? 'CPM (per 1,000 views)' : 'Your CPM (per 1,000 views)'}</p>
           <p className="mt-1 text-sm font-semibold text-zinc-100">{effectiveCpmDisplay} {sym}</p>
-          <p className="mt-0.5 text-[10px] text-zinc-500">
-            Based on your Klout Score{cpmMultiplier < 1 && <> &middot; <a href="/my-score" className="text-accent hover:underline">boost your score</a></>}
-          </p>
+          {!isYouTube && (
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              Based on your Klout Score{cpmMultiplier < 1 && <> &middot; <a href="/my-score" className="text-accent hover:underline">boost your score</a></>}
+            </p>
+          )}
         </div>
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Budget remaining</p>
@@ -298,7 +299,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
           <p className="text-[11px] text-zinc-500">Your max earning</p>
           <p className="mt-1 text-sm font-semibold text-zinc-100">{userMaxDisplay} {sym}</p>
-          <p className="mt-0.5 text-[10px] text-zinc-500">Based on your Klout Score</p>
+          {!isYouTube && <p className="mt-0.5 text-[10px] text-zinc-500">Based on your Klout Score</p>}
         </div>
         {maxBudgetPerPostPercent != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
@@ -306,19 +307,21 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
             <p className="mt-1 text-sm font-semibold text-zinc-100">{maxBudgetPerPostPercent}% of budget</p>
           </div>
         )}
-        {minKloutScore != null && (
+        {!isYouTube && minKloutScore != null && (
           <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
             <p className="text-[11px] text-zinc-500">Min Klout score</p>
             <p className="mt-1 text-sm font-semibold text-zinc-100">{minKloutScore.toLocaleString()}</p>
           </div>
         )}
-        <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
-          <p className="text-[11px] text-zinc-500">Your Klout Score</p>
-          <p className="mt-1 text-sm font-semibold text-zinc-100">{Math.round(kloutScore).toLocaleString()}</p>
-          <p className="mt-0.5 text-[10px] text-zinc-500">
-            <a href="/my-score" className="text-accent hover:underline">View details</a>
-          </p>
-        </div>
+        {!isYouTube && (
+          <div className="rounded-xl border border-k-border bg-zinc-800/50 p-3">
+            <p className="text-[11px] text-zinc-500">Your Klout Score</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-100">{Math.round(kloutScore).toLocaleString()}</p>
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              <a href="/my-score" className="text-accent hover:underline">View details</a>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Follow requirement */}
@@ -386,7 +389,7 @@ export default function CampaignSubmitForm({ taskId, guidelines, cpmLamports, bu
         ) : capReached ? (
           <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-sm space-y-1">
             <p className="font-medium text-amber-400">You&apos;ve reached your earning cap for this campaign</p>
-            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo, 2)} of your {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym} limit. Increase your Klout score to unlock a higher cap.</p>
+            <p className="text-xs text-zinc-400">You&apos;ve earned {formatTokenAmount(myTotalEarned, tInfo, 2)} of your {formatTokenAmount(myBudgetCap, tInfo, 2)} {sym} limit.{!isYouTube && ' Increase your Klout score to unlock a higher cap.'}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3">

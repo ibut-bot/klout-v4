@@ -1061,6 +1061,7 @@ export default function TaskDetailPage() {
               customTokenDecimals={task.customTokenDecimals}
               taskStatus={task.status}
               onStatusChange={(newStatus) => { setTask({ ...task, status: newStatus }); fetchTask() }}
+              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
             />
           )}
 
@@ -1128,6 +1129,7 @@ export default function TaskDetailPage() {
               customTokenMint={task.customTokenMint}
               customTokenSymbol={task.customTokenSymbol}
               customTokenDecimals={task.customTokenDecimals}
+              platform={(task.platform as 'X' | 'YOUTUBE') || 'X'}
             />
           )}
 
@@ -1154,10 +1156,10 @@ export default function TaskDetailPage() {
                   {campaignConfig.maxBudgetPerPostPercent != null && (
                     <p>Max per post: {campaignConfig.maxBudgetPerPostPercent}% of budget</p>
                   )}
-                  {campaignConfig.minKloutScore != null && (
+                  {task.platform !== 'YOUTUBE' && campaignConfig.minKloutScore != null && (
                     <p>Min Klout score: {campaignConfig.minKloutScore.toLocaleString()}</p>
                   )}
-                  {campaignConfig.bonusMinKloutScore != null && campaignConfig.bonusMaxLamports != null && (
+                  {task.platform !== 'YOUTUBE' && campaignConfig.bonusMinKloutScore != null && campaignConfig.bonusMaxLamports != null && (
                     <p>Klout bonus: Up to {formatTokenAmount(campaignConfig.bonusMaxLamports, tInfo, 2)} {tInfo.symbol} for users with score {'>='} {campaignConfig.bonusMinKloutScore.toLocaleString()} (one-time)</p>
                   )}
                   {campaignConfig.requireFollowX && (

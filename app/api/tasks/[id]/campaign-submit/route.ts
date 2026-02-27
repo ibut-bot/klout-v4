@@ -102,13 +102,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  if (!user.xScores || user.xScores.length === 0) {
-    return Response.json(
-      { success: false, error: 'NO_KLOUT_SCORE', message: 'You need a Klout score before submitting to campaigns. Calculate your score first to unlock campaign participation.' },
-      { status: 400 }
-    )
-  }
-
   // 2. Validate task
   const task = await prisma.task.findUnique({
     where: { id: taskId },
@@ -180,6 +173,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const isYouTube = task.platform === 'YOUTUBE'
+
+  // Klout score required for X campaigns only
+  if (!isYouTube && (!user.xScores || user.xScores.length === 0)) {
+    return Response.json(
+      { success: false, error: 'NO_KLOUT_SCORE', message: 'You need a Klout score before submitting to campaigns. Calculate your score first to unlock campaign participation.' },
+      { status: 400 }
+    )
+  }
 
   // Platform-specific account check
   if (isYouTube) {
@@ -253,7 +254,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     )
   }
 
-  // 6. Verify API fee payment (adjusted by Klout score + repeat submission surcharge)
+  // 6. Verify API fee payment (adjusted by Klout score + repeat submission surcharge for X; base fee for YouTube)
   if (!SYSTEM_WALLET) {
     return Response.json(
       { success: false, error: 'SERVER_CONFIG_ERROR', message: 'System wallet not configured' },
@@ -266,7 +267,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   })
 
   const userKloutScore = user.xScores[0]?.totalScore ?? 0
-  const adjustedFeeLamports = getKloutAdjustedFee(userKloutScore, priorSubmissionCount)
+  const adjustedFeeLamports = isYouTube
+    ? getKloutAdjustedFee(10000, priorSubmissionCount) // YouTube: base fee (1x, no Klout scaling), only repeat surcharge
+    : getKloutAdjustedFee(userKloutScore, priorSubmissionCount)
   const feeVerification = await verifyPaymentTx(apiFeeTxSig, SYSTEM_WALLET, adjustedFeeLamports)
   if (!feeVerification.valid) {
     return Response.json(
@@ -276,7 +279,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   // 6b. Check X verification and minimum Klout score (after fee, before X API calls)
-  const latestScoreData = await prisma.xScoreData.findFirst({
+  const latestScoreData = isYouTube ? null : await prisma.xScoreData.findFirst({
     where: { userId },
     orderBy: { createdAt: 'desc' },
     select: { totalScore: true, verifiedType: true, followersCount: true },
@@ -290,7 +293,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  if (config.minKloutScore != null) {
+  if (!isYouTube && config.minKloutScore != null) {
     const userScore = latestScoreData?.totalScore ?? 0
     if (userScore < config.minKloutScore) {
       return Response.json({
@@ -301,8 +304,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
-  // 6c. Check if user has reached their Klout-based budget cap
-  const userCpmMultiplier = getKloutCpmMultiplier(latestScoreData?.totalScore ?? 0)
+  // 6c. Check if user has reached their budget cap (Klout-scaled for X, flat for YouTube)
+  const userCpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(latestScoreData?.totalScore ?? 0)
   const topUserPercent = config.maxBudgetPerUserPercent ?? 10
   const userMaxBudget = BigInt(Math.floor(Number(task.budgetLamports) * (topUserPercent * userCpmMultiplier / 100)))
   const priorEarned = await prisma.campaignSubmission.findMany({
@@ -318,7 +321,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return Response.json({
       success: false,
       error: 'USER_CAP_REACHED',
-      message: 'You have reached your maximum earning limit for this campaign. Increase your Klout score to unlock a higher cap.',
+      message: 'You have reached your maximum earning limit for this campaign.',
     }, { status: 400 })
   }
 
@@ -592,9 +595,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }, { status: 400 })
   }
 
-  // 11. Calculate payout with Klout score-based CPM multiplier
+  // 11. Calculate payout (Klout-scaled CPM for X, full CPM for YouTube)
   const kloutScore = latestScoreData?.totalScore ?? 0
-  const cpmMultiplier = getKloutCpmMultiplier(kloutScore)
+  const cpmMultiplier = isYouTube ? 1 : getKloutCpmMultiplier(kloutScore)
   const effectiveCpm = Number(config.cpmLamports) * cpmMultiplier
   let payoutLamports = BigInt(Math.floor((postViewCount / 1000) * effectiveCpm))
 
@@ -606,9 +609,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
   }
 
-  // 11b. One-time flat bonus for high Klout score users (first submission only)
+  // 11b. One-time flat bonus for high Klout score users (first submission only, X campaigns only)
   let flatBonusLamports = BigInt(0)
-  if (config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
+  if (!isYouTube && config.bonusMinKloutScore != null && config.bonusMaxLamports != null && config.bonusMaxLamports > BigInt(0)) {
     if (kloutScore >= config.bonusMinKloutScore) {
       const priorApproved = await prisma.campaignSubmission.count({
         where: {
@@ -681,17 +684,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       if (approvedSubs.length === 0) return { error: 'NO_APPROVED' as const }
 
-      // Determine per-user cap
+      // Determine per-user cap (Klout-scaled for X, flat for YouTube)
       let effectiveCeiling = budgetRemaining
-      const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true } })
+      const totalBudget = await tx.task.findUnique({ where: { id: taskId }, select: { budgetLamports: true, platform: true } })
       if (totalBudget) {
         const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
-        const latestScore = await tx.xScoreData.findFirst({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-          select: { totalScore: true },
-        })
-        const userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+        let userMultiplier = 1
+        if (totalBudget.platform !== 'YOUTUBE') {
+          const latestScore = await tx.xScoreData.findFirst({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            select: { totalScore: true },
+          })
+          userMultiplier = getKloutCpmMultiplier(latestScore?.totalScore ?? 0)
+        }
         const userPercent = topUserPercent * userMultiplier
         const maxPerUser = BigInt(Math.floor(Number(totalBudget.budgetLamports) * (userPercent / 100)))
 

@@ -84,6 +84,7 @@ interface Props {
   customTokenDecimals?: number | null
   taskStatus?: string
   onStatusChange?: (newStatus: string) => void
+  platform?: 'X' | 'YOUTUBE'
 }
 
 function formatSol(lamports: string | number, decimals = 4): string {
@@ -128,7 +129,7 @@ function getStatusLabel(status: string, _isCreator: boolean): string {
   return STATUS_LABEL[status] || status.replace(/_/g, ' ')
 }
 
-export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals, taskStatus, onStatusChange }: Props) {
+export default function CampaignDashboard({ taskId, multisigAddress, isCreator, isSharedViewer = false, refreshTrigger, paymentToken = 'SOL', customTokenMint, customTokenSymbol, customTokenDecimals, taskStatus, onStatusChange, platform = 'X' }: Props) {
   const tInfo = resolveTokenInfo(paymentToken, customTokenMint, customTokenSymbol, customTokenDecimals)
   const sym = tInfo.symbol
   const { authFetch } = useAuth()
@@ -1720,9 +1721,9 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                   />
                 </div>
                 {capReached && (
-                  <p className="mt-1 text-xs text-red-400">You&apos;ve reached your earning limit. Increase your Klout score to unlock a higher cap.</p>
+                  <p className="mt-1 text-xs text-red-400">You&apos;ve reached your earning limit.{platform !== 'YOUTUBE' && ' Increase your Klout score to unlock a higher cap.'}</p>
                 )}
-                <p className="mt-1 text-[10px] text-zinc-600">Based on your Klout Score</p>
+                {platform !== 'YOUTUBE' && <p className="mt-1 text-[10px] text-zinc-600">Based on your Klout Score</p>}
               </div>
             )}
             <div className="flex justify-between text-zinc-400">
