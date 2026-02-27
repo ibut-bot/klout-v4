@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     client_key: TIKTOK_CLIENT_KEY,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
-    scope: 'user.info.basic',
+    scope: 'user.info.basic,user.info.profile,user.info.stats,video.list',
     state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',

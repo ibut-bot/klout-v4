@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch user profile
     const profileRes = await fetch(
-      'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,display_name,avatar_url',
+      'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,display_name,avatar_url,username,follower_count,video_count',
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
 
@@ -98,8 +98,10 @@ export async function GET(request: NextRequest) {
       const profileData = await profileRes.json()
       const user = profileData.data?.user
       if (user) {
-        tiktokUsername = user.display_name || openId
+        tiktokUsername = user.username || user.display_name || openId
         tiktokDisplayName = user.display_name || ''
+        followerCount = user.follower_count ?? null
+        videoCount = user.video_count ?? null
       }
     } else {
       console.error('TikTok profile fetch failed (non-critical):', await profileRes.text())
