@@ -305,7 +305,7 @@ export default function TaskCard({ id, title, description, budgetLamports, taskT
                   </svg>
                   {participantCount}
                 </span>
-                {platform !== 'YOUTUBE' && minKloutScore != null && (
+                {platform === 'X' && minKloutScore != null && (
                   <span className="flex items-center gap-1 rounded-md bg-white/10 backdrop-blur-sm px-2 py-0.5 text-xs font-semibold text-accent">
                     {minKloutScore.toLocaleString()}+
                     <img src="/Klout1.svg" alt="Klout" className="h-3.5 w-3.5" />

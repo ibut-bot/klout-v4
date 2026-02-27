@@ -137,7 +137,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (totalBudget) {
       const topUserPercent = freshConfig.maxBudgetPerUserPercent ?? 10
       let userMultiplier = 1
-      if (totalBudget.platform !== 'YOUTUBE') {
+      if (totalBudget.platform === 'X') {
         const latestScore = await tx.xScoreData.findFirst({
           where: { userId },
           orderBy: { createdAt: 'desc' },

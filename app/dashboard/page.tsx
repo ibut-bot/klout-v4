@@ -746,7 +746,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
               <p className="mt-0.5 text-[10px] text-zinc-600">Participants must accumulate at least this much before requesting payment. Can only be increased.{Number(task.campaignConfig?.minPayoutLamports ?? 0) > 0 ? ` Current: ${(Number(task.campaignConfig!.minPayoutLamports) / mult).toFixed(4)} ${tInfo.symbol}` : ''}</p>
             </div>
 
-            {task.platform !== 'YOUTUBE' && (
+            {task.platform === 'X' && (
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Minimum Klout Score — optional</label>
               <input type="number" min="0" max="10000" step="1" value={editMinKloutScore} onChange={(e) => setEditMinKloutScore(e.target.value)} placeholder="No minimum"
@@ -755,7 +755,7 @@ function CampaignCard({ task, onTaskUpdate, authFetch, editable = true }: Campai
             </div>
             )}
 
-            {task.platform !== 'YOUTUBE' && (
+            {task.platform === 'X' && (
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-400">Klout Score Bonus — optional</label>
               <p className="mb-2 text-[10px] text-zinc-600">One-time flat bonus for high Klout score users on their first submission. Both fields required to enable.</p>

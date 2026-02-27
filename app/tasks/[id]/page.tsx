@@ -570,7 +570,7 @@ export default function TaskDetailPage() {
         <div className="mb-6">
           <CompetitionEntryForm
             taskId={task.id}
-            platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK' | 'TIKTOK') || 'X'}
+            platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK') || 'X'}
             onEntrySubmitted={refreshAll}
           />
         </div>
@@ -1109,7 +1109,7 @@ export default function TaskDetailPage() {
               minKloutScore={campaignConfig.minKloutScore}
               requireFollowX={campaignConfig.requireFollowX}
               collateralLink={campaignConfig.collateralLink}
-              platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK' | 'TIKTOK') || 'X'}
+              platform={(task.platform as 'X' | 'YOUTUBE' | 'TIKTOK') || 'X'}
               kloutScore={kloutScore}
               xLinked={xLinked}
               youtubeLinked={youtubeLinked}
@@ -1161,10 +1161,10 @@ export default function TaskDetailPage() {
                   {campaignConfig.maxBudgetPerPostPercent != null && (
                     <p>Max per post: {campaignConfig.maxBudgetPerPostPercent}% of budget</p>
                   )}
-                  {task.platform !== 'YOUTUBE' && campaignConfig.minKloutScore != null && (
+                  {task.platform === 'X' && campaignConfig.minKloutScore != null && (
                     <p>Min Klout score: {campaignConfig.minKloutScore.toLocaleString()}</p>
                   )}
-                  {task.platform !== 'YOUTUBE' && campaignConfig.bonusMinKloutScore != null && campaignConfig.bonusMaxLamports != null && (
+                  {task.platform === 'X' && campaignConfig.bonusMinKloutScore != null && campaignConfig.bonusMaxLamports != null && (
                     <p>Klout bonus: Up to {formatTokenAmount(campaignConfig.bonusMaxLamports, tInfo, 2)} {tInfo.symbol} for users with score {'>='} {campaignConfig.bonusMinKloutScore.toLocaleString()} (one-time)</p>
                   )}
                   {campaignConfig.requireFollowX && (

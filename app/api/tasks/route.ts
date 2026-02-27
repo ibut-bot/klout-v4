@@ -159,11 +159,11 @@ export async function POST(request: NextRequest) {
   const isCompetition = resolvedTaskType === 'COMPETITION'
   const isCampaign = resolvedTaskType === 'CAMPAIGN'
 
-  const validPlatforms = ['X', 'YOUTUBE']
+  const validPlatforms = ['X', 'YOUTUBE', 'TIKTOK']
   const resolvedPlatform = platform ? String(platform).toUpperCase() : 'X'
   if (!validPlatforms.includes(resolvedPlatform)) {
     return Response.json(
-      { success: false, error: 'INVALID_PLATFORM', message: 'platform must be X or YOUTUBE' },
+      { success: false, error: 'INVALID_PLATFORM', message: 'platform must be X, YOUTUBE, or TIKTOK' },
       { status: 400 }
     )
   }

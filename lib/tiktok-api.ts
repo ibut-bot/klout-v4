@@ -105,7 +105,8 @@ export async function getTikTokVideoMetrics(
   videoId: string,
   accessToken: string
 ): Promise<TikTokVideoMetrics & { ownerId: string }> {
-  const res = await fetch('https://open.tiktokapis.com/v2/video/query/', {
+  const fields = 'id,title,video_description,create_time,cover_image_url,share_url,view_count,like_count,comment_count,share_count'
+  const res = await fetch(`https://open.tiktokapis.com/v2/video/query/?fields=${fields}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -115,18 +116,6 @@ export async function getTikTokVideoMetrics(
       filters: {
         video_ids: [videoId],
       },
-      fields: [
-        'id',
-        'title',
-        'video_description',
-        'create_time',
-        'cover_image_url',
-        'share_url',
-        'view_count',
-        'like_count',
-        'comment_count',
-        'share_count',
-      ],
     }),
   })
 

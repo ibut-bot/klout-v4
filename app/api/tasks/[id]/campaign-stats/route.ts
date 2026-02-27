@@ -74,7 +74,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   // Calculate this user's budget cap (Klout-scaled for X, flat for YouTube)
   let userMultiplier = 1
-  if (task.platform !== 'YOUTUBE') {
+  if (task.platform === 'X') {
     const latestScore = await prisma.xScoreData.findFirst({
       where: { userId },
       orderBy: { createdAt: 'desc' },
