@@ -80,9 +80,9 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenRes.json()
     const accessToken = tokenData.access_token
 
-    // Fetch the user's YouTube channel
+    // Fetch the user's YouTube channel (snippet + statistics)
     const channelRes = await fetch(
-      'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+      'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true',
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
 
@@ -101,6 +101,10 @@ export async function GET(request: NextRequest) {
     const channel = channelData.items[0]
     const channelId = channel.id
     const channelTitle = channel.snippet.title
+    const stats = channel.statistics
+    const subscriberCount = stats?.hiddenSubscriberCount ? null : parseInt(stats?.subscriberCount || '0', 10)
+    const videoCount = parseInt(stats?.videoCount || '0', 10)
+    const viewCount = BigInt(stats?.viewCount || '0')
 
     // Check if this channel is already linked to another user
     const existingLink = await prisma.user.findUnique({
@@ -114,7 +118,13 @@ export async function GET(request: NextRequest) {
 
     await prisma.user.update({
       where: { id: cookieData.userId },
-      data: { youtubeChannelId: channelId, youtubeChannelTitle: channelTitle },
+      data: {
+        youtubeChannelId: channelId,
+        youtubeChannelTitle: channelTitle,
+        youtubeSubscriberCount: subscriberCount,
+        youtubeVideoCount: videoCount,
+        youtubeViewCount: viewCount,
+      },
     })
 
     const response = NextResponse.redirect(

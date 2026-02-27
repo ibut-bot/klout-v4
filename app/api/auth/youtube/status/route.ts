@@ -12,7 +12,13 @@ export async function GET(request: NextRequest) {
 
   const user = await prisma.user.findUnique({
     where: { id: auth.userId },
-    select: { youtubeChannelId: true, youtubeChannelTitle: true },
+    select: {
+      youtubeChannelId: true,
+      youtubeChannelTitle: true,
+      youtubeSubscriberCount: true,
+      youtubeVideoCount: true,
+      youtubeViewCount: true,
+    },
   })
 
   return Response.json({
@@ -20,5 +26,8 @@ export async function GET(request: NextRequest) {
     linked: Boolean(user?.youtubeChannelId),
     youtubeChannelId: user?.youtubeChannelId || null,
     youtubeChannelTitle: user?.youtubeChannelTitle || null,
+    youtubeSubscriberCount: user?.youtubeSubscriberCount ?? null,
+    youtubeVideoCount: user?.youtubeVideoCount ?? null,
+    youtubeViewCount: user?.youtubeViewCount?.toString() ?? null,
   })
 }

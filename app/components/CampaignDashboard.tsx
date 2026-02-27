@@ -334,19 +334,19 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       lines.push(`Rejected,${rejected}`)
       lines.push('')
       lines.push('Submissions')
-      lines.push(['Submitter', 'Wallet', 'Post URL', 'Klout Score', 'Views', `Payout (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date'].map(esc).join(','))
+      const isYT = platform === 'YOUTUBE'
+      const csvHeaders = isYT
+        ? ['Submitter', 'Wallet', 'Post URL', 'Views', `Payout (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date']
+        : ['Submitter', 'Wallet', 'Post URL', 'Klout Score', 'Views', `Payout (${sym})`, 'Status', 'Rejection Reason', 'Payment Tx', 'Date']
+      lines.push(csvHeaders.map(esc).join(','))
 
       for (const s of subs) {
         const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
         const payout = s.payoutLamports ? fmtToken(s.payoutLamports) : '-'
-        lines.push([
-          name, s.submitter.walletAddress, s.postUrl,
-          s.submitter.kloutScore != null ? String(s.submitter.kloutScore) : '-',
-          s.viewCount != null ? String(s.viewCount) : '-',
-          payout, s.status.replace(/_/g, ' '),
-          s.rejectionReason || '', s.paymentTxSig || '',
-          new Date(s.createdAt).toLocaleDateString(),
-        ].map(esc).join(','))
+        const row = isYT
+          ? [name, s.submitter.walletAddress, s.postUrl, s.viewCount != null ? String(s.viewCount) : '-', payout, s.status.replace(/_/g, ' '), s.rejectionReason || '', s.paymentTxSig || '', new Date(s.createdAt).toLocaleDateString()]
+          : [name, s.submitter.walletAddress, s.postUrl, s.submitter.kloutScore != null ? String(s.submitter.kloutScore) : '-', s.viewCount != null ? String(s.viewCount) : '-', payout, s.status.replace(/_/g, ' '), s.rejectionReason || '', s.paymentTxSig || '', new Date(s.createdAt).toLocaleDateString()]
+        lines.push(row.map(esc).join(','))
       }
 
       const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
@@ -772,7 +772,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
       if (t.minLikes > 0) reqs.push(`Min ${t.minLikes.toLocaleString()} likes per post`)
       if (t.minRetweets > 0) reqs.push(`Min ${t.minRetweets.toLocaleString()} retweets per post`)
       if (t.minComments > 0) reqs.push(`Min ${t.minComments.toLocaleString()} comments per post`)
-      if (t.minKloutScore) reqs.push(`Min Klout Score: ${t.minKloutScore.toLocaleString()}`)
+      if (platform !== 'YOUTUBE' && t.minKloutScore) reqs.push(`Min Klout Score: ${t.minKloutScore.toLocaleString()}`)
       if (Number(t.minPayoutLamports) > 0) reqs.push(`Min payout threshold: ${fmtBudget(t.minPayoutLamports)} ${sym}`)
       if (t.maxBudgetPerUserPercent) reqs.push(`Max ${t.maxBudgetPerUserPercent}% of budget per user`)
       if (t.maxBudgetPerPostPercent) reqs.push(`Max ${t.maxBudgetPerPostPercent}% of budget per post`)
@@ -969,7 +969,8 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       if (paidOrApproved.length > 0) {
 
-        // ── Page: Klout Score Tranche ──
+        // ── Page: Klout Score Tranche (X campaigns only) ──
+        if (platform !== 'YOUTUBE') {
         const scoreTranches: Record<string, { total: number; count: number; color: string }> = {
           '0-500': { total: 0, count: 0, color: '#94a3b8' },
           '500-1k': { total: 0, count: 0, color: '#60a5fa' },
@@ -1027,6 +1028,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               ldy += 7
             })
           }
+        }
         }
 
         // ── Page: Geographic Region ──
@@ -1158,18 +1160,21 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
 
       const tableRows = paidSubs.map((s) => {
         const name = s.submitter.xUsername ? `@${s.submitter.xUsername}` : s.submitter.username || s.submitter.walletAddress.slice(0, 8)
-        return [
-          name,
-          s.submitter.kloutScore != null ? s.submitter.kloutScore.toLocaleString() : '-',
-          s.viewCount != null ? s.viewCount.toLocaleString() : '-',
-          s.payoutLamports ? `${fmtBudget(s.payoutLamports)} ${sym}` : '-',
-          new Date(s.createdAt).toLocaleDateString(),
-        ]
+        const row = [name]
+        if (platform !== 'YOUTUBE') row.push(s.submitter.kloutScore != null ? s.submitter.kloutScore.toLocaleString() : '-')
+        row.push(s.viewCount != null ? s.viewCount.toLocaleString() : '-')
+        row.push(s.payoutLamports ? `${fmtBudget(s.payoutLamports)} ${sym}` : '-')
+        row.push(new Date(s.createdAt).toLocaleDateString())
+        return row
       })
+
+      const pdfTableHead = platform === 'YOUTUBE'
+        ? [['Submitter', 'Views', `Payout (${sym})`, 'Date']]
+        : [['Submitter', 'Klout Score', 'Views', `Payout (${sym})`, 'Date']]
 
       autoTable(doc, {
         startY: y,
-        head: [['Submitter', 'Klout Score', 'Views', `Payout (${sym})`, 'Date']],
+        head: pdfTableHead,
         body: tableRows,
         theme: 'grid',
         margin: { left: m, right: m, bottom: 18 },
@@ -1833,7 +1838,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       )}
                     </div>
                   </th>
-                  <SortHeader col="score">Klout Score</SortHeader>
+                  {platform !== 'YOUTUBE' && <SortHeader col="score">Klout Score</SortHeader>}
                   <SortHeader col="views">Views</SortHeader>
                   <SortHeader col="payout">Payout</SortHeader>
                   <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
@@ -1876,7 +1881,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
               </thead>
               <tbody>
                 {submissions.length === 0 ? (
-                  <tr><td colSpan={isCreator ? 9 : 8} className="py-8 text-center text-sm text-zinc-500">{statusFilter || debouncedPostSearch ? 'No submissions match the current filters.' : 'No submissions yet.'}</td></tr>
+                  <tr><td colSpan={isCreator ? (platform === 'YOUTUBE' ? 8 : 9) : (platform === 'YOUTUBE' ? 7 : 8)} className="py-8 text-center text-sm text-zinc-500">{statusFilter || debouncedPostSearch ? 'No submissions match the current filters.' : 'No submissions yet.'}</td></tr>
                 ) : submissions.map((s) => (
                   <tr key={s.id} className="border-b border-k-border border-k-border/50">
                     <td className="py-3 pr-4">
@@ -1901,6 +1906,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         {s.xPostId || s.youtubeVideoId || 'View'}
                       </a>
                     </td>
+                    {platform !== 'YOUTUBE' && (
                     <td className="py-3 pr-4 text-zinc-300">
                       {s.submitter.kloutScore != null ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-semibold text-yellow-400">
@@ -1911,6 +1917,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         <span className="text-xs text-zinc-500">-</span>
                       )}
                     </td>
+                    )}
                     <td className="py-3 pr-4 text-zinc-300">
                       {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
                     </td>
@@ -1922,7 +1929,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                         const multiplier = s.cpmMultiplierApplied ?? 1.0
                         const effectiveCpm = Number(stats.cpmLamports) * multiplier
                         return (
-                          <span className="text-xs" title={`Multiplier: ${multiplier}x`}>
+                          <span className="text-xs" title={platform !== 'YOUTUBE' ? `Multiplier: ${multiplier}x` : undefined}>
                             {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
                           </span>
                         )
@@ -2211,7 +2218,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                       <thead>
                         <tr className="border-b border-k-border">
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Post</th>
-                          <th className="pb-2 pr-4 font-medium text-zinc-500">Klout Score</th>
+                          {platform !== 'YOUTUBE' && <th className="pb-2 pr-4 font-medium text-zinc-500">Klout Score</th>}
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Views</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">Payout</th>
                           <th className="pb-2 pr-4 font-medium text-zinc-500">CPM</th>
@@ -2228,6 +2235,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 {s.xPostId || s.youtubeVideoId || 'View'}
                               </a>
                             </td>
+                            {platform !== 'YOUTUBE' && (
                             <td className="py-3 pr-4 text-zinc-300">
                               {s.submitter.kloutScore != null ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-semibold text-yellow-400">
@@ -2238,6 +2246,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 <span className="text-xs text-zinc-500">-</span>
                               )}
                             </td>
+                            )}
                             <td className="py-3 pr-4 text-zinc-300">
                               {s.viewCount !== null ? s.viewCount.toLocaleString() : '-'}
                             </td>
@@ -2249,7 +2258,7 @@ export default function CampaignDashboard({ taskId, multisigAddress, isCreator, 
                                 const multiplier = s.cpmMultiplierApplied ?? 1.0
                                 const effectiveCpm = Number(stats.cpmLamports) * multiplier
                                 return (
-                                  <span className="text-xs" title={`Multiplier: ${multiplier}x`}>
+                                  <span className="text-xs" title={platform !== 'YOUTUBE' ? `Multiplier: ${multiplier}x` : undefined}>
                                     {formatTokenAmount(Math.round(effectiveCpm), tInfo, 2)} {sym}
                                   </span>
                                 )

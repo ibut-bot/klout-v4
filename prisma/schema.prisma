@@ -135,8 +135,11 @@ model User {
   xTokenExpiresAt DateTime?
 
   // YouTube account linking
-  youtubeChannelId    String?    @unique
-  youtubeChannelTitle String?
+  youtubeChannelId          String?    @unique
+  youtubeChannelTitle       String?
+  youtubeSubscriberCount    Int?
+  youtubeVideoCount         Int?
+  youtubeViewCount          BigInt?
 
   // Referral program
   referralCode      String?    @unique
